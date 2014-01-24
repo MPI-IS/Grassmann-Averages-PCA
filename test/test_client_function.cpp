@@ -20,3 +20,10 @@ BOOST_AUTO_TEST_CASE(instance_test)
 
   BOOST_CHECK(instance.batch_process(mat_data.begin1(), mat_data.end1()));
 }
+
+
+
+boost::unit_test::test_suite* init_unit_test_suite( int argc, char* argv[] )
+{
+
+}
