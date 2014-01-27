@@ -87,11 +87,19 @@ namespace robust_pca
 
 
 
-    /*! Performs the computation of the current subspace on the elements given by the two iterators
+    /*! Performs the computation of the current subspace on the elements given by the two iterators.
+     *  @tparam it_t an input iterator to vectors. Each element pointed by the underlying iterator should be iterable and
+     *   should provide a vector.
+     *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      */
     template <class it_t, class it_norm_t>
     bool batch_process(it_t it, it_t const ite, it_norm_t it_norm_out)
     {
+      it_norm_t it_norm_out_copy(it_norm_out);
+      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_norm_out_copy)
+      {
+        it_norm_out_copy = boost::numeric::ublas::norm_2(*it_copy);
+      }
       return true;
     }
 

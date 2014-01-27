@@ -9,6 +9,33 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 
+#include <boost/numeric/ublas/matrix_proxy.hpp>
+#include <boost/iterator/iterator_adaptor.hpp>
+
+
+template <class matrix_t>
+class matrix_row_iter : public boost::iterator_adaptor<
+  matrix_row_iter<matrix_t>                // Derived
+, Value*                          // Base
+, matrix_row<matrix_t>              // Value
+, boost::forward_traversal_tag    // CategoryOrTraversal
+>
+{
+ private:
+    struct enabler {};  // a private type avoids misuse
+
+ public:
+    matrix_row_iter() : matrix(0) {}
+
+    explicit matrix_row_iter(Value* p)
+      : node_iter::iterator_adaptor_(p) {}
+
+
+ private:
+   matrix_t *matrix;
+    friend class boost::iterator_core_access;
+    void increment() { this->base_reference() = this->base()->next(); }
+};
 
 boost::random::mt19937 rng;
 
