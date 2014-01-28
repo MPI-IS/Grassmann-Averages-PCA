@@ -98,7 +98,7 @@ namespace robust_pca
       it_norm_t it_norm_out_copy(it_norm_out);
       for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_norm_out_copy)
       {
-        it_norm_out_copy = boost::numeric::ublas::norm_2(*it_copy);
+        *it_norm_out_copy = boost::numeric::ublas::norm_2(*it_copy);
       }
       return true;
     }
