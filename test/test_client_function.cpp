@@ -36,37 +36,133 @@ struct get_row_proxy
 };
 
 
+// this does not work because the iterator on matrice is not fully indexed (iterator version of the class)
+// or because int/size_t does not have an iterator semantic.
+#if 0
 template <class matrix_t>
 class row_iter
   : public boost::iterator_adaptor<
-        row_iter<matrix_t>              // Derived
-      , row_iter<matrix_t>              // Base
-      , boost::numeric::ublas::matrix_row<matrix_t>              // Value
-      , boost::random_access_traversal_tag // CategoryOrTraversal
+        row_iter<matrix_t>                            // Derived
+      , size_t                                        // Base
+      , boost::numeric::ublas::matrix_row<matrix_t>   // Value
+      , boost::random_access_traversal_tag            // CategoryOrTraversal
+      , boost::numeric::ublas::matrix_row<matrix_t>   // reference
     >
 {
+private:
+  struct enabler {};
+  matrix_t *matrix;
+  typedef row_iter<matrix_t> this_type;
+  typedef boost::numeric::ublas::matrix_row<matrix_t> return_t;
+  static const size_t max_size;
 
- public:
-    row_iter()
-      : row_iter::iterator_adaptor_(0) {}
+public:
 
-    explicit row_iter(Value* p)
-      : node_iter::iterator_adaptor_(p) {}
 
-    template <class OtherValue>
-    node_iter(
-        node_iter<OtherValue> const& other
-      , typename boost::enable_if<
-            boost::is_convertible<OtherValue*,Value*>
-          , enabler
-        >::type = enabler()
-    )
-      : node_iter::iterator_adaptor_(other.base()) {}
+  row_iter() : row_iter::iterator_adaptor_(), matrix(0)
+  {}
 
- private:
-    friend class boost::iterator_core_access;
-    void increment() { this->base_reference() = this->base()->next(); }
+  row_iter(matrix_t &mat, typename this_type::base_type it) : row_iter::iterator_adaptor_(it), matrix(&mat)
+  {}
+
+
+  template <class other_matrix_t>
+  row_iter(
+      row_iter<other_matrix_t> const& other
+    , typename boost::enable_if<
+          boost::is_convertible<typename other_matrix_t::iterator1, typename matrix_t::iterator1>
+        , enabler
+      >::type = enabler())
+    : row_iter::iterator_adaptor_(other.base()), matrix(other.matrix) 
+  {}
+
+private:
+  friend class boost::iterator_core_access;
+  typename iterator_adaptor::reference dereference() const
+  {
+    assert(matrix);
+    return typename iterator_adaptor::reference(*matrix, this->base_reference());
+  }
 };
+
+template <class matrix_t>
+const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
+#endif
+
+template <class matrix_t>
+class row_iter
+  : public boost::iterator_facade<
+        row_iter<matrix_t>                            // Derived
+      , boost::numeric::ublas::matrix_row<matrix_t>   // Value
+      , boost::random_access_traversal_tag            // CategoryOrTraversal
+      , boost::numeric::ublas::matrix_row<matrix_t>   // reference
+    >
+{
+private:
+  typedef row_iter<matrix_t> this_type;
+
+  struct enabler {};
+
+  size_t index;
+  matrix_t *matrix;
+
+  typedef boost::numeric::ublas::matrix_row<matrix_t> return_t;
+  static const size_t max_size;
+
+public:
+
+
+  row_iter() : index(max_size), matrix(0)
+  {}
+
+  row_iter(matrix_t &mat, size_t index_) : index(index_), matrix(&mat)
+  {}
+
+
+  template <class other_matrix_t>
+  row_iter(
+      row_iter<other_matrix_t> const& other
+    , typename boost::enable_if<
+          boost::is_convertible<typename other_matrix_t::iterator1, typename matrix_t::iterator1>
+        , enabler
+      >::type = enabler())
+    : index(other.index), matrix(other.matrix) 
+  {}
+
+private:
+  friend class boost::iterator_core_access;
+  
+  void increment()
+  { 
+    assert(index < max_size);
+    index++; 
+  }
+
+  bool equal(this_type const& other) const
+  {
+    assert(matrix == other.matrix);
+    return this->index == other.index;
+  }
+
+  return_t dereference() const
+  {
+    assert(matrix);
+    return return_t(*matrix, index);
+  }
+
+  typename this_type::difference_type distance_to(this_type const& r) const
+  {
+    assert((matrix != 0) && (r.matrix == matrix));
+    return typename this_type::difference_type(r.index) - typename this_type::difference_type(index); // sign promotion
+  }
+
+};
+template <class matrix_t>
+const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
+
+
+
+
 
 
 
@@ -74,6 +170,7 @@ boost::random::mt19937 rng;
 
 BOOST_AUTO_TEST_CASE(instance_test)
 {
+  namespace bubla = boost::numeric::ublas;
   using namespace robust_pca;
   using namespace boost::numeric::ublas;
   using namespace boost::random;
@@ -82,7 +179,7 @@ BOOST_AUTO_TEST_CASE(instance_test)
   
 
   typedef matrix<double> matrix_t;
-  typedef robust_pca_impl<double> robust_pca_t;
+  typedef robust_pca_impl<bubla::vector<double> > robust_pca_t;
   
 
   robust_pca_t instance;
@@ -93,12 +190,11 @@ BOOST_AUTO_TEST_CASE(instance_test)
   // creating some data, 1000 lines of a vector of length 5
   matrix_t mat_data(nb_elements, dimensions, 0);
 
-  matrix_t::iterator1 it(mat_data.begin1());
   for(int i = 0; i < nb_elements; i++)
   {
-    for(int j = 0; j < dimensions; j++, ++it)
+    for(int j = 0; j < dimensions; j++)
     {
-      *it = dist(rng);
+      mat_data(i, j) = dist(rng);
     }
   }
 
@@ -109,10 +205,30 @@ BOOST_AUTO_TEST_CASE(instance_test)
   typedef get_row_proxy<matrix_t> row_proxy_tranform_t;
 
 
+  //BOOST_CHECK(instance.batch_process(
+  //              boost::make_transform_iterator(mat_data.begin1(), row_proxy_tranform_t(mat_data)), 
+  //              boost::make_transform_iterator(mat_data.end1(), row_proxy_tranform_t(mat_data)), 
+  //              norms.begin()));
+
+  typedef row_iter<const matrix_t> const_raw_iter_t;
+
+  BOOST_CHECK(!instance.batch_process(
+    const_raw_iter_t(mat_data, 2),
+    const_raw_iter_t(mat_data, 0),
+    norms.begin()));
+
+  BOOST_CHECK(!instance.batch_process(
+    const_raw_iter_t(mat_data, 0),
+    const_raw_iter_t(mat_data, 0),
+    norms.begin()));
+
+
+  
   BOOST_CHECK(instance.batch_process(
-                boost::make_transform_iterator(mat_data.begin1(), row_proxy_tranform_t(mat_data)), 
-                boost::make_transform_iterator(mat_data.end1(), row_proxy_tranform_t(mat_data)), 
-                norms.begin()));
+    const_raw_iter_t(mat_data, 0),
+    const_raw_iter_t(mat_data, mat_data.size1()),
+    norms.begin()));
+
 }
 
 
