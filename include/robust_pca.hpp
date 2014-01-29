@@ -78,14 +78,16 @@ namespace robust_pca
     const double epsilon;
     norm_t norm_comparaison;
     data_t previous_state;
-    convergence_check(double epsilon_) : 
+    convergence_check(data_t const& prev, double epsilon_ = 1E-5) : 
       epsilon(epsilon_), 
-      previous_state(std::numeric_limits<double>::max())
+      previous_state(prev)
     {}
 
     bool operator()(data_t const& current_state)
     {
-      return norm_comparaison(current_state - previous_state) < epsilon;
+      bool ret = norm_comparaison(current_state - previous_state) < epsilon;
+      previous_state = current_state;
+      return ret;
     }
 
   };
@@ -207,6 +209,23 @@ namespace robust_pca
       typename norm_2_t::result_type norm_mu(norm_op(mu));
       mu /= norm_mu;
       
+      
+
+      for(int current_dimension = 0; current_dimension < mu.size(); current_dimension++)
+      {
+        //data_t previous_mu(mu);
+        convergence_check<data_t> convergence_op(mu);
+        for(int iterations = 0; iterations < 1000; iterations ++)
+        {
+          for(it_t it_copy(it); it_copy != ite; ++it_copy)
+          {
+            bool sign = boost::numeric::ublas::inner_prod(*it_copy, mu) < 0;
+          }
+
+          if(convergence_op(mu))
+            break;
+        }
+      }
 
       return true;
     }
