@@ -163,52 +163,47 @@ const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
 
 
 
-
-
-
 boost::random::mt19937 rng;
 
-BOOST_AUTO_TEST_CASE(instance_test)
+struct fixture_simple_matrix_creation
 {
-  namespace bubla = boost::numeric::ublas;
-  using namespace robust_pca;
-  using namespace boost::numeric::ublas;
-  using namespace boost::random;
+  typedef boost::numeric::ublas::matrix<double> matrix_t;
 
-  uniform_real_distribution<double> dist(-1000, 1000);
-  
 
-  typedef matrix<double> matrix_t;
-  typedef robust_pca_impl<bubla::vector<double> > robust_pca_t;
-  
+  static const int nb_elements = 1000;
+  static const int dimensions  = 5;
+  matrix_t mat_data;
+  std::vector<double> norms;
+
+  boost::random::uniform_real_distribution<double> dist;
+
+
+  fixture_simple_matrix_creation() : dist(-1000, 1000) 
+  {
+    // creating some data, 1000 lines of a vector of length 5
+    mat_data.resize(nb_elements, dimensions);
+    norms.resize(nb_elements);
+
+    for(int i = 0; i < nb_elements; i++)
+    {
+      for(int j = 0; j < dimensions; j++)
+      {
+        mat_data(i, j) = dist(rng);
+      }
+    }
+
+  }
+};
+
+
+BOOST_FIXTURE_TEST_SUITE(basic_checks, fixture_simple_matrix_creation)
+
+BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
+{
+  typedef robust_pca::robust_pca_impl<boost::numeric::ublas::vector<double> > robust_pca_t;
 
   robust_pca_t instance;
 
-  const int nb_elements = 1000;
-  const int dimensions  = 5;
-
-  // creating some data, 1000 lines of a vector of length 5
-  matrix_t mat_data(nb_elements, dimensions, 0);
-
-  for(int i = 0; i < nb_elements; i++)
-  {
-    for(int j = 0; j < dimensions; j++)
-    {
-      mat_data(i, j) = dist(rng);
-    }
-  }
-
-
-  std::vector<double> norms(nb_elements);
-
-
-  typedef get_row_proxy<matrix_t> row_proxy_tranform_t;
-
-
-  //BOOST_CHECK(instance.batch_process(
-  //              boost::make_transform_iterator(mat_data.begin1(), row_proxy_tranform_t(mat_data)), 
-  //              boost::make_transform_iterator(mat_data.end1(), row_proxy_tranform_t(mat_data)), 
-  //              norms.begin()));
 
   typedef row_iter<const matrix_t> const_raw_iter_t;
 
@@ -221,8 +216,14 @@ BOOST_AUTO_TEST_CASE(instance_test)
     const_raw_iter_t(mat_data, 0),
     const_raw_iter_t(mat_data, 0),
     norms.begin()));
+}
 
 
+BOOST_AUTO_TEST_CASE(instance_test)
+{
+  typedef robust_pca::robust_pca_impl<boost::numeric::ublas::vector<double> > robust_pca_t;  
+  robust_pca_t instance;
+  typedef row_iter<const matrix_t> const_raw_iter_t;
   
   BOOST_CHECK(instance.batch_process(
     const_raw_iter_t(mat_data, 0),
@@ -231,7 +232,7 @@ BOOST_AUTO_TEST_CASE(instance_test)
 
 }
 
-
+BOOST_AUTO_TEST_SUITE_END();
 
 boost::unit_test::test_suite* init_unit_test_suite( int argc, char* argv[] )
 {
