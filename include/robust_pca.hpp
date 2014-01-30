@@ -83,6 +83,7 @@ namespace robust_pca
       previous_state(prev)
     {}
 
+    //! Returns true on convergence
     bool operator()(data_t const& current_state)
     {
       bool ret = norm_comparaison(current_state - previous_state) < epsilon;
@@ -178,16 +179,28 @@ namespace robust_pca
     /*! Performs the computation of the current subspace on the elements given by the two iterators.
      *  @tparam it_t an input iterator to vectors. Each element pointed by the underlying iterator should be iterable and
      *   should provide a vector.
+     *  @tparam it_o_projected_vectors iterator pointing on a 
      *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
+     * @param[in] it input iterator at the beginning of the data
+     * @param[in] ite input iterator at the end of the data
+     * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
+     *            as many element as there is in between it and ite (ie. @c 
      * @param[in] initial_guess if provided, the initial vector will be initialized to this value. 
+     * @param[out] eigenvectors the detected eigenvectors
      *
+     * @returns true on success, false otherwise
      * @pre 
      * - @c !(it >= ite)
      * - all the vectors given by the iterators pair should be of the same size (no check is performed).
      */
-    template <class it_t, class it_norm_t>
-    bool batch_process(it_t it, it_t const ite, it_norm_t it_norm_out, data_t const * initial_guess = 0)
+    template <class it_t, class it_o_projected_vectors, class it_norm_t>
+    bool batch_process(
+      it_t it, 
+      it_t const ite, 
+      it_norm_t it_norm_out, 
+      std::vector<data_t>& eigenvectors,
+      data_t const * initial_guess = 0)
     {
       // add some log information
       if(it >= ite)
@@ -195,11 +208,18 @@ namespace robust_pca
         return false;
       }
 
+
+
+      size_t size_data(0);
       it_norm_t it_norm_out_copy(it_norm_out);
-      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_norm_out_copy)
+      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_norm_out_copy, s++)
       {
         *it_norm_out_copy = norm_op(*it_copy);
       }
+
+      std::vector<bool> signs(size_data, false);
+      eigenvectors.clear();
+      eigenvectors.reserve(size_data);
 
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
@@ -213,18 +233,68 @@ namespace robust_pca
 
       for(int current_dimension = 0; current_dimension < mu.size(); current_dimension++)
       {
-        //data_t previous_mu(mu);
+        
         convergence_check<data_t> convergence_op(mu);
-        for(int iterations = 0; iterations < 1000; iterations ++)
+
+        data_t previous_mu(mu);
+        mu = data_t(0);
+        std::vector<bool>::iterator itb(signs.begin());
+        it_norm_t it_norm_out_copy(it_norm_out);
+        it_t it_copy(it)
+
+        // first iteration, we store the signs
+        for(; it_copy != ite; ++it_copy, ++itb, ++it_norm_out_copy)
         {
-          for(it_t it_copy(it); it_copy != ite; ++it_copy)
+          bool sign = boost::numeric::ublas::inner_prod(*it_copy, previous_mu) >= 0;
+          *itb = sign;
+
+          if(sign)
           {
-            bool sign = boost::numeric::ublas::inner_prod(*it_copy, mu) < 0;
+            mu += *it_norm_out_copy * (*it_copy);
+          }
+          else 
+          {
+            mu -= *it_norm_out_copy * (*it_copy);
+          }
+        }
+        mu /= norm_op(mu);
+
+        // other iterations as usual
+        for(int iterations = 1; !convergence_op(mu) && iterations < 1000; iterations ++)
+        {
+          previous_mu = mu;
+          std::vector<bool>::iterator itb(signs.begin());
+          it_norm_t it_norm_out_copy(it_norm_out);
+          it_t it_copy(it)
+
+          for(; it_copy != ite; ++it_copy, ++itb, ++it_norm_out_copy)
+          {
+            bool sign = boost::numeric::ublas::inner_prod(*it_copy, previous_mu) >= 0;
+            if(sign != *itb)
+            {
+              *itb = sign;
+
+              // update the value of mu qccording to sign change
+              if(sign)
+              {
+                mu += (2 * (*it_norm_out_copy)) * (*it_copy);
+              }
+              else
+              {
+                mu -= (2 * (*it_norm_out_copy)) * (*it_copy);
+              }
+            }
           }
 
-          if(convergence_op(mu))
-            break;
+          mu /= norm_op(mu);
         }
+
+        // mu is the eigenvector of the current dimension, we store it in the output vector
+        eigenvectors.push_back(mu);
+
+        // 
+
+
       }
 
       return true;
