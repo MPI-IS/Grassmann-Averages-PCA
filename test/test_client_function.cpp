@@ -206,29 +206,51 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 
 
   typedef row_iter<const matrix_t> const_raw_iter_t;
+  typedef boost::numeric::ublas::vector<double> data_t;
+
+  std::vector<data_t> temporary_data(nb_elements);
+  std::vector<data_t> eigen_vectors(dimensions);
+  const int max_iterations = 1000;
 
   BOOST_CHECK(!instance.batch_process(
+    max_iterations,
     const_raw_iter_t(mat_data, 2),
     const_raw_iter_t(mat_data, 0),
-    norms.begin()));
+    temporary_data.begin(),
+    norms.begin(),
+    eigen_vectors));
 
   BOOST_CHECK(!instance.batch_process(
+    max_iterations,
+    const_raw_iter_t(mat_data, 2),
     const_raw_iter_t(mat_data, 0),
-    const_raw_iter_t(mat_data, 0),
-    norms.begin()));
+    temporary_data.begin(),
+    norms.begin(),
+    eigen_vectors));
 }
 
 
 BOOST_AUTO_TEST_CASE(instance_test)
 {
-  typedef robust_pca::robust_pca_impl<boost::numeric::ublas::vector<double> > robust_pca_t;  
+  typedef robust_pca::robust_pca_impl< boost::numeric::ublas::vector<double> > robust_pca_t;  
   robust_pca_t instance;
   typedef row_iter<const matrix_t> const_raw_iter_t;
   
+  typedef boost::numeric::ublas::vector<double> data_t;
+
+
+  std::vector<data_t> temporary_data(nb_elements);
+  std::vector<data_t> eigen_vectors(dimensions);
+  const int max_iterations = 1000;
+
+
   BOOST_CHECK(instance.batch_process(
+    max_iterations,
     const_raw_iter_t(mat_data, 0),
     const_raw_iter_t(mat_data, mat_data.size1()),
-    norms.begin()));
+    temporary_data.begin(),
+    norms.begin(),
+    eigen_vectors));
 
 }
 

@@ -177,15 +177,17 @@ namespace robust_pca
 
 
     /*! Performs the computation of the current subspace on the elements given by the two iterators.
-     *  @tparam it_t an input iterator to vectors. Each element pointed by the underlying iterator should be iterable and
-     *   should provide a vector.
-     *  @tparam it_o_projected_vectors iterator pointing on a 
+     *  @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
+     *   should provide a vector point.
+     *  @tparam it_o_projected_vectors output forward iterator pointing on a container of vector points. 
      *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
+     * @param[in] max_iterations the maximum number of iterations at each dimension. 
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
      * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
-     *            as many element as there is in between it and ite (ie. @c 
+     *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
+     * @param[in, out] it_projected
      * @param[in] initial_guess if provided, the initial vector will be initialized to this value. 
      * @param[out] eigenvectors the detected eigenvectors
      *
@@ -196,9 +198,11 @@ namespace robust_pca
      */
     template <class it_t, class it_o_projected_vectors, class it_norm_t>
     bool batch_process(
-      it_t it, 
+      const int max_iterations,
+      it_t const it, 
       it_t const ite, 
-      it_norm_t it_norm_out, 
+      it_o_projected_vectors const it_projected,
+      it_norm_t const it_norm_out, 
       std::vector<data_t>& eigenvectors,
       data_t const * initial_guess = 0)
     {
@@ -209,14 +213,20 @@ namespace robust_pca
       }
 
 
-
       size_t size_data(0);
+      // first computation of the weights. At this point it is necessary.
+      // The vectors are also copied into the temporary container.
+      it_o_projected_vectors it_tmp_projected(it_projected);
       it_norm_t it_norm_out_copy(it_norm_out);
-      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_norm_out_copy, s++)
+      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_norm_out_copy, ++it_tmp_projected, size_data++)
       {
-        *it_norm_out_copy = norm_op(*it_copy);
+        typename it_t::reference current_vect = *it_copy;
+        *it_tmp_projected = current_vect;
+        *it_norm_out_copy = norm_op(current_vect);
       }
 
+
+      // init of the vectors
       std::vector<bool> signs(size_data, false);
       eigenvectors.clear();
       eigenvectors.reserve(size_data);
@@ -225,63 +235,71 @@ namespace robust_pca
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? *initial_guess : random_init_op(*it));
 
+      const int number_of_dimensions = static_cast<int>(mu.size());
+
       // normalizing
       typename norm_2_t::result_type norm_mu(norm_op(mu));
       mu /= norm_mu;
       
       
+      int iterations = 0;
 
-      for(int current_dimension = 0; current_dimension < mu.size(); current_dimension++)
+      for(int current_dimension = 0; current_dimension < number_of_dimensions; current_dimension++)
       {
-        
+
         convergence_check<data_t> convergence_op(mu);
 
         data_t previous_mu(mu);
-        mu = data_t(0);
+        mu = random_init_op(*it); // TODO find something else here
         std::vector<bool>::iterator itb(signs.begin());
+        
+        
         it_norm_t it_norm_out_copy(it_norm_out);
-        it_t it_copy(it)
+        it_o_projected_vectors it_tmp_projected(it_projected);
 
         // first iteration, we store the signs
-        for(; it_copy != ite; ++it_copy, ++itb, ++it_norm_out_copy)
+        for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, ++it_norm_out_copy, s++)
         {
-          bool sign = boost::numeric::ublas::inner_prod(*it_copy, previous_mu) >= 0;
+          typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
+          bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
           *itb = sign;
 
           if(sign)
           {
-            mu += *it_norm_out_copy * (*it_copy);
+            mu += *it_norm_out_copy * current_data;
           }
           else 
           {
-            mu -= *it_norm_out_copy * (*it_copy);
+            mu -= *it_norm_out_copy * current_data;
           }
         }
         mu /= norm_op(mu);
 
         // other iterations as usual
-        for(int iterations = 1; !convergence_op(mu) && iterations < 1000; iterations ++)
+        for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations ++)
         {
           previous_mu = mu;
           std::vector<bool>::iterator itb(signs.begin());
           it_norm_t it_norm_out_copy(it_norm_out);
-          it_t it_copy(it)
+          it_o_projected_vectors it_tmp_projected(it_projected);
 
-          for(; it_copy != ite; ++it_copy, ++itb, ++it_norm_out_copy)
+          for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, ++it_norm_out_copy, s++)
           {
-            bool sign = boost::numeric::ublas::inner_prod(*it_copy, previous_mu) >= 0;
+            typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
+
+            bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
             if(sign != *itb)
             {
               *itb = sign;
 
-              // update the value of mu qccording to sign change
+              // update the value of mu according to sign change
               if(sign)
               {
-                mu += (2 * (*it_norm_out_copy)) * (*it_copy);
+                mu += (2 * (*it_norm_out_copy)) * current_data;
               }
               else
               {
-                mu -= (2 * (*it_norm_out_copy)) * (*it_copy);
+                mu -= (2 * (*it_norm_out_copy)) * current_data;
               }
             }
           }
@@ -293,6 +311,20 @@ namespace robust_pca
         eigenvectors.push_back(mu);
 
         // 
+        if(current_dimension < mu.size() - 1)
+        {
+          it_o_projected_vectors it_tmp_projected(it_projected);
+
+          // update of vectors in the orthogonal space, and update of the norms at the same time. 
+          it_norm_t it_norm_out_copy(it_norm_out);
+          for(size_t s(0); s < size_data; ++it_tmp_projected, ++it_norm_out_copy, s++)
+          {
+            typename it_o_projected_vectors::reference current_vector = *it_tmp_projected;
+            current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
+
+            *it_norm_out_copy = norm_op(current_vector);
+          }
+        }
 
 
       }
