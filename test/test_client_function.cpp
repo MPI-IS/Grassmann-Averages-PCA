@@ -4,6 +4,7 @@
 
 // data stored into a matrix
 #include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/io.hpp>
 
 // generating data randomly
 #include <boost/random/mersenne_twister.hpp>
@@ -14,81 +15,11 @@
 
 #include <boost/iterator/transform_iterator.hpp>
 
-
-// does not work, the operator() receives the it->operator* and it becomes a bit messy
-template <class matrix_t>
-struct get_row_proxy
-{
-  typedef boost::numeric::ublas::matrix_row<matrix_t> matrix_row_t;
-
-  typedef matrix_row_t result_type;
-  
-
-  matrix_t const& mat;
-
-  get_row_proxy(matrix_t const& mat_) : mat(mat_) {}
-
-  template <class row_iterator_t>
-  matrix_row_t operator()(row_iterator_t const& it) const
-  {
-    return matrix_row_t(mat, it.index());
-  }
-};
+// the random number generator
+boost::random::mt19937 rng;
 
 
-// this does not work because the iterator on matrice is not fully indexed (iterator version of the class)
-// or because int/size_t does not have an iterator semantic.
-#if 0
-template <class matrix_t>
-class row_iter
-  : public boost::iterator_adaptor<
-        row_iter<matrix_t>                            // Derived
-      , size_t                                        // Base
-      , boost::numeric::ublas::matrix_row<matrix_t>   // Value
-      , boost::random_access_traversal_tag            // CategoryOrTraversal
-      , boost::numeric::ublas::matrix_row<matrix_t>   // reference
-    >
-{
-private:
-  struct enabler {};
-  matrix_t *matrix;
-  typedef row_iter<matrix_t> this_type;
-  typedef boost::numeric::ublas::matrix_row<matrix_t> return_t;
-  static const size_t max_size;
-
-public:
-
-
-  row_iter() : row_iter::iterator_adaptor_(), matrix(0)
-  {}
-
-  row_iter(matrix_t &mat, typename this_type::base_type it) : row_iter::iterator_adaptor_(it), matrix(&mat)
-  {}
-
-
-  template <class other_matrix_t>
-  row_iter(
-      row_iter<other_matrix_t> const& other
-    , typename boost::enable_if<
-          boost::is_convertible<typename other_matrix_t::iterator1, typename matrix_t::iterator1>
-        , enabler
-      >::type = enabler())
-    : row_iter::iterator_adaptor_(other.base()), matrix(other.matrix) 
-  {}
-
-private:
-  friend class boost::iterator_core_access;
-  typename iterator_adaptor::reference dereference() const
-  {
-    assert(matrix);
-    return typename iterator_adaptor::reference(*matrix, this->base_reference());
-  }
-};
-
-template <class matrix_t>
-const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
-#endif
-
+//! An helper class for iterating over rows of a matrix
 template <class matrix_t>
 class row_iter
   : public boost::iterator_facade<
@@ -163,8 +94,7 @@ const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
 
 
 
-boost::random::mt19937 rng;
-
+// Fixture for the tests
 struct fixture_simple_matrix_creation
 {
   typedef boost::numeric::ublas::matrix<double> matrix_t;
@@ -251,6 +181,32 @@ BOOST_AUTO_TEST_CASE(instance_test)
     temporary_data.begin(),
     norms.begin(),
     eigen_vectors));
+
+  // testing the output sizes
+  BOOST_REQUIRE_EQUAL(eigen_vectors.size(), dimensions);
+  for(int i = 0; i < dimensions; i++)
+  {
+    BOOST_CHECKPOINT("testing eigenvector size for vector " << i);
+    BOOST_REQUIRE_EQUAL(eigen_vectors[i].size(), dimensions);
+  }
+
+
+  BOOST_MESSAGE(
+    "Generated eigen vectors are:");
+
+  for(int i = 0; i < dimensions; i++)
+  {
+    BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+  }
+
+  // testing orthogonality of all eigenvectors
+  for(int i = 0; i < dimensions-1; i++)
+  {
+    for(int j = i + 1; j < dimensions; j++)
+    {
+      BOOST_CHECK_CLOSE(boost::numeric::ublas::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6, 1);
+    }
+  }
 
 }
 

@@ -310,7 +310,7 @@ namespace robust_pca
         // mu is the eigenvector of the current dimension, we store it in the output vector
         eigenvectors.push_back(mu);
 
-        // 
+        // projection onto the orthogonal subspace
         if(current_dimension < mu.size() - 1)
         {
           it_o_projected_vectors it_tmp_projected(it_projected);
@@ -329,17 +329,6 @@ namespace robust_pca
 
       }
 
-      return true;
-    }
-
-    /*!@brief Performs the projection of the data on the space orthogonal to the current subspace
-     *
-     * After having found the current subspace, all the data should be projected onto the orthogonal subspace
-     * of the current state.
-     */
-    template <class it_t>
-    bool projection_onto_subspace(it_t it, it_t const ite) const
-    {
       return true;
     }
   };
