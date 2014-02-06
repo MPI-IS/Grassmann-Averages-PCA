@@ -204,7 +204,7 @@ BOOST_AUTO_TEST_CASE(instance_test)
   {
     for(int j = i + 1; j < dimensions; j++)
     {
-      BOOST_CHECK_CLOSE(boost::numeric::ublas::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6, 1);
+      BOOST_CHECK_LE(boost::numeric::ublas::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6);
     }
   }
 
