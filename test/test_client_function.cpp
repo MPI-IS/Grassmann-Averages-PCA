@@ -15,6 +15,8 @@
 
 #include <boost/iterator/transform_iterator.hpp>
 
+#include <fstream>
+
 // the random number generator
 boost::random::mt19937 rng;
 
@@ -114,13 +116,23 @@ struct fixture_simple_matrix_creation
     mat_data.resize(nb_elements, dimensions);
     norms.resize(nb_elements);
 
+    const std::string filename = "./toto.txt";
+    std::ofstream ff(filename.c_str());
+
+    BOOST_REQUIRE(ff.is_open());
+
     for(int i = 0; i < nb_elements; i++)
     {
       for(int j = 0; j < dimensions; j++)
       {
         mat_data(i, j) = dist(rng);
+        ff << mat_data(i, j) << " ";
       }
+      ff << std::endl;
     }
+
+    
+    
 
   }
 };
@@ -160,7 +172,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 }
 
 
-BOOST_AUTO_TEST_CASE(instance_test)
+BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 {
   typedef robust_pca::robust_pca_impl< boost::numeric::ublas::vector<double> > robust_pca_t;  
   robust_pca_t instance;
@@ -173,6 +185,13 @@ BOOST_AUTO_TEST_CASE(instance_test)
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
+  const double initial_point[] = {0.2097, 0.3959, 0.5626, 0.2334, 0.6545};
+
+  boost::numeric::ublas::vector<double> vec_initial_point(dimensions);
+  for(int i = 0; i < dimensions; i++)
+  {
+    vec_initial_point(i) = initial_point[i];
+  }
 
   BOOST_CHECK(instance.batch_process(
     max_iterations,
@@ -180,7 +199,10 @@ BOOST_AUTO_TEST_CASE(instance_test)
     const_raw_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
     norms.begin(),
-    eigen_vectors));
+    eigen_vectors,
+    &vec_initial_point));
+
+
 
   // testing the output sizes
   BOOST_REQUIRE_EQUAL(eigen_vectors.size(), dimensions);
@@ -208,7 +230,46 @@ BOOST_AUTO_TEST_CASE(instance_test)
     }
   }
 
+  for(int i = 0; i < dimensions; i++)
+  {
+    BOOST_CHECK_CLOSE(boost::numeric::ublas::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
+  }
+
+
 }
+
+#if 0
+BOOST_AUTO_TEST_CASE(checking_against_matlab)
+{
+  typedef robust_pca::robust_pca_impl< boost::numeric::ublas::vector<double> > robust_pca_t;  
+  robust_pca_t instance;
+  typedef row_iter<const matrix_t> const_raw_iter_t;
+  
+  typedef boost::numeric::ublas::vector<double> data_t;
+
+  std::vector<data_t> temporary_data(nb_elements);
+  std::vector<data_t> eigen_vectors(dimensions);
+  const int max_iterations = 1000;
+
+
+  BOOST_CHECK(instance.batch_process(
+    max_iterations,
+    const_raw_iter_t(mat_data, 0),
+    const_raw_iter_t(mat_data, mat_data.size1()),
+    temporary_data.begin(),
+    norms.begin(),
+    eigen_vectors));
+
+
+  BOOST_MESSAGE(
+    "Generated eigen vectors are:");
+
+  for(int i = 0; i < dimensions; i++)
+  {
+    BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+  }
+}
+#endif
 
 BOOST_AUTO_TEST_SUITE_END();
 
