@@ -250,15 +250,14 @@ namespace robust_pca
         convergence_check<data_t> convergence_op(mu);
 
         data_t previous_mu(mu);
-        mu = random_init_op(*it); // TODO find something else here
+        data_t acc = data_t(number_of_dimensions, 0);
+        
         std::vector<bool>::iterator itb(signs.begin());
         
-        
-        it_norm_t it_norm_out_copy(it_norm_out);
         it_o_projected_vectors it_tmp_projected(it_projected);
 
         // first iteration, we store the signs
-        for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, ++it_norm_out_copy, s++)
+        for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
         {
           typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
           bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
@@ -266,24 +265,23 @@ namespace robust_pca
 
           if(sign)
           {
-            mu += *it_norm_out_copy * current_data;
+            acc += current_data;
           }
           else 
           {
-            mu -= *it_norm_out_copy * current_data;
+            acc -= current_data;
           }
         }
-        mu /= norm_op(mu);
+        mu = acc / norm_op(acc);
 
         // other iterations as usual
         for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations ++)
         {
           previous_mu = mu;
           std::vector<bool>::iterator itb(signs.begin());
-          it_norm_t it_norm_out_copy(it_norm_out);
           it_o_projected_vectors it_tmp_projected(it_projected);
 
-          for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, ++it_norm_out_copy, s++)
+          for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
           {
             typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
 
@@ -292,19 +290,19 @@ namespace robust_pca
             {
               *itb = sign;
 
-              // update the value of mu according to sign change
+              // update the value of the accumulator according to sign change
               if(sign)
               {
-                mu += (2 * (*it_norm_out_copy)) * current_data;
+                acc += 2 * current_data;
               }
               else
               {
-                mu -= (2 * (*it_norm_out_copy)) * current_data;
+                acc -= 2 * current_data;
               }
             }
           }
 
-          mu /= norm_op(mu);
+          mu = acc / norm_op(acc);
         }
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
@@ -324,7 +322,11 @@ namespace robust_pca
 
             *it_norm_out_copy = norm_op(current_vector);
           }
+
+           mu = initial_guess != 0 ? *initial_guess : random_init_op(*it);
         }
+
+
 
 
       }
