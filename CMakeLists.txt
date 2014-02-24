@@ -57,7 +57,7 @@ find_library(MATLAB_ENG_LIBRARY
 
 find_path(MATLAB_INCLUDE_DIR
   "mex.h"
-  ${MATLAB_ROOT})
+  PATHS ${MATLAB_ROOT})
 
 
 if(NOT ${MATLAB_INCLUDE_DIR})
