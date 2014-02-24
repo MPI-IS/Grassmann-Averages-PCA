@@ -183,6 +183,8 @@ namespace robust_pca
      *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
      * @param[in] max_iterations the maximum number of iterations at each dimension. 
+     * @param[in] max_dimension_to_compute the maximum number of dimensions to compute in the PCA (only the first max_dimension_to_compute will be 
+     *            computed).
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
      * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
@@ -199,6 +201,7 @@ namespace robust_pca
     template <class it_t, class it_o_projected_vectors, class it_norm_t>
     bool batch_process(
       const int max_iterations,
+      int max_dimension_to_compute,
       it_t const it, 
       it_t const ite, 
       it_o_projected_vectors const it_projected,
@@ -236,6 +239,7 @@ namespace robust_pca
       data_t mu(initial_guess != 0 ? *initial_guess : random_init_op(*it));
 
       const int number_of_dimensions = static_cast<int>(mu.size());
+      max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
 
       // normalizing
       typename norm_2_t::result_type norm_mu(norm_op(mu));
@@ -244,7 +248,7 @@ namespace robust_pca
       
       int iterations = 0;
 
-      for(int current_dimension = 0; current_dimension < number_of_dimensions; current_dimension++)
+      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++)
       {
 
         convergence_check<data_t> convergence_op(mu);

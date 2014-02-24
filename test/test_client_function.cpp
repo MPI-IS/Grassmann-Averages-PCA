@@ -161,6 +161,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 
   BOOST_CHECK(!instance.batch_process(
     max_iterations,
+    dimensions,
     const_raw_iter_t(mat_data, 2),
     const_raw_iter_t(mat_data, 0),
     temporary_data.begin(),
@@ -169,6 +170,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 
   BOOST_CHECK(!instance.batch_process(
     max_iterations,
+    dimensions,
     const_raw_iter_t(mat_data, 2),
     const_raw_iter_t(mat_data, 0),
     temporary_data.begin(),
@@ -202,6 +204,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 
   BOOST_CHECK(instance.batch_process(
     max_iterations,
+    dimensions,
     const_raw_iter_t(mat_data, 0),
     const_raw_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
@@ -220,8 +223,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   }
 
 
-  BOOST_MESSAGE(
-    "Generated eigen vectors are:");
+  BOOST_MESSAGE("Generated eigen vectors are:");
 
   for(int i = 0; i < dimensions; i++)
   {
