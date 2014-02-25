@@ -241,17 +241,43 @@ macro(get_all_valid_matlab_roots matlab_versions matlab_roots)
 endmacro(get_all_valid_matlab_roots)
 
 
+# returns the extension of the mex (the suffixes) 
+macro(get_matlab_suffix matlab_root mex_suffix)
+
+  # todo setup the extension properly
+  set(mexext_suffix "")
+  if(WIN32)
+    list(APPEND mexext_suffix ".bat")
+  endif()
+
+  foreach(current_mexext_suffix IN LISTS mexext_suffix)
+    if(NOT DEFINED MATLAB_MEXEXTENSIONS_PROG OR NOT MATLAB_MEXEXTENSIONS_PROG)
+      # this call should populate the cache automatically
+      find_program(
+        MATLAB_MEXEXTENSIONS_PROG
+        "mexext${current_mexext_suffix}"
+        PATHS ${matlab_root}/bin
+        DOC "Matlab MEX extension provider"
+        NO_DEFAULT_PATH
+      )
+    endif()
+  endforeach(current_mexext_suffix)
+
+  set(MEX_EXTENSION "" CACHE STRING "Extensions for the mex targets")
+
+  if(NOT MEX_EXTENSION)
+    execute_process(
+      COMMAND ${MATLAB_MEXEXTENSIONS_PROG} 
+      OUTPUT_VARIABLE MEX_EXTENSION)
+    string(STRIP ${MEX_EXTENSION} MEX_EXTENSION)
+    set(MEX_EXTENSION ${MEX_EXTENSION} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
+    #message(STATUS "MEX_EXTENSION ${MEX_EXTENSION}")
+  endif()  
+  
+  set(${mex_suffix} ${MEX_EXTENSION})
+endmacro(get_matlab_suffix)
 
 
-set(toto)
-get_matlab_version_from_release_name("R2012a" toto)
-message("version is ${toto}")
-
-extract_matlab_releases(toto)
-message("ReleasesS is ${toto}")
-
-extract_matlab_versions(toto)
-message("versionSS is ${toto}")
 
 # listing the matlab versions installed on the WIN machine if MATLAB_ROOT is not set
 # does not work
@@ -321,6 +347,7 @@ else()
       foreach(current_matlab_version IN LISTS matlab_versions)
         set(matlab_full_string "/Applications/MATLAB_${current_matlab_version}.app")
         if(EXISTS ${matlab_full_string})
+          list(APPEND matlab_roots ${current_matlab_version})
           list(APPEND matlab_roots ${matlab_full_string})
         endif()
       endforeach(current_matlab_version)
@@ -339,14 +366,23 @@ endif()
 
 # take the first possible matlab root
 if(NOT MATLAB_ROOT AND matlab_roots)
-  list(GET matlab_roots 0 MATLAB_ROOT)
+  list(GET matlab_roots 0 MATLAB_VERSION)
+  list(GET matlab_roots 1 MATLAB_ROOT)
   list(LENGTH matlab_roots numbers_of_matlab_roots)
-  if(numbers_of_matlab_roots GREATER 1)
-    message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${MATLAB_ROOT}. If this is not"
-                    "a desirable behaviour, provide the -DMATLAB_ROOT on the command line")
+  
+  # adding a warning in case of ambiguity
+  if(numbers_of_matlab_roots GREATER 2)
+    message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${MATLAB_VERSION} (located ${MATLAB_ROOT})."
+                    " If this is not the desired behaviour, provide the -DMATLAB_ROOT on the command line")
   endif()
 endif()
 
+# todo: if the version is empty, we should determine it from the matlab executable
+if(NOT MATLAB_VERSION)
+  message(WARNING "[MATLAB] TODO The version is empty")
+endif()
+
+message(STATUS "[MATLAB] Current version is ${MATLAB_VERSION} located ${MATLAB_ROOT}")
 file(TO_CMAKE_PATH ${MATLAB_ROOT} MATLAB_ROOT)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -369,8 +405,11 @@ else()
   set(MATLAB_suffix64 "64")
 endif()
 
+
+
+
 set(MATLAB_BIN_DIR ${MATLAB_ROOT}/bin)
-set(MATLAB_INCLUDE_DIR ${MATLAB_ROOT}/extern/include)
+set(MATLAB_INCLUDE_DIR_TO_LOOK ${MATLAB_ROOT}/extern/include)
 if(64Build)
   set(MATLAB_BIN_DIR_ARCH ${MATLAB_ROOT}/bin/${MATLAB_BIN1}${MATLAB_suffix64}  CACHE PATH "Matlab directory for architecture specific binaries")
   set(MATLAB_EXTERN_LIB_DIR ${MATLAB_ROOT}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
@@ -379,36 +418,18 @@ else()
   set(MATLAB_EXTERN_LIB_DIR ${MATLAB_ROOT}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
 endif()
 
-
-# todo setup the extension properly
-set(mexext_suffix "")
 if(WIN32)
-  list(APPEND mexext_suffix ".bat")
+  set(MATLAB_LIB_DIR_FOR_LOOKUP ${MATLAB_EXTERN_LIB_DIR}/microsoft)
+  set(MATLAB_LIB_PREFIX_FOR_LOOKUP "lib")
+else()
+  set(MATLAB_LIB_DIR_FOR_LOOKUP ${MATLAB_BIN_DIR_ARCH})
+  set(MATLAB_LIB_PREFIX_FOR_LOOKUP "")
 endif()
 
-foreach(current_mexext_suffix IN LISTS mexext_suffix)
-  if(NOT DEFINED MATLAB_MEXEXTENSIONS_PROG OR NOT MATLAB_MEXEXTENSIONS_PROG)
-    find_program(
-      MATLAB_MEXEXTENSIONS_PROG
-      "mexext${current_mexext_suffix}"
-      PATHS ${MATLAB_BIN_DIR}
-      DOC "Matlab MEX extension provider"
-      NO_DEFAULT_PATH
-    )
-  endif()
-endforeach(current_mexext_suffix)
 
-# Raffi/ I think this one may be done automatically
-set(MEX_EXTENSION "" CACHE STRING "Extensions for the mex targets")
+set(MEX_EXTENSION)
+get_matlab_suffix(${MATLAB_ROOT} current_mex_extension)
 
-if(NOT MEX_EXTENSION)
-  execute_process(
-    COMMAND ${MATLAB_MEXEXTENSIONS_PROG} 
-    OUTPUT_VARIABLE MEX_EXTENSION)
-  string(STRIP ${MEX_EXTENSION} MEX_EXTENSION)
-  set(MEX_EXTENSION ${MEX_EXTENSION} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
-  message(STATUS "MEX_EXTENSION ${MEX_EXTENSION}")
-endif()
 
 
 find_program(
@@ -420,40 +441,74 @@ find_program(
 )
 
 
+set(toto)
+get_matlab_version_from_release_name("R2012a" toto)
+message("version is ${toto}")
+
+extract_matlab_releases(toto)
+message("ReleasesS is ${toto}")
+
+extract_matlab_versions(toto)
+message("versionSS is ${toto}")
 
 
-message("MATLAB_MEXEXTENSIONS_PROG = ${MATLAB_MEXEXTENSIONS_PROG}")
 
 
 #find_package(Matlab)
 find_library(MATLAB_MEX_LIBRARY
-  mex
-  PATHS ${MATLAB_EXTERN_LIB_DIR}
-  PATH_SUFFIXES "microsoft" "."
+  "${MATLAB_LIB_PREFIX_FOR_LOOKUP}mex"
+  PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
 find_library(MATLAB_MX_LIBRARY
-  mx
-  PATHS ${MATLAB_EXTERN_LIB_DIR}
-  PATH_SUFFIXES "microsoft" "."
+  "${MATLAB_LIB_PREFIX_FOR_LOOKUP}mx"
+  PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
 find_library(MATLAB_ENG_LIBRARY
-  eng
-  PATHS ${MATLAB_EXTERN_LIB_DIR}
-  PATH_SUFFIXES "microsoft" "."
+  "${MATLAB_LIB_PREFIX_FOR_LOOKUP}eng"
+  PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
 
-find_path(MATLAB_INCLUDE_DIR2
+find_path(MATLAB_INCLUDE_DIR
   "mex.h"
-  PATHS ${MATLAB_INCLUDE_DIR}
+  PATHS ${MATLAB_INCLUDE_DIR_TO_LOOK}
   NO_DEFAULT_PATH
   )
 
-message("MATLAB_INCLUDE_DIR = ${MATLAB_INCLUDE_DIR} | ${MATLAB_INCLUDE_DIR2}")
+
+
+set(MATLAB_LIBRARIES
+  ${MATLAB_MEX_LIBRARY}
+  ${MATLAB_MX_LIBRARY}
+  ${MATLAB_ENG_LIBRARY}
+)
+
+message(STATUS "[MATLAB] libraries found ${MATLAB_LIBRARIES}")
+
+if(MATLAB_INCLUDE_DIR AND MATLAB_LIBRARIES)
+  mark_as_advanced(
+    MATLAB_LIBRARIES
+    MATLAB_MEX_LIBRARY
+    MATLAB_MX_LIBRARY
+    MATLAB_ENG_LIBRARY
+    MATLAB_INCLUDE_DIR
+    MATLAB_FOUND
+    MATLAB_ROOT
+    MATLAB_VERSION
+  )
+
+  set(MATLAB_FOUND TRUE)
+endif()
+
+
+
+
+  
+message("MATLAB_INCLUDE_DIR = ${MATLAB_INCLUDE_DIR}")
 if(NOT MATLAB_INCLUDE_DIR)
-  message(FATAL_ERROR "Unable to find Matlab") # todo make it optional
+  message(FATAL_ERROR "Unable to find Matlab include directory")
 endif()
 
 include_directories(${MATLAB_INCLUDE_DIR})
