@@ -398,6 +398,19 @@ foreach(current_mexext_suffix IN LISTS mexext_suffix)
   endif()
 endforeach(current_mexext_suffix)
 
+# Raffi/ I think this one may be done automatically
+set(MEX_EXTENSION "" CACHE STRING "Extensions for the mex targets")
+
+if(NOT MEX_EXTENSION)
+  execute_process(
+    COMMAND ${MATLAB_MEXEXTENSIONS_PROG} 
+    OUTPUT_VARIABLE MEX_EXTENSION)
+  string(STRIP ${MEX_EXTENSION} MEX_EXTENSION)
+  set(MEX_EXTENSION ${MEX_EXTENSION} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
+  message(STATUS "MEX_EXTENSION ${MEX_EXTENSION}")
+endif()
+
+
 find_program(
   MATLAB_MEX_PROG
   "mex"
@@ -449,12 +462,5 @@ set(RobustPCAMatlab_LIB
 add_library(robust_pca_m SHARED ${RobustPCAMatlab_LIB})
 target_link_libraries(robust_pca_m ${MATLAB_MEX_LIBRARY})
 
-# Raffi/ I think this one may be done automatically
-set(MEX_EXTENSION "" CACHE STRING "Extensions for the mex targets")
 
-if(NOT MEX_EXTENSION)
-  execute_process(COMMAND "${MATLAB_MEXEXTENSIONS_PROG}" OUTPUT_VARIABLE MEX_EXTENSION)
-  string(STRIP ${MEX_EXTENSION} MEX_EXTENSION)
-  set(MEX_EXTENSION ${MEX_EXTENSION} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
-endif()
 set_target_properties(robust_pca_m PROPERTIES SUFFIX ${MEX_EXTENSION})
