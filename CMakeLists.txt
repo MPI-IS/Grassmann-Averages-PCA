@@ -13,13 +13,14 @@ include_directories(${RobustPCA_SOURCE_DIR})
 set(RobustPCA_LIB
      include/robust_pca.hpp
      src/robust_pca.cpp)
-     
-     
-set(RobustPCA_Matlab
-     extension/matlab/robust_pca.mex)
-     
-
 add_library(robust_pca ${RobustPCA_LIB})
+
+
+
+
+# testing using boost
+set(Boost_DEBUG ON)
+set(Boost_DETAILED_FAILURE_MSG ON)
 
 set(BOOST_ROOT  "D:/Code/thirdparties/visual2012x64/boost_1_55" CACHE PATH "boost root directory")
 find_package(boost 1.55.0 COMPONENTS test_exec_monitor unit_test_framework)
@@ -40,6 +41,10 @@ target_link_libraries(robustpca_test ${Boost_TEST_EXEC_MONITOR_LIBRARY})
 
 
 
+
+
+set(RobustPCA_Matlab
+     extension/matlab/robust_pca.mex)
 
 set(MATLAB_VERSIONS_MAPPING
   "R2013b" "8.2"
