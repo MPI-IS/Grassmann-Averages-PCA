@@ -381,13 +381,22 @@ endif()
 
 
 # todo setup the extension properly
-find_program(
-  MATLAB_MEXEXTENSIONS_PROG
-  "mexext"
-  PATHS ${MATLAB_BIN_DIR}
-  DOC "Matlab MEX extension provider"
-  NO_DEFAULT_PATH
-)
+set(mexext_suffix "")
+if(WIN32)
+  list(APPEND mexext_suffix ".bat")
+endif()
+
+foreach(current_mexext_suffix IN LISTS mexext_suffix)
+  if(NOT DEFINED MATLAB_MEXEXTENSIONS_PROG OR NOT MATLAB_MEXEXTENSIONS_PROG)
+    find_program(
+      MATLAB_MEXEXTENSIONS_PROG
+      "mexext${current_mexext_suffix}"
+      PATHS ${MATLAB_BIN_DIR}
+      DOC "Matlab MEX extension provider"
+      NO_DEFAULT_PATH
+    )
+  endif()
+endforeach(current_mexext_suffix)
 
 find_program(
   MATLAB_MEX_PROG
