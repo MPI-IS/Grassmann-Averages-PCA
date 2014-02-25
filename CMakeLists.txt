@@ -73,7 +73,7 @@ macro (get_matlab_version_from_release_name release_name version_name)
   set(${version_name} ${version})
 endmacro(get_matlab_version_from_release_name)
 
-# extracts all the supported release versions of matlab
+# extracts all the supported release names (R2017k...) of matlab
 macro(extract_matlab_releases list_releases)
   list(LENGTH MATLAB_VERSIONS_MAPPING versions_length)
   math(EXPR versions_length "${versions_length}-1")
@@ -84,7 +84,7 @@ macro(extract_matlab_releases list_releases)
   endforeach(matlab_release)
 endmacro(extract_matlab_releases)
 
-# extracts all the supported versions names (R2017k...) of matlab
+# extracts all the supported versions of matlab
 macro(extract_matlab_versions list_versions)
   list(LENGTH MATLAB_VERSIONS_MAPPING versions_length)
   set(${list_versions})
@@ -289,20 +289,65 @@ else()
 
   if(NOT DEFINED MATLAB_ROOT OR NOT ${MATLAB_ROOT})
   
+    set(matlab_roots)
+
     # maybe using CMAKE_PROGRAM_PATH to add some more hints
     find_program(
       MATLAB_PROGRAM
       "matlab")
+    if(${MATLAB_PROGRAM})
+      message(STATUS "[MATLAB] found from the command line at ${MATLAB_PROGRAM}")
+      
+      # resolve symlinks
+      get_filename_component(current_matlab_location ${MATLAB_PROGRAM} REALPATH)
+      
+      # get the directory
+      get_filename_component(current_matlab_location ${current_matlab_location} DIRECTORY)
+      get_filename_component(current_matlab_location ${current_matlab_location} DIRECTORY) # matlab should be in bin
+      list(APPEND matlab_roots ${current_matlab_location})
+    else()
+      #message(STATUS "[MATLAB] not found from the command line")
+    endif()
     
+    # on mac, we look for the /Application paths
+    # this corresponds to the behaviour on Windows
+    if((NOT matlab_roots) AND APPLE)
+      set(matlab_versions)
+      extract_matlab_releases(matlab_versions)
+      message(STATUS "[MATLAB] Matlab supported versions ${matlab_versions}. If more version should be supported "
+                     "the variable MATLAB_ADDITIONAL_VERSIONS can be set according to the documentation")
+      
+
+      foreach(current_matlab_version IN LISTS matlab_versions)
+        set(matlab_full_string "/Applications/MATLAB_${current_matlab_version}.app")
+        if(EXISTS ${matlab_full_string})
+          list(APPEND matlab_roots ${matlab_full_string})
+        endif()
+      endforeach(current_matlab_version)
+    
+    endif()
+    
+    message(STATUS "[MATLAB] Matlab roots found: ${matlab_roots}")
+    
+
     
   elseif(NOT EXISTS ${MATLAB_ROOT})
     message(FATAL_ERROR "[MATLAB] the specified path for MATLAB_ROOT does not exist (${MATLAB_ROOT})")
   endif()
 endif()
 
-message("MATLAB_ROOT = ${MATLAB_ROOT}")
+
+# take the first possible matlab root
+if(NOT MATLAB_ROOT AND matlab_roots)
+  list(GET matlab_roots 0 MATLAB_ROOT)
+  list(LENGTH matlab_roots numbers_of_matlab_roots)
+  if(numbers_of_matlab_roots GREATER 1)
+    message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${MATLAB_ROOT}. If this is not"
+                    "a desirable behaviour, provide the -DMATLAB_ROOT on the command line")
+  endif()
+endif()
+
 file(TO_CMAKE_PATH ${MATLAB_ROOT} MATLAB_ROOT)
-message("MATLAB_ROOT = ${MATLAB_ROOT}")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
   set(64Build FALSE)
@@ -338,7 +383,7 @@ endif()
 # todo setup the extension properly
 find_program(
   MATLAB_MEXEXTENSIONS_PROG
-  "mexext.bat"
+  "mexext"
   PATHS ${MATLAB_BIN_DIR}
   DOC "Matlab MEX extension provider"
   NO_DEFAULT_PATH
