@@ -419,9 +419,10 @@ if(NOT MATLAB_VERSION)
       endif()
       
       # note as said before OUTPUT_VARIABLE cannot be used in a platform independent manner
+      # however, not setting it would flush the output of matlab in the current console (unix variant)
       execute_process(
         COMMAND ${MATLAB_PROGRAM} -nosplash -nojvm ${matlab_additional_commands} -logfile ${CMAKE_BINARY_DIR}/matlabVersionLog.cmaketmp -nodesktop -nodisplay -r "version, exit" 
-        #OUTPUT_VARIABLE MATLAB_VERSION_FROM_CMD
+        OUTPUT_VARIABLE MATLAB_VERSION_FROM_CMD_dummy
         RESULT_VARIABLE resultMatlabVersionCall
         TIMEOUT 30
         )
