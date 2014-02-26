@@ -364,7 +364,6 @@ const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
 
 
 
-
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
   namespace ub = boost::numeric::ublas;

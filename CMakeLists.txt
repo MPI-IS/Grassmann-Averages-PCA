@@ -603,7 +603,8 @@ include_directories(${MATLAB_INCLUDE_DIR})
 set(RobustPCAMatlab_LIB
   extensions/matlab.cpp)
 add_library(robust_pca_m SHARED ${RobustPCAMatlab_LIB})
-target_link_libraries(robust_pca_m ${MATLAB_MEX_LIBRARY})
+target_link_libraries(robust_pca_m ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY})
 
 
-set_target_properties(robust_pca_m PROPERTIES SUFFIX ${MEX_EXTENSION})
+set_target_properties(robust_pca_m PROPERTIES SUFFIX ".${MEX_EXTENSION}")
+set_target_properties(robust_pca_m PROPERTIES COMPILE_DEFINITIONS "DLL_EXPORT_SYM=__declspec(dllexport)")
