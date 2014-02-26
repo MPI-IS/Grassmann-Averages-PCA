@@ -352,18 +352,20 @@ else()
     # this corresponds to the behaviour on Windows
     if((NOT matlab_roots) AND APPLE)
       set(matlab_versions)
-      extract_matlab_releases(matlab_versions)
-      message(STATUS "[MATLAB] Matlab supported versions ${matlab_versions}. If more version should be supported "
+      extract_matlab_releases(matlab_releases)
+      message(STATUS "[MATLAB] Matlab supported versions ${matlab_releases}. If more version should be supported "
                      "the variable MATLAB_ADDITIONAL_VERSIONS can be set according to the documentation")
       
 
-      foreach(current_matlab_version IN LISTS matlab_versions)
-        set(matlab_full_string "/Applications/MATLAB_${current_matlab_version}.app")
+      foreach(current_matlab_release IN LISTS matlab_releases)
+        set(matlab_full_string "/Applications/MATLAB_${current_matlab_release}.app")
         if(EXISTS ${matlab_full_string})
+          set(current_matlab_version)
+          get_matlab_version_from_release_name(${current_matlab_release} current_matlab_version)
           list(APPEND matlab_roots ${current_matlab_version})
           list(APPEND matlab_roots ${matlab_full_string})
         endif()
-      endforeach(current_matlab_version)
+      endforeach(current_matlab_release)
     
     endif()
     
@@ -466,30 +468,33 @@ message("versionSS is ${toto}")
 
 
 
+message("MATLAB_LIB_PREFIX_FOR_LOOKUP ${MATLAB_LIB_PREFIX_FOR_LOOKUP} | MATLAB_LIB_DIR_FOR_LOOKUP = ${MATLAB_LIB_DIR_FOR_LOOKUP}")
+
+set(CMAKE_FIND_LIBRARY_PREFIXES ${CMAKE_FIND_LIBRARY_PREFIXES} ${MATLAB_LIB_PREFIX_FOR_LOOKUP})
 
 #find_package(Matlab)
 find_library(
   MATLAB_MEX_LIBRARY
-  "${MATLAB_LIB_PREFIX_FOR_LOOKUP}mex"
+  mex
   PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
 find_library(
   MATLAB_MX_LIBRARY
-  "${MATLAB_LIB_PREFIX_FOR_LOOKUP}mx"
+  mx
   PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
 find_library(
   MATLAB_ENG_LIBRARY
-  "${MATLAB_LIB_PREFIX_FOR_LOOKUP}eng"
+  eng
   PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
 
 find_path(
   MATLAB_INCLUDE_DIR
-  "mex.h"
+  mex.h
   PATHS ${MATLAB_INCLUDE_DIR_TO_LOOK}
   NO_DEFAULT_PATH
   )
