@@ -19,7 +19,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/random/mersenne_twister.hpp>
 
-
+#include <vector>
 
 namespace robust_pca
 {
@@ -198,14 +198,14 @@ namespace robust_pca
      * - @c !(it >= ite)
      * - all the vectors given by the iterators pair should be of the same size (no check is performed).
      */
-    template <class it_t, class it_o_projected_vectors, class it_norm_t>
+    template <class it_t, class it_o_projected_vectors/*, class it_norm_t*/>
     bool batch_process(
       const int max_iterations,
       int max_dimension_to_compute,
       it_t const it, 
       it_t const ite, 
       it_o_projected_vectors const it_projected,
-      it_norm_t const it_norm_out, 
+      //it_norm_t const it_norm_out, 
       std::vector<data_t>& eigenvectors,
       data_t const * initial_guess = 0)
     {
@@ -220,12 +220,12 @@ namespace robust_pca
       // first computation of the weights. At this point it is necessary.
       // The vectors are also copied into the temporary container.
       it_o_projected_vectors it_tmp_projected(it_projected);
-      it_norm_t it_norm_out_copy(it_norm_out);
-      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_norm_out_copy, ++it_tmp_projected, size_data++)
+      //it_norm_t it_norm_out_copy(it_norm_out);
+      for(it_t it_copy(it); it_copy != ite; ++it_copy /*, ++it_norm_out_copy*/, ++it_tmp_projected, size_data++)
       {
         typename it_t::reference current_vect = *it_copy;
         *it_tmp_projected = current_vect;
-        *it_norm_out_copy = norm_op(current_vect);
+        // *it_norm_out_copy = norm_op(current_vect);
       }
 
 
@@ -318,13 +318,13 @@ namespace robust_pca
           it_o_projected_vectors it_tmp_projected(it_projected);
 
           // update of vectors in the orthogonal space, and update of the norms at the same time. 
-          it_norm_t it_norm_out_copy(it_norm_out);
-          for(size_t s(0); s < size_data; ++it_tmp_projected, ++it_norm_out_copy, s++)
+          // it_norm_t it_norm_out_copy(it_norm_out);
+          for(size_t s(0); s < size_data; ++it_tmp_projected/*, ++it_norm_out_copy*/, s++)
           {
             typename it_o_projected_vectors::reference current_vector = *it_tmp_projected;
             current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
 
-            *it_norm_out_copy = norm_op(current_vector);
+            // *it_norm_out_copy = norm_op(current_vector);
           }
 
            mu = initial_guess != 0 ? *initial_guess : random_init_op(*it);

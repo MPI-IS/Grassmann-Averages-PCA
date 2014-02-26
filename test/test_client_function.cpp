@@ -105,7 +105,7 @@ struct fixture_simple_matrix_creation
   static const int nb_elements = 1000;
   static const int dimensions  = 5;
   matrix_t mat_data;
-  std::vector<double> norms;
+  //std::vector<double> norms;
 
   boost::random::uniform_real_distribution<double> dist;
 
@@ -114,26 +114,26 @@ struct fixture_simple_matrix_creation
   {
     // creating some data, 1000 lines of a vector of length 5
     mat_data.resize(nb_elements, dimensions);
-    norms.resize(nb_elements);
+    //norms.resize(nb_elements);
 
     // default seed for reproductible sequences
     rng.seed();
 
     //std::cout << "current seed : " << ;
 
-    const std::string filename = "./toto.txt";
-    std::ofstream ff(filename.c_str());
+    //const std::string filename = "./toto.txt";
+    //std::ofstream ff(filename.c_str());
 
-    BOOST_REQUIRE(ff.is_open());
+    //BOOST_REQUIRE(ff.is_open());
 
     for(int i = 0; i < nb_elements; i++)
     {
       for(int j = 0; j < dimensions; j++)
       {
         mat_data(i, j) = dist(rng);
-        ff << mat_data(i, j) << " ";
+        //ff << mat_data(i, j) << " ";
       }
-      ff << std::endl;
+      //ff << std::endl;
     }
 
     
@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
   robust_pca_t instance;
 
 
-  typedef row_iter<const matrix_t> const_raw_iter_t;
+  typedef row_iter<const matrix_t> const_row_iter_t;
   typedef boost::numeric::ublas::vector<double> data_t;
 
   std::vector<data_t> temporary_data(nb_elements);
@@ -162,19 +162,19 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
   BOOST_CHECK(!instance.batch_process(
     max_iterations,
     dimensions,
-    const_raw_iter_t(mat_data, 2),
-    const_raw_iter_t(mat_data, 0),
+    const_row_iter_t(mat_data, 2),
+    const_row_iter_t(mat_data, 0),
     temporary_data.begin(),
-    norms.begin(),
+    //norms.begin(),
     eigen_vectors));
 
   BOOST_CHECK(!instance.batch_process(
     max_iterations,
     dimensions,
-    const_raw_iter_t(mat_data, 2),
-    const_raw_iter_t(mat_data, 0),
+    const_row_iter_t(mat_data, 2),
+    const_row_iter_t(mat_data, 0),
     temporary_data.begin(),
-    norms.begin(),
+    //norms.begin(),
     eigen_vectors));
 }
 
@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   namespace ub = boost::numeric::ublas;
   typedef robust_pca::robust_pca_impl< ub::vector<double> > robust_pca_t;  
   robust_pca_t instance;
-  typedef row_iter<const matrix_t> const_raw_iter_t;
+  typedef row_iter<const matrix_t> const_row_iter_t;
   
   typedef boost::numeric::ublas::vector<double> data_t;
 
@@ -205,10 +205,10 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   BOOST_CHECK(instance.batch_process(
     max_iterations,
     dimensions,
-    const_raw_iter_t(mat_data, 0),
-    const_raw_iter_t(mat_data, mat_data.size1()),
+    const_row_iter_t(mat_data, 0),
+    const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
-    norms.begin(),
+    //norms.begin(),
     eigen_vectors,
     &vec_initial_point));
 
@@ -278,7 +278,7 @@ BOOST_AUTO_TEST_CASE(checking_against_matlab)
 {
   typedef robust_pca::robust_pca_impl< boost::numeric::ublas::vector<double> > robust_pca_t;  
   robust_pca_t instance;
-  typedef row_iter<const matrix_t> const_raw_iter_t;
+  typedef row_iter<const matrix_t> const_row_iter_t;
   
   typedef boost::numeric::ublas::vector<double> data_t;
 
@@ -289,8 +289,8 @@ BOOST_AUTO_TEST_CASE(checking_against_matlab)
 
   BOOST_CHECK(instance.batch_process(
     max_iterations,
-    const_raw_iter_t(mat_data, 0),
-    const_raw_iter_t(mat_data, mat_data.size1()),
+    const_row_iter_t(mat_data, 0),
+    const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
     norms.begin(),
     eigen_vectors));
