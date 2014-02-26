@@ -22,25 +22,18 @@ function [vectors, output] = grassmann_pca (X, K)
   
     for k = 1:K
       %% Compute k'th principal component
+      mu = rand(D, 1); %G (1, :).'; % Dx1
+      mu = mu / norm(mu(:))
       
-      if false
-          mu = rand(D, 1); %G (1, :).'; % Dx1
-          mu = mu / norm(mu(:));
-
-          %% Initialize using a few EM iterations
-          % {
-          for iter = 1:3
-            dots = X * mu; % Nx1
-            mu = dots.' * X; % 1xD
-            mu = mu(:) / norm(mu); % Dx1
-          end % for
-          % }
-          
-      end;
-      
-      mu = [0.2097; 0.3959; 0.5626; 0.2334; 0.6545];
-      mu = mu / norm(mu(:));
-      
+      %% Initialize using a few EM iterations
+      % {
+      for iter = 1:3
+        dots = X * mu; % Nx1
+        mu = dots.' * X; % 1xD
+        mu = mu(:) / norm(mu); % Dx1
+      end % for
+      % }
+      print 'new mu starting the iterations is' mu
       
       
       %% Now the Grassmann average
@@ -52,9 +45,7 @@ function [vectors, output] = grassmann_pca (X, K)
         
         %% Compute weighted Grassmannian mean
         mu = (dot_signs).' * X; % 1xD
-        mu = mu (:) / norm (mu) % Dx1
-        %% 'iteration ', iter, mu
-        
+        mu = mu (:) / norm (mu); % Dx1
 
         %% Check for convergence
         if (max (abs (mu - prev_mu)) < epsilon)
