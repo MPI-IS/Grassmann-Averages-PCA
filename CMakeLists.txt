@@ -394,7 +394,7 @@ endif()
 
 # todo: if the version is empty, we should determine it from the matlab executable
 if(NOT MATLAB_VERSION)
-  if(NOT DEFINED MATLAB_PROGRAM OR NOT ${MATLAB_PROGRAM} OR NOT EXISTS ${MATLAB_PROGRAM})
+  if((NOT DEFINED MATLAB_PROGRAM) OR (NOT ${MATLAB_PROGRAM}) OR (NOT EXISTS ${MATLAB_PROGRAM}))
     message(STATUS "[MATLAB] Looking for Matlab under ${MATLAB_ROOT}")
     find_program(
       MATLAB_PROGRAM
@@ -405,16 +405,29 @@ if(NOT MATLAB_VERSION)
     )
     
     
-    # todo put this in an appropriate macro, since it is platform independant.
+    # todo put this in an appropriate macro, since it is (theoretically) platform independent.
     if(MATLAB_PROGRAM)
       # timeout set to 30 seconds, in case it does not start
       message(STATUS "[MATLAB] Determining the version of Matlab")
+      
+      #  
+      # the log file is needed since on windows the command executes in a new window and it is not possible 
+      # to get back the answer of Matlab
+      # the -wait command is needed on windows, otherwise the call returns immediately after the program launches itself.
+      if(WIN32)
+        set(matlab_additional_commands "-wait")
+      endif()
+      
+      # note as said before OUTPUT_VARIABLE cannot be used in a platform independent manner
       execute_process(
-        COMMAND ${MATLAB_PROGRAM} -nosplash -nojvm -nodesktop -nodisplay -r "version, exit" 
-        OUTPUT_VARIABLE MATLAB_VERSION_FROM_CMD
+        COMMAND ${MATLAB_PROGRAM} -nosplash -nojvm ${matlab_additional_commands} -logfile ${CMAKE_BINARY_DIR}/matlabVersionLog.cmaketmp -nodesktop -nodisplay -r "version, exit" 
+        #OUTPUT_VARIABLE MATLAB_VERSION_FROM_CMD
         RESULT_VARIABLE resultMatlabVersionCall
         TIMEOUT 30
         )
+      # read back the log
+      file(READ ${CMAKE_BINARY_DIR}/matlabVersionLog.cmaketmp MATLAB_VERSION_FROM_CMD)
+      
       if(${resultMatlabVersionCall})
         message(WARNING "[MATLAB] Unable to determine the version of Matlab. Matlab output is ${MATLAB_VERSION_FROM_CMD}. Returned with error ${resultMatlabVersionCall}.")
       else()
@@ -437,7 +450,10 @@ if(NOT MATLAB_VERSION)
             list(APPEND list_of_all_versions ${CMAKE_MATCH_1})
           endforeach()
           list(REMOVE_DUPLICATES list_of_all_versions)
-          list(GET list_of_all_versions 0 MATLAB_VERSION)
+          list(GET list_of_all_versions 0 MATLAB_VERSION_tmp)
+          
+          # set the version into the cache
+          set(MATLAB_VERSION ${MATLAB_VERSION_tmp} CACHE STRING "Matlab version (automatically determined)")
           list(LENGTH list_of_all_versions list_of_all_versions_length)
           if(${list_of_all_versions_length} GREATER 1)
             message(WARNING "[MATLAB] Found several versions, taking the first one (versions found ${list_of_all_versions})")
