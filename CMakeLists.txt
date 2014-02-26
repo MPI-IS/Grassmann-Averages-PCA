@@ -526,15 +526,16 @@ find_program(
 )
 
 
-set(toto)
-get_matlab_version_from_release_name("R2012a" toto)
-message("version is ${toto}")
+# just for tests
+#set(toto)
+#get_matlab_version_from_release_name("R2012a" toto)
+#message("version is ${toto}")
 
-extract_matlab_releases(toto)
-message("ReleasesS is ${toto}")
+#extract_matlab_releases(toto)
+#message("ReleasesS is ${toto}")
 
-extract_matlab_versions(toto)
-message("versionSS is ${toto}")
+#extract_matlab_versions(toto)
+#message("versionSS is ${toto}")
 
 
 
@@ -605,7 +606,9 @@ set(RobustPCAMatlab_LIB
 add_library(robust_pca_m SHARED ${RobustPCAMatlab_LIB})
 target_link_libraries(robust_pca_m ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY})
 
-
+set_target_properties(robust_pca_m PROPERTIES PREFIX "")
 set_target_properties(robust_pca_m PROPERTIES SUFFIX ".${MEX_EXTENSION}")
-set_target_properties(robust_pca_m PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
+if(WIN32)
+  set_target_properties(robust_pca_m PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
+endif()
 
