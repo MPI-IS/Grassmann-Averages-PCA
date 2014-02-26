@@ -250,6 +250,15 @@ macro(get_matlab_suffix matlab_root mex_suffix)
     list(APPEND mexext_suffix ".bat")
   endif()
 
+  # we first try without suffix, since cmake does not understand a list with one empty string element
+  find_program(
+    MATLAB_MEXEXTENSIONS_PROG
+    "mexext"
+    PATHS ${matlab_root}/bin
+    DOC "Matlab MEX extension provider"
+    NO_DEFAULT_PATH
+  )
+
   foreach(current_mexext_suffix IN LISTS mexext_suffix)
     if(NOT DEFINED MATLAB_MEXEXTENSIONS_PROG OR NOT MATLAB_MEXEXTENSIONS_PROG)
       # this call should populate the cache automatically
@@ -262,6 +271,10 @@ macro(get_matlab_suffix matlab_root mex_suffix)
       )
     endif()
   endforeach(current_mexext_suffix)
+  
+  if((NOT MATLAB_MEXEXTENSIONS_PROG) OR (NOT EXISTS ${MATLAB_MEXEXTENSIONS_PROG}))
+    message(FATAL_ERROR "[MATLAB] Cannot found mexext program. Matlab root is ${matlab_root}")
+  endif()
 
   set(MEX_EXTENSION "" CACHE STRING "Extensions for the mex targets")
 
@@ -423,7 +436,7 @@ if(WIN32)
   set(MATLAB_LIB_PREFIX_FOR_LOOKUP "lib")
 else()
   set(MATLAB_LIB_DIR_FOR_LOOKUP ${MATLAB_BIN_DIR_ARCH})
-  set(MATLAB_LIB_PREFIX_FOR_LOOKUP "")
+  set(MATLAB_LIB_PREFIX_FOR_LOOKUP "lib")
 endif()
 
 
@@ -455,23 +468,27 @@ message("versionSS is ${toto}")
 
 
 #find_package(Matlab)
-find_library(MATLAB_MEX_LIBRARY
+find_library(
+  MATLAB_MEX_LIBRARY
   "${MATLAB_LIB_PREFIX_FOR_LOOKUP}mex"
   PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
-find_library(MATLAB_MX_LIBRARY
+find_library(
+  MATLAB_MX_LIBRARY
   "${MATLAB_LIB_PREFIX_FOR_LOOKUP}mx"
   PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
-find_library(MATLAB_ENG_LIBRARY
+find_library(
+  MATLAB_ENG_LIBRARY
   "${MATLAB_LIB_PREFIX_FOR_LOOKUP}eng"
   PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
 
-find_path(MATLAB_INCLUDE_DIR
+find_path(
+  MATLAB_INCLUDE_DIR
   "mex.h"
   PATHS ${MATLAB_INCLUDE_DIR_TO_LOOK}
   NO_DEFAULT_PATH
