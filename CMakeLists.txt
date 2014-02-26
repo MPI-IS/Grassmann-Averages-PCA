@@ -394,7 +394,60 @@ endif()
 
 # todo: if the version is empty, we should determine it from the matlab executable
 if(NOT MATLAB_VERSION)
-  message(WARNING "[MATLAB] TODO The version is empty")
+  if(NOT DEFINED MATLAB_PROGRAM OR NOT ${MATLAB_PROGRAM} OR NOT EXISTS ${MATLAB_PROGRAM})
+    message(STATUS "[MATLAB] Looking for Matlab under ${MATLAB_ROOT}")
+    find_program(
+      MATLAB_PROGRAM
+      matlab
+      PATHS ${MATLAB_ROOT} ${MATLAB_ROOT}/bin
+      DOC "Matlab main program"
+      NO_DEFAULT_PATH
+    )
+    
+    
+    # todo put this in an appropriate macro, since it is platform independant.
+    if(MATLAB_PROGRAM)
+      # timeout set to 30 seconds, in case it does not start
+      message(STATUS "[MATLAB] Determining the version of Matlab")
+      execute_process(
+        COMMAND ${MATLAB_PROGRAM} -nosplash -nojvm -nodesktop -nodisplay -r "version, exit" 
+        OUTPUT_VARIABLE MATLAB_VERSION_FROM_CMD
+        RESULT_VARIABLE resultMatlabVersionCall
+        TIMEOUT 30
+        )
+      if(${resultMatlabVersionCall})
+        message(WARNING "[MATLAB] Unable to determine the version of Matlab. Matlab output is ${MATLAB_VERSION_FROM_CMD}. Returned with error ${resultMatlabVersionCall}.")
+      else()
+        set(index -1)
+        string(FIND ${MATLAB_VERSION_FROM_CMD} "ans" index)
+        if(index EQUAL -1)
+          message(WARNING "[MATLAB] Cannot find the version of Matlab answered from Matlab")
+        else()
+          set(list_of_all_versions)
+          string(SUBSTRING ${MATLAB_VERSION_FROM_CMD} ${index} -1 substring_ans)
+          string(
+            REGEX MATCHALL "ans[\r\n\t ]*=[\r\n\t ]*([0-9]+(\\.[0-9]+)?)"
+            matlab_versions_regex 
+            ${substring_ans})
+          foreach(match IN LISTS matlab_versions_regex)
+            string(
+              REGEX MATCH "ans[\r\n\t ]*=[\r\n\t ]*(([0-9]+)(\\.([0-9]+))?)"
+              current_match ${match})
+            #message(STATUS "current match is ${CMAKE_MATCH_0} ${CMAKE_MATCH_1} ${CMAKE_MATCH_2} ${CMAKE_MATCH_3} ${CMAKE_MATCH_4}")          
+            list(APPEND list_of_all_versions ${CMAKE_MATCH_1})
+          endforeach()
+          list(REMOVE_DUPLICATES list_of_all_versions)
+          list(GET list_of_all_versions 0 MATLAB_VERSION)
+          list(LENGTH list_of_all_versions list_of_all_versions_length)
+          if(${list_of_all_versions_length} GREATER 1)
+            message(WARNING "[MATLAB] Found several versions, taking the first one (versions found ${list_of_all_versions})")
+          endif()
+        endif()
+        
+        #message(STATUS "[MATLAB] Matlab found in ${MATLAB_PROGRAM} ${substring_ans} / result = ${resultMatlabVersionCall} / regex = ${matlab_versions_regex}")
+      endif()
+    endif()
+  endif()
 endif()
 
 message(STATUS "[MATLAB] Current version is ${MATLAB_VERSION} located ${MATLAB_ROOT}")
@@ -501,11 +554,7 @@ find_path(
 
 
 
-set(MATLAB_LIBRARIES
-  ${MATLAB_MEX_LIBRARY}
-  ${MATLAB_MX_LIBRARY}
-  ${MATLAB_ENG_LIBRARY}
-)
+set(MATLAB_LIBRARIES ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY} ${MATLAB_ENG_LIBRARY})
 
 message(STATUS "[MATLAB] libraries found ${MATLAB_LIBRARIES}")
 
