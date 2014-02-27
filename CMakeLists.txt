@@ -1,11 +1,55 @@
 cmake_minimum_required(VERSION 2.8)
 project(RobustPCA)
 
-set(Boost_USE_STATIC_LIBS   ON)
-set(Boost_DETAILED_FAILURE_MSG ON)
+include(CTest)
 
+
+
+# thirdparties
+# testing using boost
 set(Boost_USE_MULTITHREADED ON)
-set(Boost_DEBUG             TRUE)
+
+set(Boost_DEBUG ON)
+set(Boost_DETAILED_FAILURE_MSG ON)
+if(NOT DEFINED BOOST_ROOT)
+  set(Boost_NO_SYSTEM_PATHS ON)
+else()
+  set(Boost_NO_SYSTEM_PATHS OFF)
+endif()
+set(Boost_NO_BOOST_CMAKE ON)
+
+
+
+find_package(Boost COMPONENTS unit_test_framework)
+if(NOT ${Boost_FOUND})
+  message(FATAL_ERROR "[BOOST] Boost not found. Please set BOOST_ROOT in your command line.")
+endif()
+#message("Boost_TEST_EXEC_MONITOR_LIBRARY = ${Boost_TEST_EXEC_MONITOR_LIBRARY_Release}")
+#message("Boost_UNIT_TEST_FRAMEWORK_LIBRARY = ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY_Release}")
+
+include_directories(${Boost_INCLUDE_DIRS})
+link_directories (${Boost_LIBRARY_DIRS})
+file(TO_NATIVE_PATH ${Boost_LIBRARY_DIRS} Boost_LIBRARY_DIRS_NATIVE)
+
+# avoiding boost.test autolink
+add_definitions(-DBOOST_TEST_NO_LIB)
+
+if(WIN32)
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD "PATH")
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD_SEP ";")
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD_PREVIOUS $ENV{PATH})
+  #STRING(REPLACE "\"" "" TEST_DYNAMIC_LIBRARY_PATH_CMD_PREVIOUS ${TEST_DYNAMIC_LIBRARY_PATH_CMD_PREVIOUS})
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD_INV_PREFIX "%")
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD_INV_SUFFIX "%")
+elseif(APPLE)
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD "DYLD_LIBRARY_PATH")
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD_SEP ":")
+else()
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD "LD_LIBRARY_PATH")
+  set(TEST_DYNAMIC_LIBRARY_PATH_CMD_SEP ":")
+endif()
+
+
 
 
 
@@ -18,33 +62,38 @@ add_library(robust_pca ${RobustPCA_LIB})
 
 
 
-# testing using boost
-set(Boost_DEBUG ON)
-set(Boost_DETAILED_FAILURE_MSG ON)
 
-set(BOOST_ROOT  "D:/Code/thirdparties/visual2012x64/boost_1_55" CACHE PATH "boost root directory")
-find_package(boost 1.55.0 COMPONENTS test_exec_monitor unit_test_framework)
-if(NOT ${Boost_FOUND})
-  message(FATAL_ERROR "currently boost is needed")
-endif()
-message("Boost_TEST_EXEC_MONITOR_LIBRARY = ${Boost_TEST_EXEC_MONITOR_LIBRARY}")
-message("Boost_UNIT_TEST_FRAMEWORK_LIBRARY = ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}")
 
-include_directories(${Boost_INCLUDE_DIRS})
-link_directories (${Boost_LIBRARY_DIRS})
+
+
 
 set(RobustPCA_tests
     test/test_client_function.cpp)
-
 add_executable(robustpca_test ${RobustPCA_tests})
-target_link_libraries(robustpca_test ${Boost_TEST_EXEC_MONITOR_LIBRARY})
+target_link_libraries(robustpca_test ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+
+# the main definition is in there
+set_source_files_properties(test/test_client_function.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
+
+# the link is with dynamic 
+set_target_properties(robustpca_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+
+
+add_test(NAME robustpca_test-1
+          COMMAND robustpca_test)
+# basically, we cannot concatenate PATH with something else. I tried different configuration, and the spaces and ; in PATH do
+# not play well with the command itself. Even the PATH=%PATH%;blablabla with space does not seem to work.
+set_tests_properties(
+          robustpca_test-1 
+          PROPERTIES 
+            ENVIRONMENT 
+            ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${Boost_LIBRARY_DIRS})
+            #"${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${TEST_DYNAMIC_LIBRARY_PATH_CMD_PREVIOUS}${TEST_DYNAMIC_LIBRARY_PATH_CMD_SEP}${Boost_LIBRARY_DIRS_NATIVE}")
+            #"${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${TEST_DYNAMIC_LIBRARY_PATH_CMD_INV_PREFIX}${TEST_DYNAMIC_LIBRARY_PATH_CMD}${TEST_DYNAMIC_LIBRARY_PATH_CMD_INV_SUFFIX}${TEST_DYNAMIC_LIBRARY_PATH_CMD_SEP}${Boost_LIBRARY_DIRS_NATIVE}")
 
 
 
 
-
-set(RobustPCA_Matlab
-     extension/matlab/robust_pca.mex)
 
 set(MATLAB_VERSIONS_MAPPING
   "R2013b" "8.2"

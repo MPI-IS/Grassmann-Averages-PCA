@@ -1,6 +1,8 @@
+
 #include <boost/test/unit_test.hpp>
 
 #include <include/robust_pca.hpp>
+#include <include/private/boost_ublas_matrix_helper.hpp>
 
 // data stored into a matrix
 #include <boost/numeric/ublas/matrix.hpp>
@@ -10,88 +12,13 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 
-#include <boost/numeric/ublas/matrix_proxy.hpp>
-#include <boost/iterator/iterator_adaptor.hpp>
 
-#include <boost/iterator/transform_iterator.hpp>
+//#include <boost/iterator/transform_iterator.hpp>
 
 #include <fstream>
 
 // the random number generator
 boost::random::mt19937 rng;
-
-
-//! An helper class for iterating over rows of a matrix
-template <class matrix_t>
-class row_iter
-  : public boost::iterator_facade<
-        row_iter<matrix_t>                            // Derived
-      , boost::numeric::ublas::matrix_row<matrix_t>   // Value
-      , boost::random_access_traversal_tag            // CategoryOrTraversal
-      , boost::numeric::ublas::matrix_row<matrix_t>   // reference
-    >
-{
-private:
-  typedef row_iter<matrix_t> this_type;
-
-  struct enabler {};
-
-  size_t index;
-  matrix_t *matrix;
-
-  typedef boost::numeric::ublas::matrix_row<matrix_t> return_t;
-  static const size_t max_size;
-
-public:
-
-
-  row_iter() : index(max_size), matrix(0)
-  {}
-
-  row_iter(matrix_t &mat, size_t index_) : index(index_), matrix(&mat)
-  {}
-
-
-  template <class other_matrix_t>
-  row_iter(
-      row_iter<other_matrix_t> const& other
-    , typename boost::enable_if<
-          boost::is_convertible<typename other_matrix_t::iterator1, typename matrix_t::iterator1>
-        , enabler
-      >::type = enabler())
-    : index(other.index), matrix(other.matrix) 
-  {}
-
-private:
-  friend class boost::iterator_core_access;
-  
-  void increment()
-  { 
-    assert(index < max_size);
-    index++; 
-  }
-
-  bool equal(this_type const& other) const
-  {
-    assert(matrix == other.matrix);
-    return this->index == other.index;
-  }
-
-  return_t dereference() const
-  {
-    assert(matrix);
-    return return_t(*matrix, index);
-  }
-
-  typename this_type::difference_type distance_to(this_type const& r) const
-  {
-    assert((matrix != 0) && (r.matrix == matrix));
-    return typename this_type::difference_type(r.index) - typename this_type::difference_type(index); // sign promotion
-  }
-
-};
-template <class matrix_t>
-const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
 
 
 
@@ -147,13 +74,17 @@ BOOST_FIXTURE_TEST_SUITE(basic_checks, fixture_simple_matrix_creation)
 
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {
-  typedef robust_pca::robust_pca_impl<boost::numeric::ublas::vector<double> > robust_pca_t;
+  using namespace robust_pca;
+  using namespace robust_pca::ublas_adaptor;
+  namespace ub = boost::numeric::ublas;
+
+  typedef robust_pca_impl< ub::vector<double> > robust_pca_t;
 
   robust_pca_t instance;
 
 
   typedef row_iter<const matrix_t> const_row_iter_t;
-  typedef boost::numeric::ublas::vector<double> data_t;
+  typedef ub::vector<double> data_t;
 
   std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(dimensions);
@@ -165,7 +96,6 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
     temporary_data.begin(),
-    //norms.begin(),
     eigen_vectors));
 
   BOOST_CHECK(!instance.batch_process(
@@ -174,19 +104,21 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
     temporary_data.begin(),
-    //norms.begin(),
     eigen_vectors));
 }
 
 
 BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 {
+  using namespace robust_pca;
+  using namespace robust_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
-  typedef robust_pca::robust_pca_impl< ub::vector<double> > robust_pca_t;  
+
+  typedef robust_pca_impl< ub::vector<double> > robust_pca_t;  
   robust_pca_t instance;
   typedef row_iter<const matrix_t> const_row_iter_t;
   
-  typedef boost::numeric::ublas::vector<double> data_t;
+  typedef ub::vector<double> data_t;
 
 
   std::vector<data_t> temporary_data(nb_elements);
@@ -208,7 +140,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
-    //norms.begin(),
     eigen_vectors,
     &vec_initial_point));
 
@@ -276,7 +207,12 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 #if 0
 BOOST_AUTO_TEST_CASE(checking_against_matlab)
 {
-  typedef robust_pca::robust_pca_impl< boost::numeric::ublas::vector<double> > robust_pca_t;  
+  using namespace robust_pca;
+  using namespace robust_pca::ublas_adaptor;
+  namespace ub = boost::numeric::ublas;
+
+
+  typedef robust_pca_impl< ub::vector<double> > robust_pca_t;  
   robust_pca_t instance;
   typedef row_iter<const matrix_t> const_row_iter_t;
   
@@ -289,15 +225,14 @@ BOOST_AUTO_TEST_CASE(checking_against_matlab)
 
   BOOST_CHECK(instance.batch_process(
     max_iterations,
+    dimensions,
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
-    norms.begin(),
     eigen_vectors));
 
 
-  BOOST_MESSAGE(
-    "Generated eigen vectors are:");
+  BOOST_MESSAGE("Generated eigen vectors are:");
 
   for(int i = 0; i < dimensions; i++)
   {
@@ -308,7 +243,11 @@ BOOST_AUTO_TEST_CASE(checking_against_matlab)
 
 BOOST_AUTO_TEST_SUITE_END();
 
+
+/*
 boost::unit_test::test_suite* init_unit_test_suite( int argc, char* argv[] )
 {
   return 0;
 }
+
+*/

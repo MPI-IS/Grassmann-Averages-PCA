@@ -205,10 +205,10 @@ namespace robust_pca
       it_t const it, 
       it_t const ite, 
       it_o_projected_vectors const it_projected,
-      //it_norm_t const it_norm_out, 
       std::vector<data_t>& eigenvectors,
       data_t const * initial_guess = 0)
     {
+
       // add some log information
       if(it >= ite)
       {
