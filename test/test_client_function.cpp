@@ -29,8 +29,8 @@ struct fixture_simple_matrix_creation
   typedef boost::numeric::ublas::matrix<double> matrix_t;
 
 
-  static const int nb_elements = 1000;
-  static const int dimensions  = 5;
+  static const int nb_elements;// = 1000;
+  static const int dimensions;// = 5;
   matrix_t mat_data;
   //std::vector<double> norms;
 
@@ -68,6 +68,8 @@ struct fixture_simple_matrix_creation
 
   }
 };
+const int fixture_simple_matrix_creation::nb_elements = 1000;
+const int fixture_simple_matrix_creation::dimensions = 5;
 
 
 BOOST_FIXTURE_TEST_SUITE(basic_checks, fixture_simple_matrix_creation)
