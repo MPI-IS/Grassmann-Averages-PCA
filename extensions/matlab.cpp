@@ -112,13 +112,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
   // arguments checking
-  if (nrhs != 1) 
+  if (nrhs < 1 || nrhs > 2)
   {
-	  mexErrMsgTxt("One input argument required.");
-  }
-  else if (nlhs > 1) 
-  {
-	  mexErrMsgTxt("Too many output arguments.");
+	  mexErrMsgTxt("One or two input arguments required. ");
   }
 
   const mxArray* const X = prhs[0];
@@ -127,7 +123,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // checking the format of the data
   if (!mxIsDouble(X) && !mxIsSingle(X))
   {
-	  mexErrMsgTxt("Unsupported format");
+	  mexErrMsgTxt("Unsupported input format");
   }
 
   if(mxIsComplex(X))
@@ -142,7 +138,29 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // Check the dimensions of inputs
   const size_t rows = mxGetM(X);
   const size_t columns = mxGetN(X);
-  const size_t &dimension = columns; // an alias
+  size_t dimension = columns;
+  size_t max_dimension = dimension;
+  if (nrhs == 2)
+  {
+    const mxArray* const maxDimArray = prhs[1];
+    if(!mxIsNumeric(maxDimArray))
+    {
+      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non numeric argument)");
+    }
+
+    if(!mxGetNumberOfElements(maxDimArray) > 1)
+    {
+      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non scalar)");
+    }
+
+    mxClassID classId = mxGetClassID(maxDimArray);
+    if(classId == mxDOUBLE_CLASS || classId == mxSINGLE_CLASS)
+    {
+      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (floating point type)");
+    }
+
+
+  }
 
 
   if(mxIsDouble(X))
@@ -150,8 +168,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     typedef readonly_array_adaptor<double> storage_t;
     typedef ub::matrix<double, ub::column_major, storage_t> matrix_t;
 
+    // input data matrix, external storage.
     storage_t storage(rows*columns, mxGetPr(X));
-
     matrix_t mat_data(rows, columns, storage);
 
 
