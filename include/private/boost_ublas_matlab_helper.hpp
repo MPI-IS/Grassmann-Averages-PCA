@@ -55,7 +55,6 @@ namespace robust_pca
         data_(data) {
       }
 
-      ~readonly_array_adaptor() {}
 
       /*! Constructor from another instance
        *
@@ -64,6 +63,9 @@ namespace robust_pca
       readonly_array_adaptor(const this_type& rhs) : 
         size_(rhs.size_), data_(rhs.data_)
       {}
+
+      ~readonly_array_adaptor() {}
+
 
       // Resizing
       void resize(size_type size)
