@@ -148,7 +148,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non numeric argument)");
     }
 
-    if(!mxGetNumberOfElements(maxDimArray) > 1)
+    if(mxGetNumberOfElements(maxDimArray) > 1)
     {
       mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non scalar)");
     }
@@ -165,7 +165,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   if(mxIsDouble(X))
   {
-    typedef readonly_array_adaptor<double> storage_t;
+    typedef external_storage_adaptor<double> storage_t;
     typedef ub::matrix<double, ub::column_major, storage_t> matrix_t;
 
     // input data matrix, external storage.
@@ -180,14 +180,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // TODO put the dimension
     // for the library to work, we need to allocate some temporary storage
     // we also allocate the output if given
-    plhs[0] = mxCreateDoubleMatrix(dimension, dimension, mxREAL);
+    plhs[0] = mxCreateDoubleMatrix(dimension, max_dimension, mxREAL);
     mxArray *outputMatrix = plhs[0];
     assert(outputMatrix);
 
 
-    storage_t storageOutput(dimension * dimension, mxGetPr(outputMatrix));
-
-    matrix_t mat_eigen_vectors(dimension, dimension , storageOutput);
+    storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
+    matrix_t mat_eigen_vectors(dimension, max_dimension, storageOutput);
 
 
     typedef row_iter<matrix_t> const_row_iter_t;
@@ -197,7 +196,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     // should be matlab style
     std::vector<data_t> temporary_data(rows);
-    std::vector<data_t> eigenvectors;
 
     robust_pca_t instance;
     instance.batch_process(
@@ -206,7 +204,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
       temporary_data.begin(),
-      eigenvectors);
+      const_row_iter_t(mat_eigen_vectors, 0));
 
   }
 

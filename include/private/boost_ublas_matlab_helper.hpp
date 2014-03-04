@@ -1,12 +1,15 @@
 #ifndef BOOST_UBLAS_MATLAB_HELPER_ROBUST_PCA_HPP__
 #define BOOST_UBLAS_MATLAB_HELPER_ROBUST_PCA_HPP__
 
-#include "mex.h"
 
 #include <boost/numeric/ublas/storage.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 
+
+/*!@file
+ * @todo remove dependencies/references on matlab. The storage itself just states that it is external.
+ */
 
 
 namespace robust_pca
@@ -18,39 +21,40 @@ namespace robust_pca
     namespace ub = boost::numeric::ublas;
 
 
-    /*!@brief uBlas allocator for external read-only storage
+    /*!@brief uBlas allocator for external storage
      *
      * Adapted from Gunter Winkler tricks http://www.guwi17.de/ublas/index.html. This class should follow the storage concept
-     * of uBlas. However, since the data is read-only, some functions are omitted and should generate a compile-time error.
+     * of uBlas. However, the size of the container cannot change (same memory area), some functions are omitted and should generate a compile-time error.
      * 
      * When used from Matlab, the matrices are column_major. The storage is as-is there, so the matrix should be declared column major.
      * @author Raffi Enficiaud
      */
-    template<class T>
-    class readonly_array_adaptor : public ub::storage_array< readonly_array_adaptor<T> >
+    template <class T>
+    class external_storage_adaptor : public ub::storage_array< external_storage_adaptor<T> >
     {
 
-      typedef readonly_array_adaptor<T> this_type;
+      typedef external_storage_adaptor<T> this_type;
 
     public:
       typedef size_t size_type;
       typedef ptrdiff_t difference_type;
       typedef T value_type;
 
-      typedef const T &const_reference;
-      typedef const T *const_pointer;
+      typedef typename boost::add_reference<T>::type reference;
+      typedef typename boost::add_pointer<T>::type pointer;
+      typedef typename boost::add_pointer<typename boost::add_const<T>::type>::type const_pointer;
 
 
     public:
 
       //! Default constructor
-      readonly_array_adaptor() :
+      external_storage_adaptor() :
         size_(0), 
         data_(0)
       {}
 
 
-      readonly_array_adaptor(size_type size, const_pointer data) :
+      external_storage_adaptor(size_type size, pointer data) :
         size_(size), 
         data_(data) {
       }
@@ -60,22 +64,28 @@ namespace robust_pca
        *
        * The two instances will share the data
        */
-      readonly_array_adaptor(const this_type& rhs) : 
+      external_storage_adaptor(const this_type& rhs) : 
         size_(rhs.size_), data_(rhs.data_)
       {}
 
-      ~readonly_array_adaptor() {}
+      ~external_storage_adaptor() {}
 
 
       // Resizing
       void resize(size_type size)
       {
+        // the size cannot change, otherwise there is a problem with the external storage.
+        // it can only be set to 0
+        assert(size == 0 || size_ == 0 || size == size_);
         size_ = size;
       }
 
-      void resize(size_type size, const_pointer data)
+      void resize(size_type size, pointer data)
       {
+        assert(size == 0 || size_ == 0 || size == size_);
         size_ = size;
+
+        assert(data == 0 || data_ == 0 || data == data_);
         data_ = data;
       }
 
@@ -101,39 +111,40 @@ namespace robust_pca
       //!@{
 
       //! Implements the random access container.
-      const_reference operator [] (size_type i) const
+      reference operator [] (size_type i) const
       {
         assert(i < size_);
         return data_[i];
       }
 
-      // Iterators simply are pointers.
+      // Iterators simply are pointers. TYhere is no need to
+      // provide an iterator for the const version, as the normal pointer is convertible 
+      // to the const pointer. There is no ambiguity with the call neither, since the 
+      // call should not change the storage itself.
+      typedef pointer iterator;
       typedef const_pointer const_iterator;
 
-      const_iterator begin() const
+      iterator begin() const
       {
         return data_;
       }
-      const_iterator end() const
+      iterator end() const
       {
         return data_ + size_;
       }
 
-      // this typedef is used by vector and matrix classes
-      typedef const_pointer iterator;
-
       // Reverse iterators
-      typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
       typedef std::reverse_iterator<iterator> reverse_iterator;
+      typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
-      const_reverse_iterator rbegin() const
+      reverse_iterator rbegin() const
       {
-        return const_reverse_iterator(end());
+        return reverse_iterator(end());
       }
 
-      const_reverse_iterator rend() const
+      reverse_iterator rend() const
       {
-        return const_reverse_iterator(begin());
+        return reverse_iterator(begin());
       }
 
       //! @} 
@@ -141,7 +152,7 @@ namespace robust_pca
 
     private:
       size_type size_;
-      const_pointer data_;
+      pointer data_;
     };
 
 
