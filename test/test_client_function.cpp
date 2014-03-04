@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
     temporary_data.begin(),
-    eigen_vectors));
+    eigen_vectors.begin()));
 
   BOOST_CHECK(!instance.batch_process(
     max_iterations,
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
     temporary_data.begin(),
-    eigen_vectors));
+    eigen_vectors.begin()));
 }
 
 
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
-    eigen_vectors,
+    eigen_vectors.begin(),
     &vec_initial_point));
 
 
@@ -231,7 +231,7 @@ BOOST_AUTO_TEST_CASE(checking_against_matlab)
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
-    eigen_vectors));
+    eigen_vectors.begin()));
 
 
   BOOST_MESSAGE("Generated eigen vectors are:");

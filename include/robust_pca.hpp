@@ -191,21 +191,21 @@ namespace robust_pca
      *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
      * @param[in, out] it_projected
      * @param[in] initial_guess if provided, the initial vector will be initialized to this value. 
-     * @param[out] eigenvectors the detected eigenvectors
+     * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
      *
      * @returns true on success, false otherwise
      * @pre 
      * - @c !(it >= ite)
      * - all the vectors given by the iterators pair should be of the same size (no check is performed).
      */
-    template <class it_t, class it_o_projected_vectors/*, class it_norm_t*/>
+    template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t/*, class it_norm_t*/>
     bool batch_process(
       const int max_iterations,
       int max_dimension_to_compute,
       it_t const it, 
       it_t const ite, 
       it_o_projected_vectors const it_projected,
-      std::vector<data_t>& eigenvectors,
+      it_o_eigenvalues_t it_eigenvectors,
       data_t const * initial_guess = 0)
     {
 
@@ -231,8 +231,6 @@ namespace robust_pca
 
       // init of the vectors
       std::vector<bool> signs(size_data, false);
-      eigenvectors.clear();
-      eigenvectors.reserve(size_data);
 
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
@@ -248,7 +246,9 @@ namespace robust_pca
       
       int iterations = 0;
 
-      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++)
+
+      // for each dimension
+      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
       {
 
         convergence_check<data_t> convergence_op(mu);
@@ -279,7 +279,7 @@ namespace robust_pca
         mu = acc / norm_op(acc);
 
         // other iterations as usual
-        for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations ++)
+        for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
         {
           previous_mu = mu;
           std::vector<bool>::iterator itb(signs.begin());
@@ -310,7 +310,7 @@ namespace robust_pca
         }
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
-        eigenvectors.push_back(mu);
+        *it_eigenvectors = mu;
 
         // projection onto the orthogonal subspace
         if(current_dimension < mu.size() - 1)
