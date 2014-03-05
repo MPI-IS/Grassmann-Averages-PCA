@@ -28,6 +28,8 @@ namespace robust_pca
      * 
      * When used from Matlab, the matrices are column_major. The storage is as-is there, so the matrix should be declared column major.
      * @author Raffi Enficiaud
+     *
+     * @todo may be replaced by array_adaptor implementation, which is not properly documented in the boost.uBlas.
      */
     template <class T>
     class external_storage_adaptor : public ub::storage_array< external_storage_adaptor<T> >
