@@ -200,7 +200,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     robust_pca_t instance;
     instance.batch_process(
       100,
-      dimension,
+      max_dimension,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
       temporary_data.begin(),

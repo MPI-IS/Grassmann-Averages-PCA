@@ -172,9 +172,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage_row_access)
     for(int i = 0; i < 3; i++, ++it)
     {
       BOOST_CHECK(it != ite);
-      
-      int j = 0;
-      *it = ub::zero_vector<double>(3);
+      *it = ub::zero_vector<double>(4);
     }
   }
 
@@ -182,28 +180,14 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage_row_access)
   {
     for(int j = 0; j < 4; j++)
     {
-      BOOST_CHECK_EQUAL(mat(i, j), i * 10 + j);
+      BOOST_CHECK_EQUAL(mat(i, j), 0);
     }
   }
 
 }
 
 
-namespace boost {
-  namespace numeric {
-    namespace ublas {
 
-
-      /// For the creation of temporary vectors in the assignment of proxies
-      template <class T, class L>
-      struct vector_temporary_traits<matrix<T, L, robust_pca::ublas_matlab_helper::external_storage_adaptor<T> > >
-      {
-        typedef vector<T> type;
-      };
-
-    }
-  }
-}
 
 BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_external_storage)
 {
@@ -244,8 +228,15 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_external_storage)
 
 
   // this is exactly the kind of access we want:
-  *row_iter_t(mat, 0) = ub::zero_vector<double>(3);
+  *row_iter_t(mat, 0) = ub::zero_vector<double>(4);
 
+  for(int i = 0; i < 3; i++)
+  {
+    for(int j = 0; j < 4; j++)
+    {
+      BOOST_CHECK_EQUAL(mat(i, j), i == 0 ? 0 : i * 10 + j);
+    }
+  }
 
 }
 

@@ -159,10 +159,27 @@ namespace robust_pca
 
 
   }
-
-
-
 }
+
+
+namespace boost { namespace numeric { namespace ublas {
+  /*! Specializing the vector temporary type policy of uBlas.
+   *
+   * Sticking to the standard definition of this class would create temporary
+   * vectors with the same allocation object as the matrix to which it is applied. 
+   * However, external_storage_adaptor does not allow construction with size only. A 
+   * way to compile 
+   * @code
+   * matrix_row< matrix<double, row_major, external_storage_adaptor> >(some_matrix, some_row) = zero_vector<double>(nb_columns)
+   * @endcode
+   * is precisely to avoid the creation of temporaries with external_storage_adaptor allocator.
+   */
+  template <class T, class L>
+  struct vector_temporary_traits<matrix<T, L, robust_pca::ublas_matlab_helper::external_storage_adaptor<T> > >
+  {
+    typedef vector<T> type;
+  };
+}}}
 
 
 #endif /* BOOST_UBLAS_MATLAB_HELPER_ROBUST_PCA_HPP__ */
