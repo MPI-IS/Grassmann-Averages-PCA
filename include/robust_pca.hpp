@@ -386,6 +386,7 @@ namespace robust_pca
     void selective_acc_to_vector(
       const vector_quantile_t& quantiles1, const vector_quantile_t& quantiles2,
       const data_t &initial_data,
+      bool sign,
       data_t &v_selective_accumulator,
       vector_number_elements_t& v_selective_acc_count) const
     {
@@ -396,7 +397,14 @@ namespace robust_pca
           continue;
         if(v > quantiles2[i])
           continue;
-        v_selective_accumulator[i] += v;
+        if(sign)
+        {
+          v_selective_accumulator[i] += v;
+        }
+        else
+        {
+          v_selective_accumulator[i] -= v;
+        }
         v_selective_acc_count[i]++;
       }
     }
@@ -526,22 +534,26 @@ namespace robust_pca
           // data is copied
           typename it_o_projected_vectors::value_type current_data = *it_tmp_projected;
 
-          // trimming is applied
-          selective_acc_to_vector(v_min_threshold, v_max_threshold, current_data, acc, acc_counts);
-
+          // compute the sign against the previous vector
           bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
           *itb = sign;
 
-          if(sign)
-          {
-            acc += current_data;
-          }
-          else
-          {
-            acc -= current_data;
-          }
+          // trimming is applied to the accumulator, taking into account the sign.
+          selective_acc_to_vector(v_min_threshold, v_max_threshold, current_data, sign, acc, acc_counts);
         }
-        mu = acc / norm_op(acc);
+
+        // divide each of the acc by acc_counts, and then take the norm
+        for(int i = 0; i < number_of_dimensions; i++)
+        {
+          assert(acc_counts[i]);
+          mu[i] = acc[i] / acc_counts[i];
+        }
+
+        // normalize mu on the sphere
+        mu /= norm_op(mu);
+
+
+
 
         // other iterations as usual
         for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
