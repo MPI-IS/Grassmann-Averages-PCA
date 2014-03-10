@@ -91,7 +91,7 @@ set_tests_properties(
 
 
 # simple wart to the current state of the Matlab release into the community
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/extensions)
 find_package(Matlab)
 
 
