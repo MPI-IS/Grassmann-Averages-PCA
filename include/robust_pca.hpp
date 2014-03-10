@@ -21,6 +21,10 @@
 
 #include <vector>
 
+
+// for the trimmed version
+#include <boost/accumulators/statistics/p_square_quantile.hpp>
+
 namespace robust_pca
 {
  
@@ -338,6 +342,273 @@ namespace robust_pca
       return true;
     }
   };
+
+
+
+
+
+
+
+
+
+
+
+
+  /*!@brief Robust PCA subspace algorithm, with trimming
+  *
+  * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
+  * suitable for small datasets.
+  *
+  * @author Soren Hausberg, Raffi Enficiaud
+  */
+  template <class data_t, class norm_2_t = norm2>
+  struct robust_pca_with_trimming_impl
+  {
+  private:
+    random_data_generator<data_t> random_init_op;
+    norm_2_t norm_op;
+    double min_trim_percentage;
+    double max_trim_percentage;
+
+    template <class vector_acc_t>
+    void apply_quantile_to_vector(const data_t& current_data, vector_acc_t& acc1, vector_acc_t& acc2) const
+    {
+      typename vector_acc_t::iterator it_1(acc1.begin()), it_2(acc2.begin());
+      for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_1, ++it_2)
+      {
+        typename data_t::value_type v(*it);
+        (*it_1)(v);
+        (*it_2)(v);
+      }
+    }
+
+    template <class vector_quantile_t, class vector_number_elements_t>
+    void selective_acc_to_vector(
+      const vector_quantile_t& quantiles1, const vector_quantile_t& quantiles2,
+      const data_t &initial_data,
+      data_t &v_selective_accumulator,
+      vector_number_elements_t& v_selective_acc_count) const
+    {
+      for(int i = 0, j = ; i < initial_data.size(); i < j; i++)
+      {
+        typename data_t::value_type const v(initial_data[i]);
+        if(v < quantiles1[i])
+          continue;
+        if(v > quantiles2[i])
+          continue;
+        v_selective_accumulator[i] += v;
+        v_selective_acc_count[i]++;
+      }
+    }
+
+
+
+  public:
+    robust_pca_with_trimming_impl(double min_trim_percentage_ = 0, double max_trim_percentage_ = 1.) :
+      random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable),
+      min_trim_percentage(min_trim_percentage_),
+      max_trim_percentage_(max_trim_percentage_)
+    {
+      assert(min_trim_percentage_ < max_trim_percentage_);
+    }
+
+
+
+    /*! Performs the computation of the current subspace on the elements given by the two iterators.
+    *  @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
+    *   should provide a vector point.
+    *  @tparam it_o_projected_vectors output forward iterator pointing on a container of vector points.
+    *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
+    *
+    * @param[in] max_iterations the maximum number of iterations at each dimension.
+    * @param[in] max_dimension_to_compute the maximum number of dimensions to compute in the PCA (only the first max_dimension_to_compute will be
+    *            computed).
+    * @param[in] it input iterator at the beginning of the data
+    * @param[in] ite input iterator at the end of the data
+    * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
+    *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
+    * @param[in, out] it_projected
+    * @param[in] initial_guess if provided, the initial vector will be initialized to this value.
+    * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
+    *
+    * @returns true on success, false otherwise
+    * @pre
+    * - @c !(it >= ite)
+    * - all the vectors given by the iterators pair should be of the same size (no check is performed).
+    */
+    template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
+    bool batch_process(
+      const int max_iterations,
+      int max_dimension_to_compute,
+      it_t const it,
+      it_t const ite,
+      it_o_projected_vectors const it_projected,
+      it_o_eigenvalues_t it_eigenvectors,
+      data_t const * initial_guess = 0)
+    {
+      using namespace boost::accumulators;
+
+
+      // add some log information
+      if(it >= ite)
+      {
+        return false;
+      }
+
+
+      typedef accumulator_set<double, stats< tag::p_square_quantile> > accumulator_t;
+
+
+      size_t size_data(0);
+
+      
+      // The vectors are copied into the temporary container. During the copy, the percentiles are computed.
+      it_o_projected_vectors it_tmp_projected(it_projected);
+
+      std::vector<accumulator_t> v_acc_min(it->size(), accumulator_t(quantile_probability = min_trim_percentage / 100));
+      std::vector<accumulator_t> v_acc_max(it->size(), accumulator_t(quantile_probability = max_trim_percentage / 100));
+      for(it_t it_copy(it); it_copy != ite; ++it_copy , ++it_tmp_projected, size_data++)
+      {
+        typename it_t::reference current_vect = *it_copy;
+        *it_tmp_projected = current_vect;
+        apply_quantile_to_vector(*it_tmp_projected, v_acc_min, v_acc_max);
+      }
+
+
+      // init of the vectors
+      std::vector<bool> signs(size_data, false);
+
+
+      // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
+      data_t mu(initial_guess != 0 ? *initial_guess : random_init_op(*it));
+
+      const int number_of_dimensions = static_cast<int>(mu.size());
+      assert(mu.size() == it->size());
+
+      max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
+
+      // normalizing
+      typename norm_2_t::result_type norm_mu(norm_op(mu));
+      mu /= norm_mu;
+
+
+      int iterations = 0;
+
+
+      // for each dimension
+      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
+      {
+
+        convergence_check<data_t> convergence_op(mu);
+
+        data_t previous_mu(mu);
+        data_t acc = data_t(number_of_dimensions, 0);
+        std::vector<size_t> acc_counts(number_of_dimensions, 0);
+
+        std::vector<bool>::iterator itb(signs.begin());
+
+
+        it_o_projected_vectors it_tmp_projected(it_projected);
+
+        // for each round, the percentiles are computed.
+        std::vector<double> v_min_threshold(number_of_dimensions);
+        std::vector<double> v_max_threshold(number_of_dimensions);
+
+        for(int i = 0; i < number_of_dimensions; i++)
+        {
+          v_min_threshold[i] = p_square_quantile(v_acc_min[i]);
+          v_max_threshold[i] = p_square_quantile(v_acc_max[i]);
+        }
+
+        // first iteration, we store the signs
+        for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
+        {
+          // data is copied
+          typename it_o_projected_vectors::value_type current_data = *it_tmp_projected;
+
+          // trimming is applied
+          selective_acc_to_vector(v_min_threshold, v_max_threshold, current_data, acc, acc_counts);
+
+          bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
+          *itb = sign;
+
+          if(sign)
+          {
+            acc += current_data;
+          }
+          else
+          {
+            acc -= current_data;
+          }
+        }
+        mu = acc / norm_op(acc);
+
+        // other iterations as usual
+        for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
+        {
+          previous_mu = mu;
+          std::vector<bool>::iterator itb(signs.begin());
+          it_o_projected_vectors it_tmp_projected(it_projected);
+
+          for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
+          {
+            typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
+
+            bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
+            if(sign != *itb)
+            {
+              *itb = sign;
+
+              // update the value of the accumulator according to sign change
+              if(sign)
+              {
+                acc += 2 * current_data;
+              }
+              else
+              {
+                acc -= 2 * current_data;
+              }
+            }
+          }
+
+          mu = acc / norm_op(acc);
+        }
+
+        // mu is the eigenvector of the current dimension, we store it in the output vector
+        *it_eigenvectors = mu;
+
+        // projection onto the orthogonal subspace
+        if(current_dimension < mu.size() - 1)
+        {
+          it_o_projected_vectors it_tmp_projected(it_projected);
+
+          // update of vectors in the orthogonal space, and update of the norms at the same time. 
+          // it_norm_t it_norm_out_copy(it_norm_out);
+          for(size_t s(0); s < size_data; ++it_tmp_projected/*, ++it_norm_out_copy*/, s++)
+          {
+            typename it_o_projected_vectors::reference current_vector = *it_tmp_projected;
+            current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
+
+            // *it_norm_out_copy = norm_op(current_vector);
+          }
+
+          mu = initial_guess != 0 ? *initial_guess : random_init_op(*it);
+        }
+
+
+
+
+      }
+
+      return true;
+    }
+  };
+
+
+
+
+
+
 
 }
 
