@@ -410,6 +410,33 @@ namespace robust_pca
     }
 
 
+    // the count does not change 
+    template <class vector_quantile_t>
+    void selective_update_acc_to_vector(
+      const vector_quantile_t& quantiles1, const vector_quantile_t& quantiles2,
+      const data_t &initial_data,
+      bool sign,
+      data_t &v_selective_accumulator) const
+    {
+      for(int i = 0, j = ; i < initial_data.size(); i < j; i++)
+      {
+        typename data_t::value_type const v(initial_data[i]);
+        if(v < quantiles1[i])
+          continue;
+        if(v > quantiles2[i])
+          continue;
+        if(sign)
+        {
+          v_selective_accumulator[i] += 2*v;
+        }
+        else
+        {
+          v_selective_accumulator[i] -= 2*v;
+        }
+      }
+    }
+
+
 
   public:
     robust_pca_with_trimming_impl(double min_trim_percentage_ = 0, double max_trim_percentage_ = 1.) :
@@ -571,19 +598,21 @@ namespace robust_pca
             {
               *itb = sign;
 
-              // update the value of the accumulator according to sign change
-              if(sign)
-              {
-                acc += 2 * current_data;
-              }
-              else
-              {
-                acc -= 2 * current_data;
-              }
+              // trimming is applied to the accumulator, taking into account the sign.
+              selective_update_acc_to_vector(v_min_threshold, v_max_threshold, current_data, sign, acc);
             }
           }
 
-          mu = acc / norm_op(acc);
+
+          // divide each of the acc by acc_counts, and then take the norm
+          for(int i = 0; i < number_of_dimensions; i++)
+          {
+            assert(acc_counts[i]);
+            mu[i] = acc[i] / acc_counts[i];
+          }
+
+          // normalize mu on the sphere
+          mu /= norm_op(mu);
         }
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
