@@ -32,7 +32,6 @@ struct fixture_simple_matrix_creation
   static const int nb_elements;// = 1000;
   static const int dimensions;// = 5;
   matrix_t mat_data;
-  //std::vector<double> norms;
 
   boost::random::uniform_real_distribution<double> dist;
 
@@ -41,7 +40,6 @@ struct fixture_simple_matrix_creation
   {
     // creating some data, 1000 lines of a vector of length 5
     mat_data.resize(nb_elements, dimensions);
-    //norms.resize(nb_elements);
 
     // default seed for reproductible sequences
     rng.seed();
