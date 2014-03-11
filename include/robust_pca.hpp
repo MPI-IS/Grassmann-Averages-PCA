@@ -623,14 +623,12 @@ namespace robust_pca
         {
           it_o_projected_vectors it_tmp_projected(it_projected);
 
-          // update of vectors in the orthogonal space, and update of the norms at the same time. 
-          // it_norm_t it_norm_out_copy(it_norm_out);
-          for(size_t s(0); s < size_data; ++it_tmp_projected/*, ++it_norm_out_copy*/, s++)
+          // update of vectors in the orthogonal space
+          // for that to work, we need to reproject on the orthogonal subspace of all the previous eigenvalues
+          for(size_t s(0); s < size_data; ++it_tmp_projected, s++)
           {
             typename it_o_projected_vectors::reference current_vector = *it_tmp_projected;
             current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
-
-            // *it_norm_out_copy = norm_op(current_vector);
           }
 
           mu = initial_guess != 0 ? *initial_guess : random_init_op(*it);

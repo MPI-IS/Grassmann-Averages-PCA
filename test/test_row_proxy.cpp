@@ -1,4 +1,10 @@
 
+/*!@file
+ * This file contains tests for the row iterators. These iterators take some matrix like structure and provide 
+ * iterators on the rows. These matrix-like structure can be matrices or some external array (eg. arrays that
+ * are provided by matlab).
+ */
+
 #include <boost/test/unit_test.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/vector.hpp>

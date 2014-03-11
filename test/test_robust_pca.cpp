@@ -1,4 +1,9 @@
 
+/*!@file
+ * This file includes the tests for the robust pca
+ */
+
+
 #include <boost/test/unit_test.hpp>
 
 #include <include/robust_pca.hpp>
