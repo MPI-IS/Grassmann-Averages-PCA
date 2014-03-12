@@ -268,7 +268,7 @@ endmacro(get_all_valid_matlab_roots)
 # returns the extension of the mex (the suffixes) 
 macro(get_matlab_suffix matlab_root mex_suffix)
 
-  # todo setup the extension properly
+  # todo setup the extension properly. Currently I do not know if this is sufficient for all win32 distributions
   set(mexext_suffix "")
   if(WIN32)
     list(APPEND mexext_suffix ".bat")
