@@ -94,6 +94,12 @@ set_tests_properties(
 
 
 
+# currently under maintainance for the cmake community
+add_custom_target(MatlabCMakePackage
+  SOURCES 
+  ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake
+  )
+
 # simple wart to the current state of the Matlab release into the community
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/extensions)
 find_package(Matlab)
