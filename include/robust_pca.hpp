@@ -23,6 +23,8 @@
 
 
 // for the trimmed version
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
 #include <boost/accumulators/statistics/p_square_quantile.hpp>
 
 namespace robust_pca
@@ -371,12 +373,12 @@ namespace robust_pca
     double max_trim_percentage;
 
     template <class vector_acc_t>
-    void apply_quantile_to_vector(const data_t& current_data, vector_acc_t& acc1, vector_acc_t& acc2) const
+    void apply_quantile_to_vector(const data_t& current_data, bool sign, vector_acc_t& acc1, vector_acc_t& acc2) const
     {
       typename vector_acc_t::iterator it_1(acc1.begin()), it_2(acc2.begin());
       for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_1, ++it_2)
       {
-        typename data_t::value_type v(*it);
+        typename data_t::value_type v(sign ? *it : -(*it));
         (*it_1)(v);
         (*it_2)(v);
       }
@@ -390,7 +392,7 @@ namespace robust_pca
       data_t &v_selective_accumulator,
       vector_number_elements_t& v_selective_acc_count) const
     {
-      for(int i = 0, j = ; i < initial_data.size(); i < j; i++)
+      for(int i = 0, j = initial_data.size(); i < j; i++)
       {
         typename data_t::value_type const v(initial_data[i]);
         if(v < quantiles1[i])
@@ -409,40 +411,11 @@ namespace robust_pca
       }
     }
 
-
-    // the count does not change 
-    template <class vector_quantile_t>
-    void selective_update_acc_to_vector(
-      const vector_quantile_t& quantiles1, const vector_quantile_t& quantiles2,
-      const data_t &initial_data,
-      bool sign,
-      data_t &v_selective_accumulator) const
-    {
-      for(int i = 0, j = ; i < initial_data.size(); i < j; i++)
-      {
-        typename data_t::value_type const v(initial_data[i]);
-        if(v < quantiles1[i])
-          continue;
-        if(v > quantiles2[i])
-          continue;
-        if(sign)
-        {
-          v_selective_accumulator[i] += 2*v;
-        }
-        else
-        {
-          v_selective_accumulator[i] -= 2*v;
-        }
-      }
-    }
-
-
-
   public:
     robust_pca_with_trimming_impl(double min_trim_percentage_ = 0, double max_trim_percentage_ = 1.) :
       random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable),
       min_trim_percentage(min_trim_percentage_),
-      max_trim_percentage_(max_trim_percentage_)
+      max_trim_percentage(max_trim_percentage_)
     {
       assert(min_trim_percentage_ < max_trim_percentage_);
     }
@@ -496,38 +469,41 @@ namespace robust_pca
 
       size_t size_data(0);
 
-      
-      // The vectors are copied into the temporary container. During the copy, the percentiles are computed.
-      it_o_projected_vectors it_tmp_projected(it_projected);
-
-      std::vector<accumulator_t> v_acc_min(it->size(), accumulator_t(quantile_probability = min_trim_percentage / 100));
-      std::vector<accumulator_t> v_acc_max(it->size(), accumulator_t(quantile_probability = max_trim_percentage / 100));
-      for(it_t it_copy(it); it_copy != ite; ++it_copy , ++it_tmp_projected, size_data++)
-      {
-        typename it_t::reference current_vect = *it_copy;
-        *it_tmp_projected = current_vect;
-        apply_quantile_to_vector(*it_tmp_projected, v_acc_min, v_acc_max);
-      }
+      const int number_of_dimensions = static_cast<int>(it->size());
+      max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
 
 
-      // init of the vectors
-      std::vector<bool> signs(size_data, false);
 
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? *initial_guess : random_init_op(*it));
-
-      const int number_of_dimensions = static_cast<int>(mu.size());
-      assert(mu.size() == it->size());
-
-      max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
+      assert(mu.size() == number_of_dimensions);
 
       // normalizing
       typename norm_2_t::result_type norm_mu(norm_op(mu));
       mu /= norm_mu;
 
 
-      int iterations = 0;
+      // these objects are for easing the construction and reset of the accumulators
+      const accumulator_t quantil_obj_min(quantile_probability = min_trim_percentage);
+      const accumulator_t quantil_obj_max(quantile_probability = max_trim_percentage);
+
+      std::vector<accumulator_t> v_acc_min(number_of_dimensions, quantil_obj_min);
+      std::vector<accumulator_t> v_acc_max(number_of_dimensions, quantil_obj_max);
+
+      std::vector<double> v_min_threshold(number_of_dimensions); // vectors containing the final percentiles for each round
+      std::vector<double> v_max_threshold(number_of_dimensions);
+
+
+      // copy of the vectors. This should be avoided if the containers are of the same type and for the first iteration. 
+      // The vectors are copied into the temporary container. During the copy, the percentiles are computed.
+      it_o_projected_vectors it_tmp_projected(it_projected);
+      for(it_t it_copy(it); it_copy != ite; ++it_copy , ++it_tmp_projected, size_data++)
+      {
+        typename it_t::reference current_vect = *it_copy;
+        *it_tmp_projected = current_vect;
+      }
+
 
 
       // for each dimension
@@ -536,71 +512,55 @@ namespace robust_pca
 
         convergence_check<data_t> convergence_op(mu);
 
-        data_t previous_mu(mu);
-        data_t acc = data_t(number_of_dimensions, 0);
-        std::vector<size_t> acc_counts(number_of_dimensions, 0);
-
-        std::vector<bool>::iterator itb(signs.begin());
-
-
-        it_o_projected_vectors it_tmp_projected(it_projected);
-
-        // for each round, the percentiles are computed.
-        std::vector<double> v_min_threshold(number_of_dimensions);
-        std::vector<double> v_max_threshold(number_of_dimensions);
-
-        for(int i = 0; i < number_of_dimensions; i++)
+        // first pass on the data, we compute the bounds
         {
-          v_min_threshold[i] = p_square_quantile(v_acc_min[i]);
-          v_max_threshold[i] = p_square_quantile(v_acc_max[i]);
-        }
-
-        // first iteration, we store the signs
-        for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
-        {
-          // data is copied
-          typename it_o_projected_vectors::value_type current_data = *it_tmp_projected;
-
-          // compute the sign against the previous vector
-          bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
-          *itb = sign;
-
-          // trimming is applied to the accumulator, taking into account the sign.
-          selective_acc_to_vector(v_min_threshold, v_max_threshold, current_data, sign, acc, acc_counts);
-        }
-
-        // divide each of the acc by acc_counts, and then take the norm
-        for(int i = 0; i < number_of_dimensions; i++)
-        {
-          assert(acc_counts[i]);
-          mu[i] = acc[i] / acc_counts[i];
-        }
-
-        // normalize mu on the sphere
-        mu /= norm_op(mu);
-
-
-
-
-        // other iterations as usual
-        for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
-        {
-          previous_mu = mu;
-          std::vector<bool>::iterator itb(signs.begin());
           it_o_projected_vectors it_tmp_projected(it_projected);
 
-          for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
+          for(size_t s = 0; s < size_data; ++it_tmp_projected, s++)
+          {
+            typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
+
+            bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+
+            // updating the bounds
+            apply_quantile_to_vector(current_data, sign, v_acc_min, v_acc_max);
+          }
+        }
+
+
+
+
+        for(int iterations = 0; (!convergence_op(mu) && iterations < max_iterations) || iterations == 0; iterations++)
+        {
+
+          // extracting the bounds
+          for(int i = 0; i < number_of_dimensions; i++)
+          {
+            v_min_threshold[i] = extract_result<tag::p_square_quantile>(v_acc_min[i]);
+            v_max_threshold[i] = extract_result<tag::p_square_quantile>(v_acc_max[i]);
+          }
+
+          v_acc_min.assign(number_of_dimensions, quantil_obj_min);
+          v_acc_max.assign(number_of_dimensions, quantil_obj_max);
+
+          data_t previous_mu = mu;
+          data_t acc = data_t(number_of_dimensions, 0);
+          std::vector<size_t> acc_counts(number_of_dimensions, 0);
+
+          it_o_projected_vectors it_tmp_projected(it_projected);
+
+          for(size_t s = 0; s < size_data; ++it_tmp_projected, s++)
           {
             typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
 
             bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
-            if(sign != *itb)
-            {
-              *itb = sign;
 
-              // trimming is applied to the accumulator, taking into account the sign.
-              selective_update_acc_to_vector(v_min_threshold, v_max_threshold, current_data, sign, acc);
-            }
+            // computing the bounds for the next round
+            apply_quantile_to_vector(current_data, sign, v_acc_min, v_acc_max);
+
+            // trimming is applied to the accumulator + taking into account the sign.
+            selective_acc_to_vector(v_min_threshold, v_max_threshold, current_data, sign, acc, acc_counts);
+
           }
 
 

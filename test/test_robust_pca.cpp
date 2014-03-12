@@ -24,7 +24,7 @@
 
 
 
-BOOST_FIXTURE_TEST_SUITE(basic_checks, fixture_simple_matrix_creation)
+BOOST_FIXTURE_TEST_SUITE(robust_pca, fixture_simple_matrix_creation)
 
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {
