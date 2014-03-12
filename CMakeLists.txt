@@ -143,9 +143,9 @@ endif()
 
 
 add_test(NAME robustpca_matlabtest-1
-#         WORKING_DIRECTORY )
          COMMAND ${MATLAB_PROGRAM} ${MATLAB_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
          -r "addpath('$<TARGET_FILE_DIR:robust_pca_m>', '${CMAKE_SOURCE_DIR}/test');runtests('matlab_unit_tests'), exit")
 set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 30)
+set_tests_properties(robustpca_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
 
 
