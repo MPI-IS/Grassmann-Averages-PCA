@@ -51,7 +51,7 @@ set(RobustPCA_LIB
      include/private/boost_ublas_matlab_helper.hpp
      include/private/boost_ublas_matrix_helper.hpp
 
-	 include/robust_pca.hpp
+     include/robust_pca.hpp
      src/robust_pca.cpp)
 add_library(robust_pca ${RobustPCA_LIB})
 
@@ -68,8 +68,8 @@ set(RobustPCA_tests
     test/test_main.cpp
 
     test/test_robust_pca.cpp
-	test/test_robust_pca_trimmed.cpp
-	test/test_row_proxy.cpp)
+    test/test_robust_pca_trimmed.cpp
+    test/test_row_proxy.cpp)
 add_executable(robustpca_test ${RobustPCA_tests})
 target_link_libraries(robustpca_test ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 

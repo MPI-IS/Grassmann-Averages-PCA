@@ -1,4 +1,6 @@
 
+
+#include <boost/test/unit_test.hpp>
 #include <test/test_main.hpp>
 
 
