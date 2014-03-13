@@ -136,16 +136,14 @@ set(MATLAB_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
 if(WIN32)
   set(MATLAB_UNIT_TESTS_CMD ${MATLAB_UNIT_TESTS_CMD} -wait)
 endif()
-#        COMMAND ${MATLAB_PROGRAM}  -logfile ${CMAKE_BINARY_DIR}/matlabVersionLog.cmaketmp  -r "version, exit" 
-#        OUTPUT_VARIABLE MATLAB_VERSION_FROM_CMD_dummy
-#        RESULT_VARIABLE resultMatlabVersionCall
-#        TIMEOUT 30
 
 
 add_test(NAME robustpca_matlabtest-1
          COMMAND ${MATLAB_PROGRAM} ${MATLAB_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
-         -r "addpath('$<TARGET_FILE_DIR:robust_pca_m>', '${CMAKE_SOURCE_DIR}/test');runtests('matlab_unit_tests'), exit")
+         -r "addpath('$<TARGET_FILE_DIR:robust_pca_m>', '${CMAKE_SOURCE_DIR}/test');runtests('matlab_unit_tests'), exit(max(ans(1,:).Failed))")
 set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 30)
-set_tests_properties(robustpca_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
+# check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
+# check the content of the log file.
+#set_tests_properties(robustpca_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
 
 
