@@ -2,10 +2,13 @@ cmake_minimum_required(VERSION 2.8)
 project(RobustPCA)
 
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 
 if(NOT WITHOUT_TESTS)
+  # ctest sets BUILD_TESTING automatically, but does not seem to serve its purpose.
   include(CTest)
+  enable_testing()
 endif()
 
 
@@ -53,6 +56,7 @@ if(NOT WITHOUT_MATLAB)
     SOURCES 
     ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake
     )
+  set_target_properties(MatlabCMakePackage PROPERTIES FOLDER "Community")
 endif()
 
 
@@ -153,9 +157,9 @@ endif()
 # adding the matlab unit tests
 if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   add_custom_target(
-    MatlabUnitTests 
+    robustpca_matlab_unittest_scripts 
     SOURCES test/matlab_unit_tests.m)
-  set_target_properties(MatlabUnitTests PROPERTIES FOLDER "UnitTests")
+  set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
 
   set(MATLAB_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
   if(WIN32)
