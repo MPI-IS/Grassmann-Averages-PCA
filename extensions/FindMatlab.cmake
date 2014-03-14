@@ -268,7 +268,8 @@ endmacro(get_all_valid_matlab_roots)
 # returns the extension of the mex (the suffixes) 
 macro(get_matlab_suffix matlab_root mex_suffix)
 
-  # todo setup the extension properly. Currently I do not know if this is sufficient for all win32 distributions
+  # todo setup the extension properly. Currently I do not know if this is sufficient for all win32 distributions.
+  # there is also CMAKE_EXECUTABLE_SUFFIX that could be tweaked
   set(mexext_suffix "")
   if(WIN32)
     list(APPEND mexext_suffix ".bat")
@@ -573,7 +574,7 @@ endif()
 
 
 
-message("MATLAB_LIB_PREFIX_FOR_LOOKUP ${MATLAB_LIB_PREFIX_FOR_LOOKUP} | MATLAB_LIB_DIR_FOR_LOOKUP = ${MATLAB_LIB_DIR_FOR_LOOKUP}")
+message(STATUS "MATLAB_LIB_PREFIX_FOR_LOOKUP ${MATLAB_LIB_PREFIX_FOR_LOOKUP} | MATLAB_LIB_DIR_FOR_LOOKUP = ${MATLAB_LIB_DIR_FOR_LOOKUP}")
 
 # WARNING: this thing pollutes the CMAKE_FIND_LIBRARY_PREFIXES global variable. 
 # Should it be restored afterwards? Is there a more appropriate way to do that?
