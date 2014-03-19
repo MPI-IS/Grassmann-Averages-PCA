@@ -457,7 +457,7 @@ namespace robust_pca
       it_t const ite,
       it_o_projected_vectors const it_projected,
       it_o_eigenvalues_t it_eigenvectors,
-      data_t const * initial_guess = 0)
+      std::vector<data_t> const * initial_guess = 0)
     {
       using namespace boost::accumulators;
 
@@ -481,7 +481,7 @@ namespace robust_pca
 
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
-      data_t mu(initial_guess != 0 ? *initial_guess : random_init_op(*it));
+      data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
       assert(mu.size() == number_of_dimensions);
 
       // normalizing
@@ -596,7 +596,7 @@ namespace robust_pca
             current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
           }
 
-          mu = initial_guess != 0 ? *initial_guess : random_init_op(*it);
+          mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
         }
 
 

@@ -82,13 +82,28 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
-  const double initial_point[] = { 0.2097, 0.3959, 0.5626, 0.2334, 0.6545 };
-  BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
+  //const double initial_point[] = { 0.2097, 0.3959, 0.5626, 0.2334, 0.6545 };
+  
+  // this is the initialisation of the sequence of random vectors for each dimension 
+  // and some gram_schmidt orthogonalisation was also applied on it.
+  const double initial_point[] = {
+    0.1843, -0.5685, -0.4177,  0.5001, -0.4672,
+    0.9318, -0.0753,  0.0646, -0.3479,  0.0291,
+   -0.0042,  0.5226, -0.0230, -0.1980, -0.8289,
+    0.1709,  0.5421, -0.7280,  0.2310,  0.3059,
+   -0.2617, -0.3227, -0.5393, -0.7324, -0.0122,
+  };
+  //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
 
-  ub::vector<double> vec_initial_point(dimensions);
+
+  std::vector< ub::vector<double> > vec_initial_point(dimensions);
   for(int i = 0; i < dimensions; i++)
   {
-    vec_initial_point(i) = initial_point[i];
+    vec_initial_point[i].resize(dimensions);
+    for(int j = 0; j < dimensions; j++)
+    {
+      vec_initial_point[i](j) = initial_point[j];
+    }
   }
 
   BOOST_CHECK(instance.batch_process(
@@ -137,11 +152,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   // each dimension iteration being given by the vector "initial_point" above. Each column represents 
   // an eigenvector.
   static const double matlab_data[] = {
-    -0.0219, 0.0905, -0.0057, 0.0914, 0.9914,
-    -0.0512, -0.0875, 0.9873, -0.1202, 0.0236,
-    -0.0624, 0.9889, 0.0908, 0.0336, -0.0942,
-    0.0280, -0.0508, 0.1193, 0.9875, -0.0851,
-    0.9961, 0.0609, 0.0529, -0.0298, 0.0195
+   -0.0355,  0.1244, -0.0150,  0.9881,  0.0816,
+    0.9664, -0.0598, -0.2245,  0.0470, -0.0992,
+   -0.0607,  0.1019,  0.1580,  0.0682, -0.9779,
+    0.0755,  0.9848, -0.0033, -0.1287,  0.0884,
+   -0.2353,  0.0254, -0.9615, -0.0148, -0.1391,
   };
 
 
