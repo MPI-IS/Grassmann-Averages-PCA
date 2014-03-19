@@ -1,3 +1,8 @@
+// Copyright 2014, Max Planck Institute for Intelligent Systems.
+// Distributed under the BSD 3-Clause license.
+// (See accompanying file LICENSE.txt or copy at
+// http://opensource.org/licenses/BSD-3-Clause)
+
 
 /*!@file
  * This file contains tests for the row iterators. These iterators take some matrix like structure and provide 
