@@ -510,6 +510,9 @@ namespace robust_pca
       }
 
 
+      it_o_eigenvalues_t const it_output_eigen_vector_beginning(it_eigenvectors);
+
+
 
       // for each dimension
       for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
@@ -579,6 +582,13 @@ namespace robust_pca
           // normalize mu on the sphere
           mu /= norm_op(mu);
         }
+
+        // orthogonalisation 
+        for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus < it_eigenvectors; ++it_mus)
+        {
+          mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
+        }
+        mu /= norm_op(mu);
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
         *it_eigenvectors = mu;
