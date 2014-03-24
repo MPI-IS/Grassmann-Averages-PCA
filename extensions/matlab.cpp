@@ -131,7 +131,7 @@ bool robust_pca_dispatch(mxArray const* X, size_t rows, size_t columns, size_t m
 
   // output data matrix, also external storage for uBlas
   output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
-  output_matrix_t output_eigen_vectors(dimension, max_dimension, storageOutput);
+  output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
 
 
 
