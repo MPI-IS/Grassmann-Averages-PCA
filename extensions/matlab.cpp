@@ -140,7 +140,7 @@ bool robust_pca_dispatch(mxArray const* X, size_t rows, size_t columns, size_t m
   typedef ub::vector<double> data_t;
   typedef robust_pca_impl< data_t > robust_pca_t;
 
-  typedef row_iter<input_matrix_t> const_input_row_iter_t;
+  typedef row_iter<const input_matrix_t> const_input_row_iter_t;
   typedef row_iter<output_matrix_t> output_row_iter_t;
 
   // should be matlab style

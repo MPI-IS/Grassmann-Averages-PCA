@@ -12,13 +12,13 @@ classdef matlab_unit_tests < matlab.unittest.TestCase
   methods (Test)
     function testSizesReturn(testCase)
       mat = rand(3,3);
-      ret = robust_pca_m(mat);
+      ret = robustpca_m(mat);
       testCase.verifyEqual(size(ret), size(mat));
     end
     
     function testSizesReturnWithDimensions(testCase)
       mat = rand(3,3);
-      ret = robust_pca_m(mat, 2);
+      ret = robustpca_m(mat, 2);
       
       sret = size(ret);
       smat = size(ret);
