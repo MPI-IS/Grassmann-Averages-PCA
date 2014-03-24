@@ -73,49 +73,96 @@ private:
 };
 
 
-#if 0
-
-
-//! A simple vector used with two pointers. 
-//! The vector is read-only
-template <class T>
-struct pointer_vector_t
+template <class output_type, class input_type>
+output_type get_matlab_array_value_dispatch(mxArray const* array_, size_t index_row, size_t index_column)
 {
-  typedef typename boost::add_reference<T>::type reference;
-  //! @param length_ length of the vector (number of elements)
-  pointer_vector_t(T * initial_position_, size_t const length_) : 
-    initial_position(initial_position_)
-    length(length_)
-  {}
-
-
-  reference operator[](size_t const index)
+  input_type* p_array = static_cast<input_type*>(mxGetData(array_));
+  if(p_array == 0)
   {
-    return 
+    throw std::runtime_error("Unable to retrieve a pointer to the typed array");
   }
 
+  // column major
+  return p_array[index_row + mxGetN(array_) * index_column];
+}
 
-private:
-  T* initial_position;
-  size_t length;
-};
-#endif
+template <class output_type>
+output_type get_matlab_array_value(mxArray const* array_, size_t index_row, size_t index_column)
+{
+  assert(index_row < mxGetM(array_));
+  assert(index_column < mxGetN(array_));
+
+  mxClassID classId = mxGetClassID(array_);
+  switch(classId)
+  {
+  case mxDOUBLE_CLASS:
+    return get_matlab_array_value_dispatch<output_type, double>(array_, index_row, index_column);
+  case mxSINGLE_CLASS:
+    return get_matlab_array_value_dispatch<output_type, float>(array_, index_row, index_column);
+  default:
+    throw std::runtime_error("Unable to dispatch to the correct type");
+  }
+}
+
+
+
+template <class input_array_type>
+bool robust_pca_dispatch(mxArray const* X, size_t rows, size_t columns, size_t max_dimension, int max_iterations, mxArray *outputMatrix)
+{
+  namespace ub = boost::numeric::ublas;
+
+  using namespace robust_pca;
+  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::ublas_matlab_helper;
+
+
+  typedef external_storage_adaptor<input_array_type> input_storage_t;
+  typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
+
+  typedef external_storage_adaptor<double> output_storage_t;
+  typedef ub::matrix<double, ub::column_major, output_storage_t> output_matrix_t;
+
+
+  const size_t dimension = columns;
+
+  // input data matrix, external storage.
+  input_storage_t input_storage(rows*columns, mxGetPr(X));
+  input_matrix_t input_data(rows, columns, input_storage);
+
+  // output data matrix, also external storage for uBlas
+  output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
+  output_matrix_t output_eigen_vectors(dimension, max_dimension, storageOutput);
 
 
 
 
+  // this is the form of the data extracted from the storage
+  typedef ub::vector<double> data_t;
+  typedef robust_pca_impl< data_t > robust_pca_t;
 
+  typedef row_iter<input_matrix_t> const_input_row_iter_t;
+  typedef row_iter<output_matrix_t> output_row_iter_t;
+
+  // should be matlab style
+  std::vector<data_t> temporary_data(rows);
+
+  robust_pca_t instance;
+  return instance.batch_process(
+    max_iterations,
+    max_dimension,
+    const_input_row_iter_t(input_data, 0),
+    const_input_row_iter_t(input_data, input_data.size1()),
+    temporary_data.begin(),
+    output_row_iter_t(output_eigen_vectors, 0));
+
+
+}
 
 
 
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-  namespace ub = boost::numeric::ublas;
-  using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
-  using namespace robust_pca::ublas_matlab_helper;
-
 
   // arguments checking
   if (nrhs < 1 || nrhs > 2)
@@ -154,6 +201,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non numeric argument)");
     }
 
+    if(mxIsEmpty(maxDimArray))
+    {
+      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (empty value)");
+    }
+
     if(mxGetNumberOfElements(maxDimArray) > 1)
     {
       mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non scalar)");
@@ -162,66 +214,39 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxClassID classId = mxGetClassID(maxDimArray);
     if(classId == mxDOUBLE_CLASS || classId == mxSINGLE_CLASS)
     {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (floating point type)");
+      //mexErrMsgTxt("Erroneous argument for the maximal dimension specification (floating point type)");
     }
+    max_dimension = static_cast<size_t>(mxGetScalar(maxDimArray) + 0.5);
 
 
+    if(max_dimension >= dimension)
+    {
+      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (exceeds the dimension of the data)");
+    }
   }
 
 
-  if(mxIsDouble(X))
+  // TODO put the dimension
+  // for the library to work, we need to allocate some temporary storage
+  // we also allocate the output if given
+  plhs[0] = mxCreateDoubleMatrix(dimension, max_dimension, mxREAL);
+  mxArray *outputMatrix = plhs[0];
+  assert(outputMatrix);
+
+  bool result = false;
+  switch(mxGetClassID(X))
   {
-    typedef external_storage_adaptor<double> storage_t;
-    typedef ub::matrix<double, ub::column_major, storage_t> matrix_t;
-
-    // input data matrix, external storage.
-    storage_t storage(rows*columns, mxGetPr(X));
-    matrix_t mat_data(rows, columns, storage);
-
-
-    // this is the form of the data extracted from the storage
-    typedef ub::vector<double> data_t;
-    typedef robust_pca_impl< data_t > robust_pca_t;
-
-    // TODO put the dimension
-    // for the library to work, we need to allocate some temporary storage
-    // we also allocate the output if given
-    plhs[0] = mxCreateDoubleMatrix(dimension, max_dimension, mxREAL);
-    mxArray *outputMatrix = plhs[0];
-    assert(outputMatrix);
-
-
-    storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
-    matrix_t mat_eigen_vectors(dimension, max_dimension, storageOutput);
-
-
-    typedef row_iter<matrix_t> const_row_iter_t;
-
-    
-
-
-    // should be matlab style
-    std::vector<data_t> temporary_data(rows);
-
-    robust_pca_t instance;
-    instance.batch_process(
-      100,
-      max_dimension,
-      const_row_iter_t(mat_data, 0),
-      const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
-      const_row_iter_t(mat_eigen_vectors, 0));
-
+  case mxDOUBLE_CLASS:
+    result = robust_pca_dispatch<double>(X, rows, columns, max_dimension, 1000, outputMatrix);
+    break;
+  default:
+    break;
   }
 
 
-
-
-
-  //typedef robust_pca::robust_pca_impl< boost::numeric::ublas::vector<double> > robust_pca_t;
-
-  //robust_pca_t instance;
-
-
+  if(!result)
+  {
+    mexErrMsgTxt("Robust PCA: an error occurred in the call of the function.");
+  }
 
 }
