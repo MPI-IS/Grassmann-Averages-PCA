@@ -12,6 +12,8 @@
 // generating data randomly
 #include <boost/random/uniform_real_distribution.hpp>
 
+#include <fstream>
+
 // random number generator
 extern boost::random::mt19937 rng;
 
@@ -38,19 +40,19 @@ struct fixture_simple_matrix_creation
 
     //std::cout << "current seed : " << ;
 
-    //const std::string filename = "./toto.txt";
-    //std::ofstream ff(filename.c_str());
+    const std::string filename = "./toto.txt";
+    std::ofstream ff(filename.c_str());
 
-    //BOOST_REQUIRE(ff.is_open());
+    BOOST_REQUIRE(ff.is_open());
 
     for(int i = 0; i < nb_elements; i++)
     {
       for(int j = 0; j < dimensions; j++)
       {
         mat_data(i, j) = dist(rng);
-        //ff << mat_data(i, j) << " ";
+        ff << mat_data(i, j) << " ";
       }
-      //ff << std::endl;
+      ff << std::endl;
     }
 
 

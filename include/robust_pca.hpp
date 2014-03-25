@@ -31,6 +31,9 @@
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
 #include <boost/accumulators/statistics/p_square_quantile.hpp>
+#include <boost/accumulators/statistics/min.hpp>
+#include <boost/accumulators/statistics/max.hpp>
+#include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
 
 namespace robust_pca
 {
@@ -378,20 +381,19 @@ namespace robust_pca
     double max_trim_percentage;
 
     template <class vector_acc_t>
-    void apply_quantile_to_vector(const data_t& current_data, bool sign, vector_acc_t& acc1, vector_acc_t& acc2) const
+    void apply_quantile_to_vector(const data_t& current_data, bool sign, vector_acc_t& v_acc) const
     {
-      typename vector_acc_t::iterator it_1(acc1.begin()), it_2(acc2.begin());
-      for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_1, ++it_2)
+      typename vector_acc_t::iterator it_acc_features(v_acc.begin());
+      for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_acc_features)
       {
         typename data_t::value_type v(sign ? *it : -(*it));
-        (*it_1)(v);
-        (*it_2)(v);
+        (*it_acc_features)(v);
       }
     }
 
-    template <class vector_quantile_t, class vector_number_elements_t>
+    template <class vector_bounds_t, class vector_number_elements_t>
     void selective_acc_to_vector(
-      const vector_quantile_t& quantiles1, const vector_quantile_t& quantiles2,
+      const vector_bounds_t& lower_bounds, const vector_bounds_t& upper_bounds,
       const data_t &initial_data,
       bool sign,
       data_t &v_selective_accumulator,
@@ -399,19 +401,22 @@ namespace robust_pca
     {
       for(int i = 0, j = initial_data.size(); i < j; i++)
       {
-        typename data_t::value_type const v(initial_data[i]);
-        if(v < quantiles1[i])
+        typename data_t::value_type const v(sign ? initial_data[i] : -initial_data[i]);
+        if(v < lower_bounds[i])
           continue;
-        if(v > quantiles2[i])
+        if(v > upper_bounds[i])
           continue;
-        if(sign)
+        
+
+        v_selective_accumulator[i] += v;
+        /*if(sign)
         {
           v_selective_accumulator[i] += v;
         }
         else
         {
           v_selective_accumulator[i] -= v;
-        }
+        }*/
         v_selective_acc_count[i]++;
       }
     }
@@ -469,7 +474,9 @@ namespace robust_pca
       }
 
 
-      typedef accumulator_set<double, stats< tag::p_square_quantile> > accumulator_t;
+
+      // estimation of the quantiles using the P^2 algorithm.
+      typedef accumulator_set<double, stats< tag::min, tag::max, tag::extended_p_square_quantile(quadratic)> > accumulator_t;
 
 
       size_t size_data(0);
@@ -489,14 +496,16 @@ namespace robust_pca
       mu /= norm_mu;
 
 
-      // these objects are for easing the construction and reset of the accumulators
-      const accumulator_t quantil_obj_min(quantile_probability = min_trim_percentage);
-      const accumulator_t quantil_obj_max(quantile_probability = max_trim_percentage);
+      
+      // Accumulator object containing the required quantiles. 
+      std::vector<double> probs = { min_trim_percentage, max_trim_percentage };
+      const accumulator_t quantil_obj(extended_p_square_probabilities = probs);
+      
+      // vector of accumulator objects
+      std::vector<accumulator_t> v_acc(number_of_dimensions, quantil_obj);
 
-      std::vector<accumulator_t> v_acc_min(number_of_dimensions, quantil_obj_min);
-      std::vector<accumulator_t> v_acc_max(number_of_dimensions, quantil_obj_max);
-
-      std::vector<double> v_min_threshold(number_of_dimensions); // vectors containing the final percentiles for each round
+      // vector of valid bounds
+      std::vector<double> v_min_threshold(number_of_dimensions);
       std::vector<double> v_max_threshold(number_of_dimensions);
 
 
@@ -505,11 +514,12 @@ namespace robust_pca
       it_o_projected_vectors it_tmp_projected(it_projected);
       for(it_t it_copy(it); it_copy != ite; ++it_copy , ++it_tmp_projected, size_data++)
       {
-        typename it_t::reference current_vect = *it_copy;
-        *it_tmp_projected = current_vect;
+        *it_tmp_projected = *it_copy;
       }
 
 
+
+      // initial iterator on the output eigenvectors
       it_o_eigenvalues_t const it_output_eigen_vector_beginning(it_eigenvectors);
 
 
@@ -520,36 +530,39 @@ namespace robust_pca
 
         convergence_check<data_t> convergence_op(mu);
 
-        // first pass on the data, we compute the bounds
-        {
-          it_o_projected_vectors it_tmp_projected(it_projected);
-
-          for(size_t s = 0; s < size_data; ++it_tmp_projected, s++)
-          {
-            typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
-
-            bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
-
-            // updating the bounds
-            apply_quantile_to_vector(current_data, sign, v_acc_min, v_acc_max);
-          }
-        }
-
-
 
 
         for(int iterations = 0; (!convergence_op(mu) && iterations < max_iterations) || iterations == 0; iterations++)
         {
 
+          // first pass on the data, we compute the bounds
+          v_acc.assign(number_of_dimensions, quantil_obj);
+
+          {
+            it_o_projected_vectors it_tmp_projected(it_projected);
+
+            for(size_t s = 0; s < size_data; ++it_tmp_projected, s++)
+            {
+              typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
+
+              bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+
+              // updating the bounds
+              apply_quantile_to_vector(current_data, sign, v_acc);
+            }
+          }
+
+
           // extracting the bounds
           for(int i = 0; i < number_of_dimensions; i++)
           {
-            v_min_threshold[i] = extract_result<tag::p_square_quantile>(v_acc_min[i]);
-            v_max_threshold[i] = extract_result<tag::p_square_quantile>(v_acc_max[i]);
+            v_min_threshold[i] = extract_result</*tag::p_square_quantile*/tag::min>(v_acc[i]);
+            v_max_threshold[i] = extract_result</*tag::p_square_quantile*/tag::max>(v_acc[i]);// quantile(v_acc[i], quantile_probability = max_trim_percentage);
           }
 
-          v_acc_min.assign(number_of_dimensions, quantil_obj_min);
-          v_acc_max.assign(number_of_dimensions, quantil_obj_max);
+          //v_acc.clear();
+          
+
 
           data_t previous_mu = mu;
           data_t acc = data_t(number_of_dimensions, 0);
@@ -564,7 +577,7 @@ namespace robust_pca
             bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
 
             // computing the bounds for the next round
-            apply_quantile_to_vector(current_data, sign, v_acc_min, v_acc_max);
+            //apply_quantile_to_vector(current_data, sign, v_acc);
 
             // trimming is applied to the accumulator + taking into account the sign.
             selective_acc_to_vector(v_min_threshold, v_max_threshold, current_data, sign, acc, acc_counts);
@@ -578,6 +591,7 @@ namespace robust_pca
             assert(acc_counts[i]);
             mu[i] = acc[i] / acc_counts[i];
           }
+          std::cout << "mu iterations " << iterations << " = " << mu << std::endl;
 
           // normalize mu on the sphere
           mu /= norm_op(mu);

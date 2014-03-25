@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   namespace ub = boost::numeric::ublas;
 
   typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
-  robust_pca_t instance;
+  robust_pca_t instance(0., 1);
   typedef row_iter<const matrix_t> const_row_iter_t;
 
   typedef ub::vector<double> data_t;
@@ -87,11 +87,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   // this is the initialisation of the sequence of random vectors for each dimension 
   // and some gram_schmidt orthogonalisation was also applied on it.
   const double initial_point[] = {
-    0.1843, -0.5685, -0.4177,  0.5001, -0.4672,
-    0.9318, -0.0753,  0.0646, -0.3479,  0.0291,
-   -0.0042,  0.5226, -0.0230, -0.1980, -0.8289,
-    0.1709,  0.5421, -0.7280,  0.2310,  0.3059,
-   -0.2617, -0.3227, -0.5393, -0.7324, -0.0122,
+    0.2658, -0.4880, 0.4029, 0.4855, 0.5414,
+    0.8306, 0.3194, 0.2228, -0.3925, 0.0663,
+    -0.2066, -0.4473, 0.6346, -0.4964, -0.3288,
+    -0.3310, 0.0890, -0.0642, -0.5345, 0.7699,
+    -0.2953, 0.6722, 0.6174, 0.2794, 0.0408,
   };
   //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
 
@@ -142,6 +142,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     }
   }
 
+
+  // testing unitarity
   for(int i = 0; i < dimensions; i++)
   {
     BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
@@ -152,11 +154,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   // each dimension iteration being given by the vector "initial_point" above. Each column represents 
   // an eigenvector.
   static const double matlab_data[] = {
-   -0.0355,  0.1244, -0.0150,  0.9881,  0.0816,
-    0.9664, -0.0598, -0.2245,  0.0470, -0.0992,
-   -0.0607,  0.1019,  0.1580,  0.0682, -0.9779,
-    0.0755,  0.9848, -0.0033, -0.1287,  0.0884,
-   -0.2353,  0.0254, -0.9615, -0.0148, -0.1391,
+   -0.0506,  0.9918, -0.0085,  0.1167, -0.0055,
+   -0.1120, -0.0348, -0.4900,  0.2504,  0.8267,
+   -0.0555,  0.0622,  0.6842, -0.4771,  0.5452,
+    0.0689,  0.0965, -0.5397, -0.8317, -0.0546,
+    0.9885,  0.0436,  0.0200,  0.0656,  0.1278,
   };
 
 
