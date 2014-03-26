@@ -170,7 +170,9 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       current_matlab_vector(j) = matlab_data[i + j*dimensions];
     }
     BOOST_CHECKPOINT("iteration " << i);
-    BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 1E-3);
+    BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 2.6E-2); 
+    // there is a slight difference between the two implementation when enabling the P^2 algorithm
+    // for producing the quantiles.
   }
 
 

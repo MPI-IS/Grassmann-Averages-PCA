@@ -556,8 +556,8 @@ namespace robust_pca
           // extracting the bounds
           for(int i = 0; i < number_of_dimensions; i++)
           {
-            v_min_threshold[i] = extract_result</*tag::p_square_quantile*/tag::min>(v_acc[i]);
-            v_max_threshold[i] = extract_result</*tag::p_square_quantile*/tag::max>(v_acc[i]);// quantile(v_acc[i], quantile_probability = max_trim_percentage);
+            v_min_threshold[i] = quantile(v_acc[i], quantile_probability = min_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::min>(v_acc[i]);
+            v_max_threshold[i] = quantile(v_acc[i], quantile_probability = max_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::max>(v_acc[i]);// quantile(v_acc[i], quantile_probability = max_trim_percentage);
           }
 
           //v_acc.clear();
@@ -596,6 +596,12 @@ namespace robust_pca
           mu /= norm_op(mu);
         }
 
+        // orthogonalisation 
+        for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus < it_eigenvectors; ++it_mus)
+        {
+          mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
+        }
+        mu /= norm_op(mu);
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
         *it_eigenvectors = mu;
