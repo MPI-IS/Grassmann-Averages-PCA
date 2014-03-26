@@ -6,12 +6,8 @@
 #ifndef ROBUST_PCA_HPP__
 #define ROBUST_PCA_HPP__
 
-//Released under the boost licence v1.0
-
 /*!@file
- * Robust PCA functions, following the paper of Soren Hausberg
- * @todo add proper licence
-
+ * Robust PCA functions, following the paper of Soren Hauberg.
  *
  * @note These implementations assume the existence of boost somewhere. Currently, it is just used for 
  * computing the norms of differences and to generate some random data (which is now TR1 and C++0X).
@@ -175,7 +171,7 @@ namespace robust_pca
    * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
    * suitable for small datasets. 
    * @todo add reference
-   * @author Soren Hausberg, Raffi Enficiaud
+   * @author Soren Hauberg, Raffi Enficiaud
    */
   template <class data_t, class norm_2_t = norm2>
   struct robust_pca_impl
@@ -369,7 +365,7 @@ namespace robust_pca
   * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
   * suitable for small datasets.
   *
-  * @author Soren Hausberg, Raffi Enficiaud
+  * @author Soren Hauberg, Raffi Enficiaud
   */
   template <class data_t, class norm_2_t = norm2>
   struct robust_pca_with_trimming_impl
