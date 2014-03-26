@@ -327,7 +327,7 @@ namespace robust_pca
         *it_eigenvectors = mu;
 
         // projection onto the orthogonal subspace
-        if(current_dimension < mu.size() - 1)
+        if(current_dimension < max_dimension_to_compute - 1)
         {
           it_o_projected_vectors it_tmp_projected(it_projected);
 
@@ -591,24 +591,17 @@ namespace robust_pca
             assert(acc_counts[i]);
             mu[i] = acc[i] / acc_counts[i];
           }
-          std::cout << "mu iterations " << iterations << " = " << mu << std::endl;
 
           // normalize mu on the sphere
           mu /= norm_op(mu);
         }
 
-        // orthogonalisation 
-        for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus < it_eigenvectors; ++it_mus)
-        {
-          mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
-        }
-        mu /= norm_op(mu);
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
         *it_eigenvectors = mu;
 
         // projection onto the orthogonal subspace
-        if(current_dimension < mu.size() - 1)
+        if(current_dimension < max_dimension_to_compute - 1)
         {
           it_o_projected_vectors it_tmp_projected(it_projected);
 
@@ -621,6 +614,17 @@ namespace robust_pca
           }
 
           mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
+
+
+          // orthogonalisation 
+          for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus <= it_eigenvectors; ++it_mus)
+          {
+            mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
+          }
+          mu /= norm_op(mu);
+
+
+          
         }
 
 

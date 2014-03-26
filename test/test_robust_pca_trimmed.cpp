@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     vec_initial_point[i].resize(dimensions);
     for(int j = 0; j < dimensions; j++)
     {
-      vec_initial_point[i](j) = initial_point[j];
+      vec_initial_point[i](j) = initial_point[i*dimensions + j];
     }
   }
 
