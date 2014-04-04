@@ -13,7 +13,9 @@
 
 
 /*!@file
- * @todo remove dependencies/references on matlab. The storage itself just states that it is external.
+ * This file contains some helper function for wrapping matlab arrays into C++. One of the achievements
+ * is the implementation of a specific storage for uBlas wrapping existing array, which avoids the need
+ * to copy data, and behaves well with uBlas. 
  */
 
 
