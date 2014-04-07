@@ -31,6 +31,13 @@
 #include <boost/accumulators/statistics/max.hpp>
 #include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
 
+
+// for the thread pools
+#include <boost/asio/io_service.hpp>
+#include <boost/bind.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/signals2.hpp>
+
 namespace robust_pca
 {
  
@@ -180,33 +187,240 @@ namespace robust_pca
     random_data_generator<data_t> random_init_op;
     norm_2_t norm_op;
 
+    //! Number of parallel tasks that will be used for computing.
+    int nb_processors;
+
+
+    //!@internal
+    //!@brief Contains the logic for processing part of the accumulator
+    template <class container_iterator_t>
+    struct s_accumulator_processor
+    {
+    private:
+      container_iterator_t begin, end;
+      int nb_elements;
+      data_t accumulator;
+      std::vector<bool> v_signs;
+      int data_dimension;
+
+      // this is to send an update of the value of mu to all listeners
+      // the connexion should be managed externally
+      typedef boost::signals2::signal<void (data_t const&)> connector_t;
+      connector_t sig;
+
+
+    public:
+      s_accumulator_processor() : nb_elements(0), data_dimension(0)
+      {
+      }
+
+
+      //! Sets the data range
+      bool set_data_range(container_iterator_t const &b, container_iterator_t const& e)
+      {
+        begin = b;
+        end = e;
+        nb_elements = std::distance(b, e);
+        assert(nb_elements > 0);
+        v_signs.resize(nb_elements);
+        return true;
+      }
+
+      //! Sets the dimension of the problem
+      //! @pre data_dimensions_ strictly positive
+      void set_data_dimensions(int data_dimensions_)
+      {
+        data_dimension = data_dimensions_;
+        assert(data_dimension > 0);
+      }
+
+      //! Returns the connected object that will receive the notification of the update
+      connector_t& connector()
+      {
+        return sig;
+      }
+      
+
+      //! Initialises the accumulator and the signs vector from the first mu
+      void initial_accumulation(data_t const &mu)
+      {
+        accumulator = data_t(data_dimension, 0);
+        std::vector<bool>::iterator itb(v_signs.begin());
+        
+        container_iterator_t it_data(begin);
+
+        // first iteration, we store the signs
+        for(size_t s = 0; s < nb_elements; ++it_data, ++itb, s++)
+        {
+          typename container_iterator_t::reference current_data = *it_data;
+          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+          *itb = sign;
+
+          if(sign)
+          {
+            accumulator += current_data;
+          }
+          else 
+          {
+            accumulator -= current_data;
+          }
+        }
+
+
+        // posts the new value to the listeners
+        sig(accumulator);
+      }
+
+
+      //! Update the accumulator and the signs vector from an upated mu
+      void update_accumulation(data_t const& mu)
+      {
+        std::vector<bool>::iterator itb(v_signs.begin());
+        
+        container_iterator_t it_data(begin);
+
+        // first iteration, we store the signs
+        for(size_t s = 0; s < nb_elements; ++it_data, ++itb, s++)
+        {
+          typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
+
+          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+          if(sign != *itb)
+          {
+            // update the value of the accumulator according to sign change
+            *itb = sign;
+
+            if(sign)
+            {
+              acc += 2 * current_data;
+            }
+            else
+            {
+              acc -= 2 * current_data;
+            }
+          }
+        }
+
+        // posts the new value to the listeners
+        sig(accumulator);
+      }
+
+    };
+
+
+    /*! Accumulation gathering the result of all workers.
+     *
+     * When the vector are of high dimension, it should be interesting to also have
+     * the update of the final accumulator within each threads. 
+     */
+    struct asynchronous_addition
+    {
+    private:
+      boost::mutex internal_mutex;
+      data_t current_value;
+      int nb_updates;
+      int data_dimension;
+
+    public:
+
+      /*!Constructor
+       *
+       * @param dimension_ the number of dimensions of the vector to accumulate
+       */
+      asynchronous_addition(int data_dimension_) : data_dimension(data_dimension_)
+      {}
+
+      //! Initialises the internal state of the accumulator
+      void init()
+      {
+        nb_updates = 0;
+        current_value = data_t(data_dimension, 0);
+      }
+
+      /*! Function receiving the updated value of the vectors to accumulate
+       *  from different threads.
+       * 
+       *  @note The call is thread safe.
+       */
+      void update(data_t const& updated_value)
+      {
+        boost::lock_guard<boost::mutex> guard(internal_mutex);
+        current_value += updated_value;
+        nb_updates ++;
+      }
+
+      //! Returns the number of updates received so far.
+      int get_nb_updates() const
+      {
+        // to avoid possibly corrupted data, but I think for int this is unnecessary
+        boost::lock_guard<boost::mutex> guard(internal_mutex); 
+        return nb_updates;
+      }
+
+      //! Returns the current value 
+      data_t const& get_accumulated_data() const
+      {
+        return current_value;
+      }
+    };
+
+
+
+    /*
+    //! Merges all individual accumulators
+    template <class acc_processors_container_t>
+    data_t merge_accumulators(acc_processors_container_t const& c) const
+    {
+      data_t acc_out(0);
+      for(typename acc_processors_container_t::const_iterator it(c.begin()), ite(c.end()); it < ite; ++it)
+      {
+        acc_out += it->accumulator();
+      }
+      return acc_out;
+    }
+
+    */
+
+
+
   public:
-    robust_pca_impl() : random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable)
+    robust_pca_impl() : random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable), nb_processors(1)
     {}
+
+
+    //! Sets the number of parallel tasks used for computing.
+    bool set_nb_processors(int nb_processors_)
+    {
+      nb_processors = nb_processors_;
+      return true;
+    }
 
 
 
     /*! Performs the computation of the current subspace on the elements given by the two iterators.
-     *  @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
-     *   should provide a vector point.
-     *  @tparam it_o_projected_vectors output forward iterator pointing on a container of vector points. 
-     *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
+     *
+     * @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
+     *  should provide a vector point.
+     * @tparam it_o_projected_vectors output random access iterator pointing on a container of vector points. 
+     * @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
      * @param[in] max_iterations the maximum number of iterations at each dimension. 
-     * @param[in] max_dimension_to_compute the maximum number of dimensions to compute in the PCA (only the first max_dimension_to_compute will be 
+     * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first max_dimension_to_compute will be 
      *            computed).
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
      * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
      *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
      * @param[in, out] it_projected
-     * @param[in] initial_guess if provided, the initial vector will be initialized to this value. 
+     * @param[in] initial_guess if provided, the initial vectors will be initialized to this value. The size of the pointed container should be at least max_dimension_to_compute.
      * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
      *
      * @returns true on success, false otherwise
      * @pre 
      * - @c !(it >= ite)
      * - all the vectors given by the iterators pair should be of the same size (no check is performed).
+     *
+     * @note the iterator it_o_projected_vectors should implement random access to the elements.
      */
     template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t/*, class it_norm_t*/>
     bool batch_process(
@@ -216,7 +430,7 @@ namespace robust_pca
       it_t const ite, 
       it_o_projected_vectors const it_projected,
       it_o_eigenvalues_t it_eigenvectors,
-      data_t const * initial_guess = 0)
+      std::vector<data_t> const * initial_guess = 0)
     {
 
       // add some log information
@@ -230,13 +444,12 @@ namespace robust_pca
       // first computation of the weights. At this point it is necessary.
       // The vectors are also copied into the temporary container.
       it_o_projected_vectors it_tmp_projected(it_projected);
-      //it_norm_t it_norm_out_copy(it_norm_out);
-      for(it_t it_copy(it); it_copy != ite; ++it_copy /*, ++it_norm_out_copy*/, ++it_tmp_projected, size_data++)
+      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_tmp_projected, size_data++)
       {
-        typename it_t::reference current_vect = *it_copy;
-        *it_tmp_projected = current_vect;
-        // *it_norm_out_copy = norm_op(current_vect);
+        *it_tmp_projected = *it_copy;
       }
+
+      assert(size_data == std::distance(it, ite));
 
 
       // init of the vectors
@@ -244,17 +457,72 @@ namespace robust_pca
 
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
-      data_t mu(initial_guess != 0 ? *initial_guess : random_init_op(*it));
+      data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
+      typename norm_2_t::result_type norm_mu(norm_op(mu)); // normalizing
+      mu /= norm_mu;
 
       const int number_of_dimensions = static_cast<int>(mu.size());
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
-
-      // normalizing
-      typename norm_2_t::result_type norm_mu(norm_op(mu));
-      mu /= norm_mu;
-      
       
       int iterations = 0;
+
+
+      // preparing the ranges on which each processing thread will run.
+      // the number of objects can be much more than the current number of processors, in order to
+      // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
+      // processing at the synchronization point.
+      typedef initial_accumulation<it_o_projected_vectors> individual_accumulators_t;
+      std::vector<individual_accumulators_t> v_individual_accumulators(nb_processors);
+
+      asynchronous_addition async_add_object(number_of_dimensions);
+
+      {
+        bool b_result;
+        const size_t chunks_size = static_cast<size_t>(size_data/v_individual_accumulators.size());
+        it_o_projected_vectors it_current_begin(it_projected);
+        for(int i = 0; i < nb_processors; i++)
+        {
+          // setting the range
+          it_o_projected_vectors it_current_end;
+          if(i == nb_processors - 1)
+          {
+            // just in case the division giving the chunk has some rounding
+            it_current_end = it_current_begin + size_data - chunks_size*(nb_processors - 1)
+          }
+          else
+          {
+            it_current_end = it_current_begin + chunks_size;
+          }
+
+          individual_accumulators_t &current_acc_object = v_individual_accumulators[i];
+
+          b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
+          if(!b_result)
+          {
+            return b_result;
+          }
+
+          // updating the dimension of the problem
+          current_acc_object.set_data_dimensions(number_of_dimensions);
+
+          // attaching the update object
+          current_acc_object.connection().connect(boost::bind(&asynchronous_addition::update, async_add_object));
+
+          // updating the next 
+          it_current_begin = it_current_end;
+        }
+      }
+
+      // preparing the thread pool, to avoid individual thread creation/deletion at each step.
+      boost::asio::io_service ioService;
+      boost::thread_group threadpool;
+
+      // this is exactly the number of processors
+      boost::asio::io_service::work work(ioService);
+      for(int i = 0; i < nb_processors; i++)
+      {
+        threadpool.create_thread(boost::bind(&asio::io_service::run, &ioService));
+      }
 
 
       // for each dimension
@@ -264,60 +532,53 @@ namespace robust_pca
         convergence_check<data_t> convergence_op(mu);
 
         data_t previous_mu(mu);
-        data_t acc = data_t(number_of_dimensions, 0);
-        
-        std::vector<bool>::iterator itb(signs.begin());
-        
-        it_o_projected_vectors it_tmp_projected(it_projected);
 
-        // first iteration, we store the signs
-        for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
+        // reseting the final accumulator
+        async_add_object.init();
+
+        // pushing the initialisation of the mu and sign vectors to the pool
+        for(int i = 0; i < v_individual_accumulators.size(); i++)
         {
-          typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
-          bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
-          *itb = sign;
-
-          if(sign)
-          {
-            acc += current_data;
-          }
-          else 
-          {
-            acc -= current_data;
-          }
+          ioService.post(boost::bind(&individual_accumulators_t::initial_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
         }
-        mu = acc / norm_op(acc);
+
+        // waiting for completion (barrier)
+        while(async_add_object.get_nb_updates() < v_individual_accumulators.size())
+        {
+          boost::this_thread::yield();
+        }
+
+        // gathering the first mu
+        mu = async_add_object.get_accumulated_data();
+        mu /= norm_op(mu);
+
 
         // other iterations as usual
         for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
         {
           previous_mu = mu;
-          std::vector<bool>::iterator itb(signs.begin());
           it_o_projected_vectors it_tmp_projected(it_projected);
 
-          for(size_t s = 0; s < size_data; ++it_tmp_projected, ++itb, s++)
+          // reseting the final accumulator
+          async_add_object.init();
+
+          // pushing the update of the mu (and signs)
+          for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
-
-            bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
-            if(sign != *itb)
-            {
-              *itb = sign;
-
-              // update the value of the accumulator according to sign change
-              if(sign)
-              {
-                acc += 2 * current_data;
-              }
-              else
-              {
-                acc -= 2 * current_data;
-              }
-            }
+            ioService.post(boost::bind(&individual_accumulators_t::update_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
           }
 
-          mu = acc / norm_op(acc);
+          // waiting for completion (barrier)
+          while(async_add_object.get_nb_updates() < v_individual_accumulators.size())
+          {
+            boost::this_thread::yield();
+          }
+
+          // gathering the mus
+          mu = async_add_object.get_accumulated_data();
+          mu /= norm_op(mu);
         }
+
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
         *it_eigenvectors = mu;
@@ -328,16 +589,14 @@ namespace robust_pca
           it_o_projected_vectors it_tmp_projected(it_projected);
 
           // update of vectors in the orthogonal space, and update of the norms at the same time. 
-          // it_norm_t it_norm_out_copy(it_norm_out);
-          for(size_t s(0); s < size_data; ++it_tmp_projected/*, ++it_norm_out_copy*/, s++)
+          for(size_t s(0); s < size_data; ++it_tmp_projected, s++)
           {
             typename it_o_projected_vectors::reference current_vector = *it_tmp_projected;
             current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
 
-            // *it_norm_out_copy = norm_op(current_vector);
           }
 
-           mu = initial_guess != 0 ? *initial_guess : random_init_op(*it);
+          mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
         }
 
 
@@ -435,7 +694,7 @@ namespace robust_pca
     *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
     *
     * @param[in] max_iterations the maximum number of iterations at each dimension.
-    * @param[in] max_dimension_to_compute the maximum number of dimensions to compute in the PCA (only the first max_dimension_to_compute will be
+    * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first max_dimension_to_compute will be
     *            computed).
     * @param[in] it input iterator at the beginning of the data
     * @param[in] ite input iterator at the end of the data
