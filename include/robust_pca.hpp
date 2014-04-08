@@ -753,7 +753,9 @@ namespace robust_pca
 
       
       // Accumulator object containing the required quantiles. 
-      std::vector<double> probs = { min_trim_percentage, max_trim_percentage };
+      std::vector<double> probs(2);
+      probs[0] = min_trim_percentage;
+      probs[1] = max_trim_percentage;
       const accumulator_t quantil_obj(extended_p_square_probabilities = probs);
       
       // vector of accumulator objects
