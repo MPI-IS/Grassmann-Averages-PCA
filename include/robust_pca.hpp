@@ -722,6 +722,8 @@ namespace robust_pca
     double min_trim_percentage;
     double max_trim_percentage;
 
+
+    //! Updates the quantile for each dimension of the vector
     template <class vector_acc_t>
     void apply_quantile_to_vector(const data_t& current_data, bool sign, vector_acc_t& v_acc) const
     {
@@ -733,6 +735,7 @@ namespace robust_pca
       }
     }
 
+    //! Performs a selective update of the accumulator, given the bounds computed previously
     template <class vector_bounds_t, class vector_number_elements_t>
     void selective_acc_to_vector(
       const vector_bounds_t& lower_bounds, const vector_bounds_t& upper_bounds,

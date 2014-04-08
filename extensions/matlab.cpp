@@ -314,8 +314,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   size_t dimension = columns;
 
-
-  max_dimension = dimension;
+#if 0
   // second argument is the maximum numbers of dimensions
   if (nrhs >= 2)
   {
@@ -348,14 +347,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       mexErrMsgTxt("Erroneous argument for the maximal dimension specification (exceeds the dimension of the data)");
     }
   }
+#endif
 
 
   // third argument is the optional trimming percentage
   bool b_trimming = false;
   trimming_percentage = -1;
-  if(nrhs == 3)
+  if(nrhs >= 2)
   {
-    const mxArray* const trimmingArray = prhs[2];
+    const mxArray* const trimmingArray = prhs[1];
     if(!mxIsNumeric(trimmingArray))
     {
       mexErrMsgTxt("Erroneous argument for the trimming percentage (non numeric argument)");
@@ -390,10 +390,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   nb_iterations_max = 1000;
   max_chunk_size = std::numeric_limits<size_t>::max();
   nb_processing_threads = 1;
+  max_dimension = dimension;
 
-  if(nrhs == 4)
+  if(nrhs == 3)
   {
-    const mxArray* const algorithmConfiguration = prhs[3];
+    const mxArray* const algorithmConfiguration = prhs[2];
 
     if(!mxIsStruct(algorithmConfiguration))
     {
@@ -415,7 +416,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mxArray *nb_processing_threads_array = mxGetField(algorithmConfiguration, 0, "nb_processing_threads");
     if(nb_processing_threads_array != 0)
     {
-      nb_processing_threads = static_cast<int>(mxGetScalar(nb_processing_threads_array) + 0.5);
+      nb_processing_threads = static_cast<size_t>(mxGetScalar(nb_processing_threads_array) + 0.5);
+    }
+
+    mxArray *nb_max_dimensions = mxGetField(algorithmConfiguration, 0, "max_dimensions");
+    if(nb_max_dimensions != 0)
+    {
+      max_dimension = static_cast<size_t>(mxGetScalar(nb_max_dimensions) + 0.5);
     }
   }
 
