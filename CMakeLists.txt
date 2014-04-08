@@ -150,7 +150,7 @@ if(NOT WITHOUT_MATLAB)
   set(RobustPCAMEX_LIB
       extensions/matlab.cpp)
   add_library(robustpca_m SHARED ${RobustPCAMEX_LIB})
-  target_link_libraries(robustpca_m ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY})
+  target_link_libraries(robustpca_m robustpca ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY})
 
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
   set_target_properties(robustpca_m PROPERTIES SUFFIX ".${MEX_EXTENSION}")

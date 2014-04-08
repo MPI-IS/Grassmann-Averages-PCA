@@ -456,6 +456,10 @@ namespace robust_pca
     //! of the processing.
     bool set_max_chunk_size(size_t chunk_size)
     {
+      if(chunk_size == 0)
+      {
+        return false;
+      }
       max_chunk_size = chunk_size;
       return true;
     }
