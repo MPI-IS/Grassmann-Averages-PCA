@@ -198,7 +198,7 @@ namespace robust_pca
     {
     private:
       container_iterator_t begin, end;
-      int nb_elements;
+      size_t nb_elements;
       data_t accumulator;
       std::vector<bool> v_signs;
       int data_dimension;
@@ -282,7 +282,7 @@ namespace robust_pca
         // first iteration, we store the signs
         for(size_t s = 0; s < nb_elements; ++it_data, ++itb, s++)
         {
-          typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
+          typename container_iterator_t::reference current_data = *it_data;
 
           bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
           if(sign != *itb)
@@ -292,11 +292,11 @@ namespace robust_pca
 
             if(sign)
             {
-              acc += 2 * current_data;
+              accumulator += 2 * current_data;
             }
             else
             {
-              acc -= 2 * current_data;
+              accumulator -= 2 * current_data;
             }
           }
         }
@@ -313,13 +313,13 @@ namespace robust_pca
      * When the vector are of high dimension, it should be interesting to also have
      * the update of the final accumulator within each threads. 
      */
-    struct asynchronous_addition
+    struct asynchronous_addition : boost::noncopyable
     {
     private:
-      boost::mutex internal_mutex;
+      mutable boost::mutex internal_mutex;
       data_t current_value;
-      int nb_updates;
-      int data_dimension;
+      volatile int nb_updates;
+      const int data_dimension;
 
     public:
 
@@ -471,7 +471,7 @@ namespace robust_pca
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
-      typedef initial_accumulation<it_o_projected_vectors> individual_accumulators_t;
+      typedef s_accumulator_processor<it_o_projected_vectors> individual_accumulators_t;
       std::vector<individual_accumulators_t> v_individual_accumulators(nb_processors);
 
       asynchronous_addition async_add_object(number_of_dimensions);
@@ -487,7 +487,7 @@ namespace robust_pca
           if(i == nb_processors - 1)
           {
             // just in case the division giving the chunk has some rounding
-            it_current_end = it_current_begin + size_data - chunks_size*(nb_processors - 1)
+            it_current_end = it_current_begin + size_data - chunks_size*(nb_processors - 1);
           }
           else
           {
@@ -506,7 +506,7 @@ namespace robust_pca
           current_acc_object.set_data_dimensions(number_of_dimensions);
 
           // attaching the update object
-          current_acc_object.connection().connect(boost::bind(&asynchronous_addition::update, async_add_object));
+          current_acc_object.connector().connect(boost::bind(&asynchronous_addition::update, &async_add_object, _1));
 
           // updating the next 
           it_current_begin = it_current_end;
@@ -521,7 +521,7 @@ namespace robust_pca
       boost::asio::io_service::work work(ioService);
       for(int i = 0; i < nb_processors; i++)
       {
-        threadpool.create_thread(boost::bind(&asio::io_service::run, &ioService));
+        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
       }
 
 

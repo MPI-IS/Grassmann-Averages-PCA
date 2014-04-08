@@ -92,6 +92,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     vec_initial_point(i) = initial_point[i];
   }
 
+  std::vector< ub::vector<double> > v_init_points(dimensions, vec_initial_point);
+
   BOOST_CHECK(instance.batch_process(
     max_iterations,
     dimensions,
@@ -99,7 +101,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
     eigen_vectors.begin(),
-    &vec_initial_point));
+    &v_init_points));
 
 
 
