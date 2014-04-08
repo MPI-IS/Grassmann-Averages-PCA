@@ -22,6 +22,9 @@ endif()
 
 # Boost, uBlas and some other header only libraries are needed in any case. The boost.test framework
 # is optional.
+
+# disable auto link
+add_definitions(-DBOOST_ALL_NO_LIB)
 if(NOT WITHOUT_TESTS)
   set(Boost_USE_MULTITHREADED ON)
 
@@ -34,9 +37,9 @@ if(NOT WITHOUT_TESTS)
   endif()
   set(Boost_NO_BOOST_CMAKE ON)
 
-  find_package(Boost COMPONENTS unit_test_framework)
+  find_package(Boost COMPONENTS unit_test_framework system thread)
 else()
-  find_package(Boost)
+  find_package(Boost COMPONENTS system thread)
 endif()
 
 if(NOT ${Boost_FOUND})
@@ -83,6 +86,7 @@ set(RobustPCA_LIB
      include/robust_pca.hpp
      src/robust_pca.cpp)
 add_library(robustpca ${RobustPCA_LIB})
+target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY})
 
 
 
@@ -113,7 +117,7 @@ if(NOT WITHOUT_TESTS)
       test/test_robust_pca_trimmed.cpp
       test/test_row_proxy.cpp)
   add_executable(robustpca_test ${RobustPCA_tests})
-  target_link_libraries(robustpca_test ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+  target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 
   # the main definition is in there
   set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
