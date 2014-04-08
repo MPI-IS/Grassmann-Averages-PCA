@@ -205,8 +205,10 @@ namespace robust_pca
 
       // this is to send an update of the value of mu to all listeners
       // the connexion should be managed externally
-      typedef boost::signals2::signal<void (data_t const&)> connector_t;
-      connector_t sig;
+      typedef boost::signals2::signal<void (data_t const&)> connector_accumulator_t;
+      typedef boost::signals2::signal<void ()>              connector_counter_t;
+      connector_accumulator_t signal_acc;
+      connector_counter_t signal_counter;
 
 
     public:
@@ -234,10 +236,16 @@ namespace robust_pca
         assert(data_dimension > 0);
       }
 
-      //! Returns the connected object that will receive the notification of the update
-      connector_t& connector()
+      //! Returns the connected object that will receive the notification of the updated accumulator.
+      connector_accumulator_t& accumulator_connector()
       {
-        return sig;
+        return signal_acc;
+      }
+
+      //! Returns the connected object that will receive the notification of the end of the current process.
+      connector_counter_t& counter_connector()
+      {
+        return signal_counter;
       }
       
 
@@ -268,7 +276,8 @@ namespace robust_pca
 
 
         // posts the new value to the listeners
-        sig(accumulator);
+        signal_acc(accumulator);
+        signal_counter();
       }
 
 
@@ -302,7 +311,23 @@ namespace robust_pca
         }
 
         // posts the new value to the listeners
-        sig(accumulator);
+        signal_acc(accumulator);
+        signal_counter();
+      }
+
+      //! Project the data onto the orthogonal subspace of the provided vector
+      void project_onto_orthogonal_subspace(data_t const &mu)
+      {
+        container_iterator_t it_data(begin);
+
+        // update of vectors in the orthogonal space, and update of the norms at the same time. 
+        for(size_t s = 0; s < nb_elements; ++it_data, s++)
+        {
+          typename container_iterator_t::reference current_vector = *it_data;
+          current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
+        }
+
+        signal_counter();
       }
 
     };
@@ -330,11 +355,22 @@ namespace robust_pca
       asynchronous_addition(int data_dimension_) : data_dimension(data_dimension_)
       {}
 
-      //! Initialises the internal state of the accumulator
       void init()
       {
-        nb_updates = 0;
+        clear_accumulation();
+        clear_counter();
+      }
+
+      //! Initialises the internal state of the accumulator
+      void clear_accumulation()
+      {
         current_value = data_t(data_dimension, 0);
+      }
+
+      //! Initialises the internal state of the counter
+      void clear_counter()
+      {
+        nb_updates = 0;
       }
 
       /*! Function receiving the updated value of the vectors to accumulate
@@ -346,6 +382,10 @@ namespace robust_pca
       {
         boost::lock_guard<boost::mutex> guard(internal_mutex);
         current_value += updated_value;
+      }
+
+      void update()
+      {
         nb_updates ++;
       }
 
@@ -364,6 +404,23 @@ namespace robust_pca
       }
     };
 
+
+    //! Ensures the proper stop of the processing pool
+    struct safe_stop
+    {
+      boost::asio::io_service& io_service;
+      boost::thread_group& thread_group;
+
+      safe_stop(boost::asio::io_service& ios, boost::thread_group& tg) : io_service(ios), thread_group(tg)
+      {
+      }
+
+      ~safe_stop()
+      {
+        io_service.stop();
+        thread_group.join_all();
+      }
+    };
 
 
     /*
@@ -439,10 +496,29 @@ namespace robust_pca
         return false;
       }
 
+      // preparing the thread pool, to avoid individual thread creation/deletion at each step.
+      // we perform the init here because it might take some time for the thread to really start.
+      boost::asio::io_service ioService;
+      boost::thread_group threadpool;
 
+
+      // in case of non clean exit (or even in case of clean one).
+      safe_stop worker_lock_guard(ioService, threadpool);
+
+      // this is exactly the number of processors
+      boost::asio::io_service::work work(ioService);
+      for(int i = 0; i < nb_processors; i++)
+      {
+        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+      }
+
+      // contains the number of elements. In case the iterator is random access, could be deduced simply 
+      // by a call to distance.
       size_t size_data(0);
-      // first computation of the weights. At this point it is necessary.
-      // The vectors are also copied into the temporary container.
+
+
+      // The vectors are copied into the temporary container. 
+      // TODO this is not necessary in case if the it_o_projected_vectors and it_t return both the same type.
       it_o_projected_vectors it_tmp_projected(it_projected);
       for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_tmp_projected, size_data++)
       {
@@ -505,24 +581,15 @@ namespace robust_pca
           // updating the dimension of the problem
           current_acc_object.set_data_dimensions(number_of_dimensions);
 
-          // attaching the update object
-          current_acc_object.connector().connect(boost::bind(&asynchronous_addition::update, &async_add_object, _1));
+          // attaching the update object callbacks
+          current_acc_object.accumulator_connector().connect(boost::bind(&asynchronous_addition::update, &async_add_object, _1));
+          current_acc_object.counter_connector().connect(boost::bind(&asynchronous_addition::update, &async_add_object));
 
           // updating the next 
           it_current_begin = it_current_end;
         }
       }
 
-      // preparing the thread pool, to avoid individual thread creation/deletion at each step.
-      boost::asio::io_service ioService;
-      boost::thread_group threadpool;
-
-      // this is exactly the number of processors
-      boost::asio::io_service::work work(ioService);
-      for(int i = 0; i < nb_processors; i++)
-      {
-        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
-      }
 
 
       // for each dimension
@@ -586,23 +653,30 @@ namespace robust_pca
         // projection onto the orthogonal subspace
         if(current_dimension < max_dimension_to_compute - 1)
         {
-          it_o_projected_vectors it_tmp_projected(it_projected);
 
-          // update of vectors in the orthogonal space, and update of the norms at the same time. 
-          for(size_t s(0); s < size_data; ++it_tmp_projected, s++)
+          async_add_object.clear_counter();
+
+          // pushing the update of the mu (and signs)
+          for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            typename it_o_projected_vectors::reference current_vector = *it_tmp_projected;
-            current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
-
+            ioService.post(boost::bind(&individual_accumulators_t::project_onto_orthogonal_subspace, boost::ref(v_individual_accumulators[i]), boost::cref(*it_eigenvectors)));
           }
 
           mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
+
+          while(async_add_object.get_nb_updates() < v_individual_accumulators.size())
+          {
+            boost::this_thread::yield();
+          }
+
         }
-
-
-
-
+        
       }
+
+
+      // stopping the pool is done in the destruction of worker_lock_guard
+
+
 
       return true;
     }
