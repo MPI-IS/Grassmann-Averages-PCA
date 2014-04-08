@@ -173,6 +173,12 @@ namespace robust_pca
   };
 
 
+
+
+
+
+
+
   /*!@brief Robust PCA subspace algorithm
    *
    * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
@@ -190,6 +196,8 @@ namespace robust_pca
     //! Number of parallel tasks that will be used for computing.
     int nb_processors;
 
+    //! Maximal size of a chunk (infinity by default).
+    size_t max_chunk_size;
 
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
@@ -386,6 +394,7 @@ namespace robust_pca
 
       void update()
       {
+        boost::lock_guard<boost::mutex> guard(internal_mutex);
         nb_updates ++;
       }
 
@@ -423,25 +432,13 @@ namespace robust_pca
     };
 
 
-    /*
-    //! Merges all individual accumulators
-    template <class acc_processors_container_t>
-    data_t merge_accumulators(acc_processors_container_t const& c) const
-    {
-      data_t acc_out(0);
-      for(typename acc_processors_container_t::const_iterator it(c.begin()), ite(c.end()); it < ite; ++it)
-      {
-        acc_out += it->accumulator();
-      }
-      return acc_out;
-    }
-
-    */
-
 
 
   public:
-    robust_pca_impl() : random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable), nb_processors(1)
+    robust_pca_impl() : 
+      random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable), 
+      nb_processors(1),
+      max_chunk_size(std::numeric_limits<size_t>::max())
     {}
 
 
@@ -449,6 +446,17 @@ namespace robust_pca
     bool set_nb_processors(int nb_processors_)
     {
       nb_processors = nb_processors_;
+      return true;
+    }
+
+    //! Sets the maximum chunk size. 
+    //!
+    //! By default, the chunk size is the size of the data divided by the number of processing threads.
+    //! Lowering the chunk size should provid better granularity in the overall processing time at the end 
+    //! of the processing.
+    bool set_max_chunk_size(size_t chunk_size)
+    {
+      max_chunk_size = chunk_size;
       return true;
     }
 
@@ -527,10 +535,11 @@ namespace robust_pca
 
       assert(size_data == std::distance(it, ite));
 
+      // size of the chunks.
+      const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(size_data/nb_processors));
+      const size_t nb_chunks = (size_data + chunks_size - 1) / chunks_size;
 
-      // init of the vectors
-      std::vector<bool> signs(size_data, false);
-
+      
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
@@ -548,22 +557,22 @@ namespace robust_pca
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
       typedef s_accumulator_processor<it_o_projected_vectors> individual_accumulators_t;
-      std::vector<individual_accumulators_t> v_individual_accumulators(nb_processors);
+      std::vector<individual_accumulators_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_addition async_add_object(number_of_dimensions);
 
       {
         bool b_result;
-        const size_t chunks_size = static_cast<size_t>(size_data/v_individual_accumulators.size());
         it_o_projected_vectors it_current_begin(it_projected);
-        for(int i = 0; i < nb_processors; i++)
+        for(int i = 0; i < nb_chunks; i++)
         {
           // setting the range
           it_o_projected_vectors it_current_end;
-          if(i == nb_processors - 1)
+          if(i == nb_chunks - 1)
           {
-            // just in case the division giving the chunk has some rounding
-            it_current_end = it_current_begin + size_data - chunks_size*(nb_processors - 1);
+            // just in case the division giving the chunk has some rounding (the parenthesis are important
+            // otherwise it is a + followed by a -, which can be out of range after the first +)
+            it_current_end = it_current_begin + (size_data - chunks_size*(nb_chunks - 1));
           }
           else
           {
@@ -738,14 +747,6 @@ namespace robust_pca
         
 
         v_selective_accumulator[i] += v;
-        /*if(sign)
-        {
-          v_selective_accumulator[i] += v;
-        }
-        else
-        {
-          v_selective_accumulator[i] -= v;
-        }*/
         v_selective_acc_count[i]++;
       }
     }
