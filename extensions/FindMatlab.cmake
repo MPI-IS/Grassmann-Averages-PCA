@@ -8,19 +8,19 @@
 # to be able to compile Matlab extensions (mex files). It can also be used to run unit test on these mex extensions,
 # and run Matlab.
 #
-# The variable MATLAB_ROOT can be specified in order to give the path of the desired Matlab version.
+# The variable ``MATLAB_ROOT`` may be specified in order to give the path of the desired Matlab version. Also, 
+# additionnal information is provided when ``MATLAB_FIND_DEBUG`` is set.
 # Otherwise, the behaviour is platform dependant:
 #
-# - on Windows, it looks for all installed versions of Matlab according to the entries in the registry
-# - on Mac, it looks for all installed versions of Matlab in /Application path
-# - on Unix, not tested yet.
+# - on Windows, the installed versions of Matlab are retrieved from the Windows registry
+# - on Mac, the installed versions of Matlab are given by the MATLAB pathes in /Application
+# - on Unix, the desired Matlab should be accessible from the PATH.
 #
 # When a Matlab binary is found and the ``MATLAB_VERSION`` is not given, then the
-# version of the Matlab installation is queried from Matlab directly. On Windows, it can make
-# a Window running Matlab appear, which should be avoided in some situations.
+# version is queried from Matlab directly. On Windows, it can make a window running Matlab appear.
 #
-# The mapping of the release names and the version of Matlab is not trivial. The variable ``MATLAB_ADDITIONAL_VERSIONS``
-# can be provided by the user in order to handle additional versions, in the following form:
+# The mapping of the release names and the version of Matlab is performed by defining pairs (name, version). 
+# The variable ``MATLAB_ADDITIONAL_VERSIONS`` may be provided in order to handle additional versions, in the following form:
 #
 # ::
 #
@@ -44,13 +44,13 @@
 # * ``MATLAB_FOUND`` true if the Matlab installation is found.
 # * ``MATLAB_ROOT`` the root of the Matlab installation
 # * ``MATLAB_VERSION`` the version of the Matlab installation
-# * ``MATLAB_PROGRAM`` the Matlab binary program. Available only if the component "MAIN_PROGRAM" is asked
+# * ``MATLAB_PROGRAM`` the Matlab binary program. Available only if the component ``MAIN_PROGRAM`` is asked
 # * ``MATLAB_INCLUDE_DIR`` the path of the Matlab libraries headers
 # * ``MATLAB_MEX_LIBRARY`` library for mex
-# * ``MATLAB_MX_LIBRARY`` mx library of Matlab (arrays). Available only if the component "MX_LIBRARY" is asked
-# * ``MATLAB_ENG_LIBRARY`` Matlab engine library. Available only if the component "ENG_LIBRARY" is asked
+# * ``MATLAB_MX_LIBRARY`` mx library of Matlab (arrays). Available only if the component ``MX_LIBRARY`` is asked
+# * ``MATLAB_ENG_LIBRARY`` Matlab engine library. Available only if the component ``ENG_LIBRARY`` is asked
 # * ``MATLAB_LIBRARIES`` the whole set of libraries of Matlab
-# * ``MATLAB_MEX_COMPILER`` the mex compiler of Matlab. Currently not used internally. Available only if the component "MEX_COMPILER" is asked
+# * ``MATLAB_MEX_COMPILER`` the mex compiler of Matlab. Currently not used internally. Available only if the component ``MEX_COMPILER`` is asked
 #
 #
 # Defined macros
@@ -64,11 +64,9 @@
 # * ``matlab_get_version_from_matlab_run`` returns the version of Matlab, given the full directory of the Matlab program.
 #
 # 
-# todo
-# ----
+# Future work
+# -----------
 # - win32:an additional variable telling that the registry is x86 or x64, maybe depending on the target build.
-# - add a verbosity level for the info messages 
-# - for determining the version, add a fall-back in case Matlab cannot be launched, like "MATLAB_VERSION=no".
 # - add a unit test method for Matlab versions >= 8.1 (R2013+)
 
 #=============================================================================
