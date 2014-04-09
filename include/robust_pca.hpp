@@ -637,7 +637,6 @@ namespace robust_pca
         for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
         {
           previous_mu = mu;
-          it_o_projected_vectors it_tmp_projected(it_projected);
 
           // reseting the final accumulator
           async_add_object.init();
