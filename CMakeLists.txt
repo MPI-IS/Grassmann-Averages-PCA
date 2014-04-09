@@ -52,11 +52,19 @@ endif()
 if(NOT WITHOUT_MATLAB)
   # simple wart to the current state of the Matlab release into the community
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/extensions)
-  find_package(Matlab REQUIRED)
+  set(MATLAB_FIND_DEBUG TRUE)
+  find_package(MATLAB 8.2 EXACT REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
   
   # the following lines should not be needed
-  if(NOT MATLAB_INCLUDE_DIR)
+  if(NOT ${MATLAB_FOUND})
     message(FATAL_ERROR "Unable to find Matlab include directory")
+  else()
+    message(STATUS "[MATLAB] - version ${MATLAB_VERSION}")
+    message(STATUS "[MATLAB] - include directory ${MATLAB_INCLUDE_DIR}")
+    message(STATUS "[MATLAB] - mex library ${MATLAB_MEX_LIBRARY}")
+    message(STATUS "[MATLAB] - mex extension ${MATLAB_MEX_EXTENSION}")
+    message(STATUS "[MATLAB] - mx library ${MATLAB_MX_LIBRARY}")
+    message(STATUS "[MATLAB] - matlab ${MATLAB_PROGRAM}")
   endif()
 
   # Adding a project for the script that finds Matlab, the script being under development currently
