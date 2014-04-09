@@ -314,41 +314,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   size_t dimension = columns;
 
-#if 0
-  // second argument is the maximum numbers of dimensions
-  if (nrhs >= 2)
-  {
-    const mxArray* const maxDimArray = prhs[1];
-    if(!mxIsNumeric(maxDimArray))
-    {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non numeric argument)");
-    }
-
-    if(mxIsEmpty(maxDimArray))
-    {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (empty value)");
-    }
-
-    if(mxGetNumberOfElements(maxDimArray) > 1)
-    {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non scalar)");
-    }
-
-    mxClassID classId = mxGetClassID(maxDimArray);
-    if(classId == mxDOUBLE_CLASS || classId == mxSINGLE_CLASS)
-    {
-      //mexErrMsgTxt("Erroneous argument for the maximal dimension specification (floating point type)");
-    }
-    max_dimension = static_cast<size_t>(mxGetScalar(maxDimArray) + 0.5);
-
-
-    if(max_dimension >= dimension)
-    {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (exceeds the dimension of the data)");
-    }
-  }
-#endif
-
 
   // third argument is the optional trimming percentage
   bool b_trimming = false;
@@ -384,6 +349,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
       mexErrMsgTxt("Erroneous argument for the trimming percentage (not within the range [0, 100])");
     }
+
+    b_trimming = trimming_percentage > 0 && trimming_percentage < 100;
   }
 
 
