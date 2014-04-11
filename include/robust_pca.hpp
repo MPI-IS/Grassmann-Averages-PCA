@@ -706,12 +706,12 @@ namespace robust_pca
 
 
   /*!@brief Robust PCA subspace algorithm, with trimming
-  *
-  * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
-  * suitable for small datasets.
-  *
-  * @author Soren Hauberg, Raffi Enficiaud
-  */
+   *
+   * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
+   * suitable for small datasets.
+   *
+   * @author Soren Hauberg, Raffi Enficiaud
+   */
   template <class data_t, class norm_2_t = norm2>
   struct robust_pca_with_trimming_impl
   {
@@ -769,27 +769,27 @@ namespace robust_pca
 
 
     /*! Performs the computation of the current subspace on the elements given by the two iterators.
-    *  @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
-    *   should provide a vector point.
-    *  @tparam it_o_projected_vectors output forward iterator pointing on a container of vector points.
-    *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
-    *
-    * @param[in] max_iterations the maximum number of iterations at each dimension.
-    * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first max_dimension_to_compute will be
-    *            computed).
-    * @param[in] it input iterator at the beginning of the data
-    * @param[in] ite input iterator at the end of the data
-    * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
-    *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
-    * @param[in, out] it_projected
-    * @param[in] initial_guess if provided, the initial vector will be initialized to this value.
-    * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
-    *
-    * @returns true on success, false otherwise
-    * @pre
-    * - @c !(it >= ite)
-    * - all the vectors given by the iterators pair should be of the same size (no check is performed).
-    */
+     *  @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
+     *   should provide a vector point.
+     *  @tparam it_o_projected_vectors output forward iterator pointing on a container of vector points.
+     *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
+     *
+     * @param[in] max_iterations the maximum number of iterations at each dimension.
+     * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first max_dimension_to_compute will be
+     *            computed).
+     * @param[in] it input iterator at the beginning of the data
+     * @param[in] ite input iterator at the end of the data
+     * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
+     *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
+     * @param[in, out] it_projected
+     * @param[in] initial_guess if provided, the initial vector will be initialized to this value.
+     * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
+     *
+     * @returns true on success, false otherwise
+     * @pre
+     * - @c !(it >= ite)
+     * - all the vectors given by the iterators pair should be of the same size (no check is performed).
+     */
     template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
     bool batch_process(
       const int max_iterations,
@@ -985,7 +985,7 @@ namespace robust_pca
 
 
 
-  /*!@brief Robust PCA subspace algorithm, with trimming
+ /*!@brief Robust PCA subspace algorithm, with trimming
   *
   * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
   * suitable for small datasets.
