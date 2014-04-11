@@ -39,38 +39,6 @@ struct matlab_matrix_allocation<double>
 
 
 
-//! An helper class that implements the storage concept of boost::ublas
-//! and performs the allocation on matlab side. It is also possible
-//! to provide a matlab array.
-template <class T>
-class matlab_matrix_storage
-{ 
-  typedef T& reference;
-
-  //! Default constructible
-  matlab_matrix_storage() : pData(0)
-  {
-  }
-
-  //! Size constructible
-  matlab_matrix_storage(size_t s) : pData(0)
-  {
-    mxArray *v = matlab_matrix_allocation<T>::allocate(s);
-
-  }
-
-
-
-  //! Random access container
-  reference operator[](size_t i)
-  {
-    return pData[i];
-  }
-
-
-private:
-  T* pData;
-};
 
 
 template <class output_type, class input_type>
@@ -303,8 +271,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   config.rows = mxGetM(X);
   config.columns = mxGetN(X);
   
-  
-  const size_t &rows = config.rows;
+   
   const size_t &columns = config.columns;
   size_t &max_dimension = config.max_dimension;
   double &trimming_percentage = config.trimming_percentage;
