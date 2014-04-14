@@ -182,6 +182,28 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   if(WIN32)
     set(MATLAB_UNIT_TESTS_CMD ${MATLAB_UNIT_TESTS_CMD} -wait)
   endif()
+  
+  #add_custom_command(
+  #  OUTPUT $<TARGET_FILE_DIR:robustpca_m>/
+  #  DEPENDS foo.cfg.in
+  #  COMMAND ${CMAKE_COMMAND} -E copy foo.cfg.in foo.cfg
+  #)
+  
+  
+  add_custom_command(
+    TARGET robustpca_m
+    PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${Boost_SYSTEM_LIBRARY} $<TARGET_FILE_DIR:robustpca_m>/. #_$<CONFIGURATION>
+#    WORKING_DIRECTORY 
+    COMMENT "Copy ${Boost_SYSTEM_LIBRARY}" #_$<CONFIGURATION>
+    VERBATIM
+    )    
+  
+  
+  #add_custom_target(copy_boost_to_matlab
+    
+  #  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${Boost_SYSTEM_LIBRARY} $<TARGET_FILE_DIR:robustpca_m>/.)
+  #exectute_process(${CMAKE_COMMAND} -E copy_if_different ${Boost_THREAD_LIBRARY} $<TARGET_FILE_DIR:robustpca_m>/.)
 
 
   add_test(NAME robustpca_matlabtest-1
