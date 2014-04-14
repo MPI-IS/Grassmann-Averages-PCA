@@ -985,7 +985,7 @@ namespace robust_pca
 
 
 
- /*!@brief Robust PCA subspace algorithm, with trimming
+ /*!@brief Robust PCA subspace algorithm, with stable trimming
   *
   * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
   * suitable for small datasets.
