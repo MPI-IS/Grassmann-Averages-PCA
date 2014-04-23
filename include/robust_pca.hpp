@@ -31,6 +31,9 @@
 #include <boost/accumulators/statistics/max.hpp>
 #include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
 
+// boost heaps
+#include <boost/heap/fibonacci_heap.hpp>
+
 
 // for the thread pools
 #include <boost/asio/io_service.hpp>
@@ -218,6 +221,7 @@ namespace robust_pca
   struct robust_pca_impl
   {
   private:
+    //! Random generator for initialising @f$\mu@f$ at each dimension. 
     random_data_generator<data_t> random_init_op;
 
     //! Norm used for normalizing @f$\mu@f$.
@@ -424,13 +428,17 @@ namespace robust_pca
         current_value += updated_value;
       }
 
+      /*! Function receiving the update notification.
+       * 
+       *  @note The call is thread safe.
+       */
       void update()
       {
         boost::lock_guard<boost::mutex> guard(internal_mutex);
         nb_updates ++;
       }
 
-      //! Returns the number of updates received so far.
+      //! Returns the number of notifications received so far.
       int get_nb_updates() const
       {
         // to avoid possibly corrupted data, but I think for int this is unnecessary
@@ -438,7 +446,7 @@ namespace robust_pca
         return nb_updates;
       }
 
-      //! Returns the current value 
+      //! Returns the current accumulated value.
       data_t const& get_accumulated_data() const
       {
         return current_value;
@@ -747,27 +755,193 @@ namespace robust_pca
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */
-  template <class data_t, class norm_2_t = norm2>
+  template <class data_t, class norm_mu_t = norm2>
   struct robust_pca_with_trimming_impl
   {
   private:
+    //! Random generator for initialising @f$\mu@f$ at each dimension. 
     random_data_generator<data_t> random_init_op;
-    norm_2_t norm_op;
+
+    //! Norm used for normalizing @f$\mu@f$.
+    norm_mu_t norm_op;
     double min_trim_percentage;
     double max_trim_percentage;
 
+    //! Number of parallel tasks that will be used for computing.
+    int nb_processors;
 
-    //! Updates the quantile for each dimension of the vector
-    template <class vector_acc_t>
-    void apply_quantile_to_vector(const data_t& current_data, bool sign, vector_acc_t& v_acc) const
-    {
-      typename vector_acc_t::iterator it_acc_features(v_acc.begin());
-      for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_acc_features)
+    //! Type of the element of data_t. 
+    typedef typename data_t::value_type scalar_t;
+
+
+
+
+    /*!@internal
+     * @brief Helper structure for managing the double trimming. 
+     * It is supposed that the trimming is symmetrical: the first K are kept in the 
+     * upper and lower part of the distribution.
+     */ 
+    struct s_double_heap
+    {  
+      //!@name Heap types
+      //!@{
+      typedef boost::heap::fibonacci_heap<scalar_t, boost::heap::compare< std::less<scalar_t> > > low_heap_t;
+      typedef boost::heap::fibonacci_heap<scalar_t, boost::heap::compare< std::greater<scalar_t> > > high_heap_t;
+      //!@}
+
+
+      low_heap_t lowh;
+      high_heap_t highh;
+
+      //! Uncontrolled push for populating the first K elements.
+      void push(scalar_t const& current)
       {
-        typename data_t::value_type v(sign ? *it : -(*it));
-        (*it_acc_features)(v);
+        lowh.push(current);
+        highh.push(current);
       }
-    }
+
+      //! Controlled push.
+      //! If the element given in parameter is under the top of the heap, given the
+      //! order relationship of the heap, then the element is added to the heap and 
+      //! one element is popped out. Otherwise the element is simply ignored.
+      void push_or_ignore(scalar_t const& current)
+      {
+        if(lowh.value_comp()(current, lowh.top()))
+        {
+          lowh.push(current);
+          lowh.pop();
+        }
+      
+        if(highh.value_comp()(current, highh.top()))
+        {
+          highh.push(current);
+          highh.pop();
+        }    
+      }
+
+      //! Merges two double heaps together
+      void merge(s_double_heap const& right)
+      {
+        const typename low_heap_t::size_type max_elements = std::max(lowh.size(), right.lowh.size());
+        assert(std::max(highh.size(), right.highh.size()) == max_elements);
+
+        for(typename low_heap_t::const_iterator it(right.lowh.begin()), ite(right.lowh.end());
+            it != ite;
+            ++it)
+        {
+          typename low_heap_t::const_iterator::reference v(*it);
+          if(lowh.size() < max_elements)
+          {
+            lowh.push(v);
+          }
+          else if(lowh.value_comp()(v, lowh.top()))
+          {
+            lowh.push(v);
+            lowh.pop();
+          }
+        }
+
+
+        for(typename high_heap_t::const_iterator it(right.highh.begin()), ite(right.highh.end());
+            it != ite;
+            ++it)
+        {
+          typename high_heap_t::const_iterator::reference v(*it);
+          if(highh.size() < max_elements)
+          {
+            highh.push(v);
+          }
+          else if(highh.value_comp()(v, highh.top()))
+          {
+            highh.push(v);
+            highh.pop();
+          }
+        }
+      }
+
+      //! Clear the content of the heaps when these are not needed anymore
+      void clear()
+      {
+        lowh.clear();
+        highh.clear();
+      }
+    };
+
+
+
+    //!@internal
+    struct s_double_heap_vector
+    {
+      typedef std::vector<s_double_heap> v_bounds_t;
+      v_bounds_t v_bounds;
+
+      s_double_heap_vector()
+      {}
+
+      void set_dimension(int dimension)
+      {
+        v_bounds.resize(dimension);
+      }
+
+      //! Updates the quantile for each dimension of the vector
+      void push(const data_t& current_data, bool sign)
+      {
+        typename v_bounds_t::iterator it_bounds(v_bounds.begin());
+        for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_bounds)
+        {
+          typename data_t::value_type v(sign ? *it : -(*it));
+          it_bounds->push(v);
+        }
+      }
+
+      //! Updates the quantile for each dimension of the vector
+      void push_or_ignore(const data_t& current_data, bool sign)
+      {
+        typename v_bounds_t::iterator it_bounds(v_bounds.begin());
+        for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_bounds)
+        {
+          typename data_t::value_type v(sign ? *it : -(*it));
+          it_bounds->push_or_ignore(v);
+        }
+      }
+
+      //! Merges two instances together. 
+      //!
+      //! The result goes into the current instance.
+      void merge(s_double_heap_vector const& right)
+      {
+        assert(right.v_bounds.size() == v_bounds.size());
+        typename v_bounds_t::iterator it(v_bounds.begin()), ite(v_bounds.end());
+        typename v_bounds_t::const_iterator itinput(right.v_bounds.begin());
+
+        for(; it < ite; ++it, ++itinput)
+        {
+          it->merge(*it_input);
+        }
+
+      }
+
+      //! Clear the content of the heaps when these are not needed anymore
+      //! @note the dimension of the vector is left unchanged. 
+      void clear()
+      {
+        typename v_bounds_t::iterator it(v_bounds.begin()), ite(v_bounds.end());
+        for(; it < ite; ++it)
+        {
+          it->clear();
+        }
+      }
+
+
+      void clear_all()
+      {
+        v_bounds_t empty_v;
+        v_bounds.swap(empty_v); // clear does not unallocate but resize to 0
+      }
+
+    };
+
+
 
     //! Performs a selective update of the accumulator, given the bounds computed previously
     template <class vector_bounds_t, class vector_number_elements_t>
@@ -792,6 +966,204 @@ namespace robust_pca
       }
     }
 
+
+
+
+
+
+    //!@internal
+    //!@brief Contains the logic for processing part of the accumulator
+    template <class container_iterator_t>
+    struct s_robust_pca_trimmed_processor
+    {
+    private:
+      typedef std::vector<size_t> v_counts_t;
+
+      //! Iterators on the beginning and end of the current dataset
+      container_iterator_t begin, end;
+      
+      size_t nb_elements;                 //!< The size of the current dataset
+      int data_dimension;                 //!< The dimension of the data
+      int nb_elements_to_keep;            //!< The number of elements to keep.
+      
+      //! Upper and lower bounds on data computed by the main thread. These vectors
+      //! will be read only and should not be modified during the time they are used.
+      std::vector<double> const *v_min_threshold, *v_max_threshold;
+
+
+      //! The structure in charge of computing the bounds.
+      s_double_heap_vector bounds_op;
+
+      // this is to send an update of the value of mu to all listeners
+      // the connexion should be managed externally
+      typedef boost::signals2::signal<void (data_t const&, v_counts_t const&)> connector_accumulator_t;
+      typedef boost::signals2::signal<void (s_double_heap_vector const&)> connector_trimming_bounds_t;
+      typedef boost::signals2::signal<void ()>              connector_counter_t;
+      connector_accumulator_t signal_acc;
+      connector_trimming_bounds_t signal_bounds;
+      connector_counter_t signal_counter;
+      
+
+
+    public:
+      s_robust_pca_trimmed_processor() : 
+        nb_elements(0), 
+        data_dimension(0), 
+        nb_elements_to_keep(0),
+        v_min_threshold(0), 
+        v_max_threshold(0)
+      {
+      }
+
+      //! Sets the data range
+      bool set_data_range(container_iterator_t const &b, container_iterator_t const& e)
+      {
+        begin = b;
+        end = e;
+        nb_elements = std::distance(b, e);
+        assert(nb_elements > 0);
+        v_signs.resize(nb_elements);
+        return true;
+      }
+
+      //! Sets the dimension of the problem
+      //! @pre data_dimensions_ strictly positive
+      void set_data_dimensions(int data_dimensions_)
+      {
+        assert(data_dimensions_ > 0);
+        data_dimension = data_dimensions_;
+      }
+
+      //! Sets the number of element to keep in the upper and lower distributions.
+      void set_nb_elements_to_keep(int nb_elements_to_keep_)
+      {
+        assert(nb_elements_to_keep_ > 0);
+        nb_elements_to_keep = nb_elements_to_keep_;
+      }
+
+
+
+      //! Returns the connected object that will receive the notification of the updated accumulator.
+      connector_accumulator_t& accumulator_connector()
+      {
+        return signal_acc;
+      }
+
+      //! Returns the connected object that will receive the notification of the end of the current process.
+      connector_counter_t& counter_connector()
+      {
+        return signal_counter;
+      }
+
+      //! Returns the connected object that will receive the notification of the updated bounds.
+      connector_trimming_bounds_t& bounds_connector()
+      {
+        return signal_bounds;
+      }
+      
+
+      //! Computes the bounds of the current subset
+      void compute_bounds(data_t const &mu)
+      {
+        container_iterator_t it_data(begin);
+
+        // we allocate the heaps only when needed
+        bounds_op.set_dimension(data_dimensions_);
+
+
+        for(size_t s = 0; s < nb_elements; ++it_data, s++)
+        {
+          typename container_iterator_t::reference current_data = *it_data;
+          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+
+          if(s < nb_elements_to_keep)
+          { 
+            bounds_op.push(current_data, sign);
+          }
+          else
+          {
+            bounds_op.push_or_ignore(current_data, sign);
+          }
+        }
+
+
+        // posts the new value to the listeners
+        signal_bounds(bounds_op);
+        
+        // we free the heaps right now
+        bounds_op.clear_all();
+
+        signal_counter();
+
+      }
+
+
+
+      //! Initialises the accumulator and the signs vector from the first mu
+      void accumulation(data_t const &mu)
+      {
+        data_t accumulator = data_t(data_dimension, 0);
+        std::vector<size_t> accumulated_counts(data_dimension, 0);
+        
+        container_iterator_t it_data(begin);
+
+        for(size_t s = 0; s < nb_elements; ++it_data, s++)
+        {
+          typename container_iterator_t::reference current_data = *it_data;
+          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+
+          selective_acc_to_vector(
+            *v_min_threshold, 
+            *v_max_threshold, 
+            current_data, 
+            sign, 
+            accumulator, 
+            accumulated_counts);
+
+        }
+
+
+        // posts the new value to the listeners
+        signal_acc(accumulator, accumulated_counts);
+        signal_counter();
+      }
+
+      //! Project the data onto the orthogonal subspace of the provided vector
+      void project_onto_orthogonal_subspace(data_t const &mu)
+      {
+        container_iterator_t it_data(begin);
+
+        // update of vectors in the orthogonal space, and update of the norms at the same time. 
+        for(size_t s = 0; s < nb_elements; ++it_data, s++)
+        {
+          typename container_iterator_t::reference current_vector = *it_data;
+          current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
+        }
+
+        signal_counter();
+      }
+
+    };
+
+
+
+
+    //! Updates the quantile for each dimension of the vector
+    template <class vector_acc_t>
+    void apply_quantile_to_vector(const data_t& current_data, bool sign, vector_acc_t& v_acc) const
+    {
+      typename vector_acc_t::iterator it_acc_features(v_acc.begin());
+      for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_acc_features)
+      {
+        typename data_t::value_type v(sign ? *it : -(*it));
+        (*it_acc_features)(v);
+      }
+    }
+
+
+
+
+
   public:
     robust_pca_with_trimming_impl(double min_trim_percentage_ = 0, double max_trim_percentage_ = 1.) :
       random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable),
@@ -814,8 +1186,6 @@ namespace robust_pca
      *            computed).
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
-     * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
-     *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
      * @param[in, out] it_projected
      * @param[in] initial_guess if provided, the initial vector will be initialized to this value.
      * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
@@ -863,7 +1233,7 @@ namespace robust_pca
       assert(mu.size() == number_of_dimensions);
 
       // normalizing
-      typename norm_2_t::result_type norm_mu(norm_op(mu));
+      typename norm_mu_t::result_type norm_mu(norm_op(mu));
       mu /= norm_mu;
 
 
@@ -1027,12 +1397,12 @@ namespace robust_pca
   *
   * @author Soren Hauberg, Raffi Enficiaud
   */
-  template <class data_t, class norm_2_t = norm2>
+  template <class data_t, class norm_mu_t = norm2>
   struct robust_pca_with_stable_trimming_impl
   {
   private:
     random_data_generator<data_t> random_init_op;
-    norm_2_t norm_op;
+    norm_mu_t norm_op;
     double min_trim_percentage;
     double max_trim_percentage;
 
@@ -1173,7 +1543,7 @@ namespace robust_pca
       assert(mu.size() == number_of_dimensions);
 
       // normalizing
-      typename norm_2_t::result_type norm_mu(norm_op(mu));
+      typename norm_mu_t::result_type norm_mu(norm_op(mu));
       mu /= norm_mu;
 
 
