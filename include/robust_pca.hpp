@@ -83,28 +83,43 @@ namespace robust_pca
   };
 
 
-  /* @brief Checks the convergence of a numerical scheme.
+  /*!@brief Checks the convergence of a numerical scheme.
    *
-   * @tparam data_t should be default constructible and constructible with one parameter.
+   * @tparam data_t: type of the data.
+   * @tparam norm_t: the norm used in order to compare the closeness of two successive results.
    *
-   * The convergence is assumed when the norm between two subsequent states is less than a certain @f$epsilon@f$.
+   * The type of the data should meet the following requirements:
+   * - data_t should be default constructible 
+   * - data_t should be constructible with one parameter
+   * - operator- is defined between two instances of data_t and return a type compatible with the input of the norm operator.
+   *
+   * The convergence is assumed as soon as the norm between two subsequent states is less than a certain @f$\epsilon@f$, that is
+   * the functor returns true if:
+   * @f[\left\|v_t - v_{t-1}\right\| < \epsilon@f]
+   *
+   * @note When the convergense is reached, the states are not stored anymore (the calling algorithm is supposed to stop).
    */
   template <class data_t, class norm_t = norm_infinity>
   struct convergence_check
   {
     const double epsilon;
-    norm_t norm_comparaison;
+    norm_t norm_comparison;
     data_t previous_state;
-    convergence_check(data_t const& prev, double epsilon_ = 1E-5) : 
+
+    //! Initialise the instance with the initial state of the vector.
+    convergence_check(data_t const& current_state, double epsilon_ = 1E-5) : 
       epsilon(epsilon_), 
-      previous_state(prev)
+      previous_state(current_state)
     {}
 
-    //! Returns true on convergence
+    //! Returns true on convergence.
     bool operator()(data_t const& current_state)
     {
-      bool ret = norm_comparaison(current_state - previous_state) < epsilon;
-      previous_state = current_state;
+      bool ret = norm_comparison(current_state - previous_state) < epsilon;
+      if(!ret)
+      {
+        previous_state = current_state;
+      }
       return ret;
     }
 
@@ -116,12 +131,12 @@ namespace robust_pca
   const double fVerySmallButStillComputable = -1E10;
 
 
-  /*@brief Used to initialize the initial guess to some random data.
+  /*!@brief Used to initialize the initial guess to some random data.
    *
-   *@tparam data_t the type of the data returned. It should model a vector:
-   * - default, copy constructible and constructible with a size
-   * - has a member @c size returning a value of type @c data_t::Size_type
-   * - has a field @c data_t::Value_type
+   * @tparam data_t the type of the data returned. It should model a vector:
+   *  - default, copy constructible and constructible with a size
+   *  - has a member @c size returning a value of type @c data_t::Size_type
+   *  - has a field @c data_t::Value_type
    */
   template <
     class data_t, 
@@ -181,17 +196,32 @@ namespace robust_pca
 
   /*!@brief Robust PCA subspace algorithm
    *
-   * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
-   * suitable for small datasets. 
-   * @todo add reference
+   * This class implements the robust PCA using the Grassmanian averaging. The implementation is distributed among several threads. 
+   * The algorithm is the following:
+   * - pick a random or a given @f$\mu_{i, 0}@f$, @f$i@f$ being the current dimension and @f$0@f$ is the iteration number. This can also be
+   *   a parameter of the algorithm.
+   * - until convergence on @f$\mu_{i, t}@f$ do:
+   *   - computes the sign of the projection onto @f$\mu_{i, t}@f$ of the input vectors @f$X_j@f$. This is the sign of the projection @f$s_{j, t}@f$
+   *   - compute the next @f$\mu_{i, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f$
+   * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{i}@f$: @f$X_{j} = X_{j} - X_{j}\cdot\mu_{i} @f$.
+   *
+   * The range taken by @f$i@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 
+   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see robust_pca_impl::batch_process).
+   * The test for convergence is delegated to convergence_check.
+   *
+   * The multithreading strategy is 
+   * - to split the computation of @f$\sum_i s_{i, t} X_i@f$ (including the computation of the sign) among many independant chunks (threads). 
+   * - to split the computation of the project among many threads.
    * @author Soren Hauberg, Raffi Enficiaud
    */
-  template <class data_t, class norm_2_t = norm2>
+  template <class data_t, class norm_mu_t = norm2>
   struct robust_pca_impl
   {
   private:
     random_data_generator<data_t> random_init_op;
-    norm_2_t norm_op;
+
+    //! Norm used for normalizing @f$\mu@f$.
+    norm_mu_t norm_op;
 
     //! Number of parallel tasks that will be used for computing.
     int nb_processors;
@@ -341,10 +371,12 @@ namespace robust_pca
     };
 
 
-    /*! Accumulation gathering the result of all workers.
+    /*!@internal
+     * @brief Accumulation gathering the result of all workers.
      *
-     * When the vector are of high dimension, it should be interesting to also have
-     * the update of the final accumulator within each threads. 
+     * The purpose of this class is to add the computed accumulator of each thread to the final result
+     * which contains the sum of all accumulators. 
+     *
      */
     struct asynchronous_addition : boost::noncopyable
     {
@@ -435,6 +467,11 @@ namespace robust_pca
 
 
   public:
+
+    /*!@brief Constructor
+     * 
+     * By default, the number of available processors is 1 and the maximum size of the chunks is the maximal size
+     */
     robust_pca_impl() : 
       random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable), 
       nb_processors(1),
@@ -474,15 +511,13 @@ namespace robust_pca
      * @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
      * @param[in] max_iterations the maximum number of iterations at each dimension. 
-     * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first max_dimension_to_compute will be 
+     * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first @c max_dimension_to_compute will be 
      *            computed).
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
-     * @param[in, out] it_norm_out input read-write iterator at the beginning of the computed norms. The iterator should be able to address
-     *            as many element as there is in between it and ite (ie. @c std::distance(it, ite)
      * @param[in, out] it_projected
-     * @param[in] initial_guess if provided, the initial vectors will be initialized to this value. The size of the pointed container should be at least max_dimension_to_compute.
-     * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
+     * @param[in] initial_guess if provided, the initial vectors will be initialized to this value. The size of the pointed container should be at least @c max_dimension_to_compute.
+     * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least @c max_dimension_to_compute.
      *
      * @returns true on success, false otherwise
      * @pre 
@@ -491,7 +526,7 @@ namespace robust_pca
      *
      * @note the iterator it_o_projected_vectors should implement random access to the elements.
      */
-    template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t/*, class it_norm_t*/>
+    template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
     bool batch_process(
       const int max_iterations,
       int max_dimension_to_compute,
@@ -547,7 +582,7 @@ namespace robust_pca
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
-      typename norm_2_t::result_type norm_mu(norm_op(mu)); // normalizing
+      typename norm_mu_t::result_type norm_mu(norm_op(mu)); // normalizing
       mu /= norm_mu;
 
       const int number_of_dimensions = static_cast<int>(mu.size());
