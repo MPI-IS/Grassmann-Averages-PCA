@@ -21,6 +21,9 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 
+// boost heaps
+#include <boost/heap/fibonacci_heap.hpp>
+
 #include <fstream>
 
 
@@ -180,8 +183,64 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 
 }
 
-
-
-
-
 BOOST_AUTO_TEST_SUITE_END();
+
+
+BOOST_AUTO_TEST_CASE(test_heap)
+{
+  // a simple test for looking at the heaps functionalities
+  typedef boost::heap::fibonacci_heap<double, boost::heap::compare< std::less<double> > > low_heap_t;
+  typedef boost::heap::fibonacci_heap<double, boost::heap::compare< std::greater<double> > > high_heap_t;
+  
+  low_heap_t lowh;
+  high_heap_t highh;
+  
+  const int K = 7;
+  
+  boost::random::uniform_real_distribution<double> dist;
+  for(int i = 0; i < 100; i++)
+  {
+    double current = dist(rng);
+    if(lowh.size() < K)
+    {
+      lowh.push(current);
+    }
+    else if(lowh.value_comp()(current, lowh.top()))
+    {
+      lowh.push(current);
+      lowh.pop();
+    }
+    
+    if(highh.size() < K)
+    {
+      highh.push(current);
+    }
+    else if(highh.value_comp()(current, highh.top()))
+    {
+      highh.push(current);
+      highh.pop();
+    }    
+  }
+  
+  BOOST_CHECK_EQUAL(lowh.size(), K);
+  BOOST_CHECK_EQUAL(highh.size(), K);
+  
+  BOOST_CHECK_LE(lowh.top(), highh.top());
+  
+  BOOST_MESSAGE("low heap top = " << lowh.top());
+  for(low_heap_t::ordered_iterator it(lowh.ordered_begin()), ite(lowh.ordered_end());
+      it != ite;
+      ++it)
+  {
+    BOOST_MESSAGE(" " << *it);
+  }  
+
+  BOOST_MESSAGE("high heap top = " << highh.top());
+  for(high_heap_t::ordered_iterator it(highh.ordered_begin()), ite(highh.ordered_end());
+      it != ite;
+      ++it)
+  {
+    BOOST_MESSAGE(" " << *it);
+  }  
+  
+}
