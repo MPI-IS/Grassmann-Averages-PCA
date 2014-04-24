@@ -65,8 +65,8 @@ namespace robust_pca
 
       external_storage_adaptor(size_type size, pointer data) :
         size_(size), 
-        data_(data) {
-      }
+        data_(data)
+      {}
 
 
       /*! Constructor from another instance
@@ -126,7 +126,7 @@ namespace robust_pca
         return data_[i];
       }
 
-      // Iterators simply are pointers. TYhere is no need to
+      // Iterators simply are pointers. There is no need to
       // provide an iterator for the const version, as the normal pointer is convertible 
       // to the const pointer. There is no ambiguity with the call neither, since the 
       // call should not change the storage itself.

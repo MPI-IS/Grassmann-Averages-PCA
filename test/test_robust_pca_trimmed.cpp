@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   namespace ub = boost::numeric::ublas;
 
   typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
-  robust_pca_t instance(0., 1);
+  robust_pca_t instance(0.);
   typedef row_iter<const matrix_t> const_row_iter_t;
 
   typedef ub::vector<double> data_t;

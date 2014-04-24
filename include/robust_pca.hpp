@@ -258,7 +258,7 @@ namespace robust_pca
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
     template <class container_iterator_t>
-    struct s_accumulator_processor
+    struct asynchronous_chunks_processor
     {
     private:
       container_iterator_t begin, end;
@@ -276,7 +276,7 @@ namespace robust_pca
 
 
     public:
-      s_accumulator_processor() : nb_elements(0), data_dimension(0)
+      asynchronous_chunks_processor() : nb_elements(0), data_dimension(0)
       {
       }
 
@@ -301,13 +301,13 @@ namespace robust_pca
       }
 
       //! Returns the connected object that will receive the notification of the updated accumulator.
-      connector_accumulator_t& accumulator_connector()
+      connector_accumulator_t& connector_accumulator()
       {
         return signal_acc;
       }
 
       //! Returns the connected object that will receive the notification of the end of the current process.
-      connector_counter_t& counter_connector()
+      connector_counter_t& connector_counter()
       {
         return signal_counter;
       }
@@ -404,7 +404,7 @@ namespace robust_pca
      * which contains the sum of all accumulators. 
      *
      */
-    struct asynchronous_addition : boost::noncopyable
+    struct asynchronous_results_merger : boost::noncopyable
     {
     private:
       mutable boost::mutex internal_mutex;
@@ -418,23 +418,23 @@ namespace robust_pca
        *
        * @param dimension_ the number of dimensions of the vector to accumulate
        */
-      asynchronous_addition(int data_dimension_) : data_dimension(data_dimension_)
+      asynchronous_results_merger(int data_dimension_) : data_dimension(data_dimension_)
       {}
 
       void init()
       {
-        clear_accumulation();
-        clear_counter();
+        init_accumulation();
+        init_counter();
       }
 
       //! Initialises the internal state of the accumulator
-      void clear_accumulation()
+      void init_accumulation()
       {
         current_value = boost::numeric::ublas::scalar_vector<typename data_t::value_type>(data_dimension, 0);
       }
 
       //! Initialises the internal state of the counter
-      void clear_counter()
+      void init_counter()
       {
         nb_updates = 0;
       }
@@ -593,14 +593,16 @@ namespace robust_pca
       const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(size_data/nb_processors));
       const size_t nb_chunks = (size_data + chunks_size - 1) / chunks_size;
 
+      // number of dimensions of the data vectors
+      const int number_of_dimensions = static_cast<int>(it->size());
       
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
+      assert(mu.size() == number_of_dimensions);
       typename norm_mu_t::result_type norm_mu(norm_op(mu)); // normalizing
       mu /= norm_mu;
 
-      const int number_of_dimensions = static_cast<int>(mu.size());
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
       
       int iterations = 0;
@@ -610,10 +612,10 @@ namespace robust_pca
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
-      typedef s_accumulator_processor<it_o_projected_vectors> individual_accumulators_t;
-      std::vector<individual_accumulators_t> v_individual_accumulators(nb_chunks);
+      typedef asynchronous_chunks_processor<it_o_projected_vectors> async_processor_t;
+      std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
-      asynchronous_addition async_add_object(number_of_dimensions);
+      asynchronous_results_merger async_merger(number_of_dimensions);
 
       {
         bool b_result;
@@ -633,7 +635,7 @@ namespace robust_pca
             it_current_end = it_current_begin + chunks_size;
           }
 
-          individual_accumulators_t &current_acc_object = v_individual_accumulators[i];
+          async_processor_t &current_acc_object = v_individual_accumulators[i];
 
           b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
           if(!b_result)
@@ -645,8 +647,10 @@ namespace robust_pca
           current_acc_object.set_data_dimensions(number_of_dimensions);
 
           // attaching the update object callbacks
-          current_acc_object.accumulator_connector().connect(boost::bind(&asynchronous_addition::update, &async_add_object, _1));
-          current_acc_object.counter_connector().connect(boost::bind(&asynchronous_addition::update, &async_add_object));
+          current_acc_object.connector_accumulator().connect(
+            boost::bind(&asynchronous_results_merger::update, &async_merger, _1));
+          current_acc_object.connector_counter().connect(
+            boost::bind(&asynchronous_results_merger::update, &async_merger));
 
           // updating the next 
           it_current_begin = it_current_end;
@@ -664,22 +668,22 @@ namespace robust_pca
         data_t previous_mu(mu);
 
         // reseting the final accumulator
-        async_add_object.init();
+        async_merger.init();
 
         // pushing the initialisation of the mu and sign vectors to the pool
         for(int i = 0; i < v_individual_accumulators.size(); i++)
         {
-          ioService.post(boost::bind(&individual_accumulators_t::initial_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
+          ioService.post(boost::bind(&async_processor_t::initial_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
         }
 
         // waiting for completion (barrier)
-        while(async_add_object.get_nb_updates() < v_individual_accumulators.size())
+        while(async_merger.get_nb_updates() < v_individual_accumulators.size())
         {
           boost::this_thread::yield();
         }
 
         // gathering the first mu
-        mu = async_add_object.get_accumulated_data();
+        mu = async_merger.get_accumulated_data();
         mu /= norm_op(mu);
 
 
@@ -689,22 +693,22 @@ namespace robust_pca
           previous_mu = mu;
 
           // reseting the final accumulator
-          async_add_object.init();
+          async_merger.init();
 
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            ioService.post(boost::bind(&individual_accumulators_t::update_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
+            ioService.post(boost::bind(&async_processor_t::update_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
           }
 
           // waiting for completion (barrier)
-          while(async_add_object.get_nb_updates() < v_individual_accumulators.size())
+          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
           {
             boost::this_thread::yield();
           }
 
           // gathering the mus
-          mu = async_add_object.get_accumulated_data();
+          mu = async_merger.get_accumulated_data();
           mu /= norm_op(mu);
         }
 
@@ -716,17 +720,21 @@ namespace robust_pca
         if(current_dimension < max_dimension_to_compute - 1)
         {
 
-          async_add_object.clear_counter();
+          async_merger.init_counter();
 
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            ioService.post(boost::bind(&individual_accumulators_t::project_onto_orthogonal_subspace, boost::ref(v_individual_accumulators[i]), boost::cref(*it_eigenvectors)));
+            ioService.post(
+              boost::bind(
+                &async_processor_t::project_onto_orthogonal_subspace, 
+                boost::ref(v_individual_accumulators[i]), 
+                boost::cref(*it_eigenvectors))); // this is not mu, since we are changing it before the process ends here
           }
 
           mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
 
-          while(async_add_object.get_nb_updates() < v_individual_accumulators.size())
+          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
           {
             boost::this_thread::yield();
           }
@@ -771,8 +779,11 @@ namespace robust_pca
 
     //! Norm used for normalizing @f$\mu@f$.
     norm_mu_t norm_op;
-    double min_trim_percentage;
-    double max_trim_percentage;
+
+    //! The percentage of the data that should be trimmed.
+    //! The trimming is performed symmetrically in the upper and lower distribution of the data, hence
+    //! each side is trimmed by trimming_percentage/2.
+    double trimming_percentage;
 
     //! Number of parallel tasks that will be used for computing.
     int nb_processors;
@@ -788,7 +799,12 @@ namespace robust_pca
     /*!@internal
      * @brief Helper structure for managing the double trimming. 
      * It is supposed that the trimming is symmetrical: the first K are kept in the 
-     * upper and lower part of the distribution.
+     * upper and lower part of the distribution. However the K is not managed by this structure
+     * directly, but rather by the caller. This structure provides two functions for performing 
+     * that:
+     * - push that pushes the data unconditionnally into the heap. Each heap size grows by 1 after the call.
+     * - push_or_ignore that pushes the data if it is under the maximum and then pops the maximum. It ignores
+     *   the data otherwise. The size of each heap remains constant.
      */ 
     struct s_double_heap
     {  
@@ -868,6 +884,12 @@ namespace robust_pca
         }
       }
 
+      void extract_bounds(double &min_bound, double &max_bound) const
+      {
+        min_bound = lowh.top();
+        max_bound = highh.top();
+      }
+
       //! Clear the content of the heaps when these are not needed anymore
       void clear()
       {
@@ -879,6 +901,7 @@ namespace robust_pca
 
 
     //!@internal
+    //! Helper structure for having s_double_heap on vectors of data. 
     struct s_double_heap_vector
     {
       typedef std::vector<s_double_heap> v_bounds_t;
@@ -887,8 +910,13 @@ namespace robust_pca
       s_double_heap_vector()
       {}
 
+      /*! Sets the dimension of the bounds to be computed.
+       *  The dimension corresponds to the number of elements of each data vector.
+       *  @pre dimension >= 0
+       */
       void set_dimension(int dimension)
       {
+        assert(dimension >= 0);
         v_bounds.resize(dimension);
       }
 
@@ -930,6 +958,25 @@ namespace robust_pca
 
       }
 
+      //!@todo add a function to extract bounds
+      void extract_bounds(
+        std::vector<double> &v_min_bound,
+        std::vector<double> &v_max_bound) const
+      {
+        v_min_bound.resize(v_bounds.size());
+        v_max_bound.resize(v_bounds.size());
+
+        typename v_bounds_t::const_iterator it(v_bounds.begin()), ite(v_bounds.end());
+
+        std::vector<double>::iterator it_min(v_min_bound.begin()), it_max(v_max_bound.begin());
+
+        for(; it < ite; ++it, ++it_min, ++it_max)
+        {
+          it->extract_bounds(*it_min, *it_max);
+        }
+
+      }
+
       //! Clear the content of the heaps when these are not needed anymore
       //! @note the dimension of the vector is left unchanged. 
       void clear()
@@ -941,11 +988,11 @@ namespace robust_pca
         }
       }
 
-
+      //! Empties the internal state and frees the associated memory.
       void clear_all()
       {
         v_bounds_t empty_v;
-        v_bounds.swap(empty_v); // clear does not unallocate but resize to 0
+        v_bounds.swap(empty_v); // clear does not unallocate but resize to 0, hence the swap
       }
 
     };
@@ -998,16 +1045,19 @@ namespace robust_pca
       std::vector<double> const *v_min_threshold, *v_max_threshold;
 
 
-      //! The structure in charge of computing the bounds.
-      s_double_heap_vector bounds_op;
-
-      // this is to send an update of the value of mu to all listeners
+      // this is to send an update of the value of the accumulator to all listeners
       // the connexion should be managed externally
-      typedef boost::signals2::signal<void (data_t const&, count_vector_t const&)> connector_accumulator_t;
-      typedef boost::signals2::signal<void (s_double_heap_vector const&)> connector_trimming_bounds_t;
-      typedef boost::signals2::signal<void ()>              connector_counter_t;
+      typedef boost::signals2::signal<void (data_t const&, count_vector_t const&)> 
+        connector_accumulator_t;
+      
+      typedef boost::signals2::signal<void (s_double_heap_vector const&)> 
+        connector_bounds_t;
+      
+      typedef boost::signals2::signal<void ()>
+        connector_counter_t;
+
       connector_accumulator_t signal_acc;
-      connector_trimming_bounds_t signal_bounds;
+      connector_bounds_t signal_bounds;
       connector_counter_t signal_counter;
       
 
@@ -1033,8 +1083,8 @@ namespace robust_pca
         return true;
       }
 
-      //! Sets the dimension of the problem
-      //! @pre data_dimensions_ strictly positive
+      //! Sets the dimension of the data vectors
+      //! @pre data_dimensions_ is strictly positive
       void set_data_dimensions(int data_dimensions_)
       {
         assert(data_dimensions_ > 0);
@@ -1048,22 +1098,30 @@ namespace robust_pca
         nb_elements_to_keep = nb_elements_to_keep_;
       }
 
+      //! Sets the bounds vectors.
+      void set_bounds(
+        std::vector<double> const *min_bounds, 
+        std::vector<double> const *max_bounds)
+      {
+        v_min_threshold = min_bounds;
+        v_max_threshold = max_bounds;
+      }
 
 
       //! Returns the connected object that will receive the notification of the updated accumulator.
-      connector_accumulator_t& accumulator_connector()
+      connector_accumulator_t& connector_accumulator()
       {
         return signal_acc;
       }
 
       //! Returns the connected object that will receive the notification of the end of the current process.
-      connector_counter_t& counter_connector()
+      connector_counter_t& connector_counter()
       {
         return signal_counter;
       }
 
       //! Returns the connected object that will receive the notification of the updated bounds.
-      connector_trimming_bounds_t& bounds_connector()
+      connector_bounds_t& connector_bounds()
       {
         return signal_bounds;
       }
@@ -1073,6 +1131,10 @@ namespace robust_pca
       void compute_bounds(data_t const &mu)
       {
         container_iterator_t it_data(begin);
+
+        // The structure in charge of computing the bounds. The instance is local to
+        // this call.
+        s_double_heap_vector bounds_op;
 
         // we allocate the heaps only when needed
         bounds_op.set_dimension(data_dimensions_);
@@ -1097,7 +1159,7 @@ namespace robust_pca
         // posts the new value to the listeners
         signal_bounds(bounds_op);
         
-        // we free the heaps right now
+        // we free the heaps right now, will be done in the destructor anyway.
         bounds_op.clear_all();
 
         signal_counter();
@@ -1110,7 +1172,7 @@ namespace robust_pca
       void accumulation(data_t const &mu)
       {
 
-        data_t accumulator = data_t(data_dimension, 0);
+        data_t accumulator(data_dimension, 0);
         count_vector_t accumulated_counts(data_dimension, 0);
         
         container_iterator_t it_data(begin);
@@ -1155,18 +1217,21 @@ namespace robust_pca
 
 
     /*!@internal
-     * @brief Accumulation gathering the result of all workers.
+     * @brief Merges the result of all workers and signals the results to the main thread.
      *
      * The purpose of this class is to add the computed accumulator of each thread to the final result
      * which contains the sum of all accumulators. 
      *
      */
-    struct asynchronous_addition : boost::noncopyable
+    struct asynchronous_results_merger : boost::noncopyable
     {
     private:
       mutable boost::mutex internal_mutex;
       data_t current_value;
       count_vector_t current_count;
+
+      typedef s_double_heap_vector bounds_processor_t;
+      bounds_processor_t bounds;
       
       volatile int nb_updates;
       const int data_dimension;
@@ -1177,30 +1242,44 @@ namespace robust_pca
        *
        * @param dimension_ the number of dimensions of the vector to accumulate
        */
-      asynchronous_addition(int data_dimension_) : data_dimension(data_dimension_)
+      asynchronous_results_merger(int data_dimension_) : data_dimension(data_dimension_)
       {}
 
+      //! Initializes the internal states
       void init()
       {
-        clear_accumulation();
-        clear_counter();
+        init_accumulation();
+        init_counter();
+        init_bounds();
       }
 
       //! Initialises the internal state of the accumulator
-      void clear_accumulation()
+      void init_accumulation()
       {
         current_value = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
         count_vector = boost::numeric::ublas::scalar_vector<size_t>(data_dimension, 0);
       }
 
+      //! Initialises the internal state of the bounds
+      void init_bounds()
+      {
+        bounds.set_dimension(data_dimension);
+        bounds.clear();
+      }
+
+      //! Empties the structures related to the computation of the bounds.
+      void clear_bounds()
+      {
+        bounds.clear_all();
+      }
+
       //! Initialises the internal state of the counter
-      void clear_counter()
+      void init_counter()
       {
         nb_updates = 0;
       }
 
-      /*! Function receiving the updated value of the vectors to accumulate
-       *  from different threads.
+      /*! Receives the updated value of the vectors to accumulate from each worker.
        * 
        *  @note The call is thread safe.
        */
@@ -1210,6 +1289,18 @@ namespace robust_pca
         current_value += updated_value;
         current_count += count_vector;
       }
+
+
+      /*! Receives the updated value of the bounds from each worker.
+       * 
+       *  @note The call is thread safe.
+       */
+      void update(bounds_processor_t const& new_bounds)
+      {
+        boost::lock_guard<boost::mutex> guard(internal_mutex);
+        bounds.merge(new_bounds)
+      }
+
 
       /*! Function receiving the update notification.
        * 
@@ -1233,6 +1324,18 @@ namespace robust_pca
       data_t const& get_accumulated_data() const
       {
         return current_value;
+      }
+
+      //! Returns the current accumulated value.
+      count_vector_t const& get_accumulator_count() const
+      {
+        return current_count;
+      }
+
+      //! Returns the bound merged from all workers.
+      bounds_processor_t const& get_computed_bounds() const
+      {
+        return bounds;
       }
     };
 
@@ -1259,12 +1362,11 @@ namespace robust_pca
 
 
   public:
-    robust_pca_with_trimming_impl(double min_trim_percentage_ = 0, double max_trim_percentage_ = 1.) :
+    robust_pca_with_trimming_impl(double trimming_percentage_ = 0) :
       random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable),
-      min_trim_percentage(min_trim_percentage_),
-      max_trim_percentage(max_trim_percentage_)
+      trimming_percentage(trimming_percentage_)
     {
-      assert(min_trim_percentage_ < max_trim_percentage_);
+      assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }
 
 
@@ -1333,9 +1435,7 @@ namespace robust_pca
 
       
       // Accumulator object containing the required quantiles. 
-      std::vector<double> probs(2);
-      probs[0] = min_trim_percentage;
-      probs[1] = max_trim_percentage;
+      double probs[] = {trimming_percentage/2, 1-trimming_percentage/2};
       const accumulator_t quantil_obj(extended_p_square_probabilities = probs);
       
       // vector of accumulator objects
@@ -1393,8 +1493,8 @@ namespace robust_pca
           // extracting the bounds
           for(int i = 0; i < number_of_dimensions; i++)
           {
-            v_min_threshold[i] = quantile(v_acc[i], quantile_probability = min_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::min>(v_acc[i]);
-            v_max_threshold[i] = quantile(v_acc[i], quantile_probability = max_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::max>(v_acc[i]);// quantile(v_acc[i], quantile_probability = max_trim_percentage);
+            v_min_threshold[i] = quantile(v_acc[i], quantile_probability = trimming_percentage/2);
+            v_max_threshold[i] = quantile(v_acc[i], quantile_probability = 1-trimming_percentage/2);
           }
 
           //v_acc.clear();
@@ -1490,9 +1590,6 @@ namespace robust_pca
       it_o_eigenvalues_t it_eigenvectors,
       std::vector<data_t> const * initial_guess = 0)
     {
-      using namespace boost::accumulators;
-
-
       // add some log information
       if(it >= ite)
       {
@@ -1522,36 +1619,6 @@ namespace robust_pca
       // by a call to distance.
       size_t size_data(0);
 
-      const int number_of_dimensions = static_cast<int>(it->size());
-      max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
-
-
-
-
-      // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
-      data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
-      assert(mu.size() == number_of_dimensions);
-
-      // normalizing
-      typename norm_mu_t::result_type norm_mu(norm_op(mu));
-      mu /= norm_mu;
-
-
-      
-      // Accumulator object containing the required quantiles. 
-      std::vector<double> probs(2);
-      probs[0] = min_trim_percentage;
-      probs[1] = max_trim_percentage;
-      const accumulator_t quantil_obj(extended_p_square_probabilities = probs);
-      
-      // vector of accumulator objects
-      std::vector<accumulator_t> v_acc(number_of_dimensions, quantil_obj);
-
-      // vector of valid bounds
-      std::vector<double> v_min_threshold(number_of_dimensions);
-      std::vector<double> v_max_threshold(number_of_dimensions);
-
-
       // copy of the vectors. This should be avoided if the containers are of the same type and for the first iteration. 
       // The vectors are copied into the temporary container. During the copy, the percentiles are computed.
       it_o_projected_vectors it_tmp_projected(it_projected);
@@ -1559,6 +1626,97 @@ namespace robust_pca
       {
         *it_tmp_projected = *it_copy;
       }
+
+      assert(size_data == std::distance(it, ite)); // the iterators have to be random access anyway
+
+      // size of the chunks.
+      const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(size_data/nb_processors));
+      const size_t nb_chunks = (size_data + chunks_size - 1) / chunks_size;
+
+
+      // number of dimensions of the data vectors
+      const int number_of_dimensions = static_cast<int>(it->size());
+
+      // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
+      data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
+      assert(mu.size() == number_of_dimensions);
+      typename norm_mu_t::result_type norm_mu(norm_op(mu));// normalizing
+      mu /= norm_mu;
+
+
+      max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
+
+
+      // vector of valid bounds. These bounds will be shared among every workers. 
+      std::vector<double> v_min_threshold(number_of_dimensions);
+      std::vector<double> v_max_threshold(number_of_dimensions);
+
+
+      // number of elements to keep
+      const int K_elements = static_cast<int>(std::ceil(trimming_percentage*size_data/2));
+
+
+      // preparing the ranges on which each processing thread will run.
+      // the number of objects can be much more than the current number of processors, in order to
+      // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
+      // processing at the synchronization point.
+      typedef s_robust_pca_trimmed_processor<it_o_projected_vectors> async_processor_t;
+      std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
+
+      asynchronous_results_merger async_merger(number_of_dimensions);
+
+      {
+        bool b_result;
+        it_o_projected_vectors it_current_begin(it_projected);
+        for(int i = 0; i < nb_chunks; i++)
+        {
+          // setting the range
+          it_o_projected_vectors it_current_end;
+          if(i == nb_chunks - 1)
+          {
+            // just in case the division giving the chunk has some rounding (the parenthesis are important
+            // otherwise it is a + followed by a -, which can be out of range after the first +)
+            it_current_end = it_current_begin + (size_data - chunks_size*(nb_chunks - 1));
+          }
+          else
+          {
+            it_current_end = it_current_begin + chunks_size;
+          }
+
+          async_processor_t &current_acc_object = v_individual_accumulators[i];
+
+          b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
+          if(!b_result)
+          {
+            return b_result;
+          }
+
+          // updating the dimension of the problem
+          current_acc_object.set_data_dimensions(number_of_dimensions);
+
+          // setting the number of elements to keep
+          current_acc_object.set_nb_elements_to_keep(K_elements);
+
+          // setting the bounds to the globally shared objects
+          current_acc_object.set_bounds(&v_min_threshold, &v_max_threshold);
+
+          // attaching the update object callbacks
+          current_acc_object.connector_accumulator().connect(
+            boost::bind(&asynchronous_results_merger::update, &async_merger, _1, _2));
+          current_acc_object.connector_bounds().connect(
+            boost::bind(&asynchronous_results_merger::update, &async_merger, _1));
+          current_acc_object.connector_counter().connect(
+            boost::bind(&asynchronous_results_merger::update, &async_merger));
+
+          // updating the next 
+          it_current_begin = it_current_end;
+        }
+      }
+
+
+
+
+
 
 
 
@@ -1573,73 +1731,71 @@ namespace robust_pca
 
         convergence_check<data_t> convergence_op(mu);
 
-
-
         for(int iterations = 0; (!convergence_op(mu) && iterations < max_iterations) || iterations == 0; iterations++)
         {
 
-          // first pass on the data, we compute the bounds
-          v_acc.assign(number_of_dimensions, quantil_obj);
+          // reseting the merger object
+          async_merger.init();
 
+          // pushing the computation of the bounds
+          for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            it_o_projected_vectors it_tmp_projected(it_projected);
-
-            for(size_t s = 0; s < size_data; ++it_tmp_projected, s++)
-            {
-              typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
-
-              bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
-
-              // updating the bounds
-              apply_quantile_to_vector(current_data, sign, v_acc);
-            }
+            ioService.post(
+              boost::bind(
+                &async_processor_t::compute_bounds, 
+                boost::ref(v_individual_accumulators[i]), 
+                boost::cref(mu)));
           }
 
 
-          // extracting the bounds
-          for(int i = 0; i < number_of_dimensions; i++)
+          // waiting for completion (barrier)
+          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
           {
-            v_min_threshold[i] = quantile(v_acc[i], quantile_probability = min_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::min>(v_acc[i]);
-            v_max_threshold[i] = quantile(v_acc[i], quantile_probability = max_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::max>(v_acc[i]);// quantile(v_acc[i], quantile_probability = max_trim_percentage);
+            boost::this_thread::yield();
           }
 
-          //v_acc.clear();
-          
+          // gathering the new bounds
+          async_processor_t::bounds_processor_t const& bounds = async_merger.get_computed_bounds();
+          bounds.extract_bounds(v_min_threshold, v_max_threshold);
 
+          // clearing the bounds
+          async_merger.clear_bounds();
 
-          data_t previous_mu = mu;
-          data_t acc = data_t(number_of_dimensions, 0);
-          std::vector<size_t> acc_counts(number_of_dimensions, 0);
-
-          it_o_projected_vectors it_tmp_projected(it_projected);
-
-          for(size_t s = 0; s < size_data; ++it_tmp_projected, s++)
+          // pushing the computation of the updated mu
+          for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            typename it_o_projected_vectors::reference current_data = *it_tmp_projected;
-
-            bool sign = boost::numeric::ublas::inner_prod(current_data, previous_mu) >= 0;
-
-            // computing the bounds for the next round
-            //apply_quantile_to_vector(current_data, sign, v_acc);
-
-            // trimming is applied to the accumulator + taking into account the sign.
-            selective_acc_to_vector(v_min_threshold, v_max_threshold, current_data, sign, acc, acc_counts);
-
+            ioService.post(
+              boost::bind(
+                &async_processor_t::accumulation, 
+                boost::ref(v_individual_accumulators[i]), 
+                boost::cref(mu)));
           }
 
 
+          // waiting for completion (barrier)
+          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
+          {
+            boost::this_thread::yield();
+          }
+
+
+          // gathering the mus
+          mu = async_merger.get_accumulated_data();
+          count_vector_t const& count_vector = async_merger.get_accumulator_count();
           // divide each of the acc by acc_counts, and then take the norm
           for(int i = 0; i < number_of_dimensions; i++)
           {
-            assert(acc_counts[i]);
-            mu[i] = acc[i] / acc_counts[i];
+            assert(count_vector[i]);
+            mu[i] /= count_vector[i];
           }
 
           // normalize mu on the sphere
           mu /= norm_op(mu);
+
         }
 
-        // orthogonalisation 
+
+        // orthogonalisation against previous eigenvectors
         for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus < it_eigenvectors; ++it_mus)
         {
           mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
@@ -1652,26 +1808,32 @@ namespace robust_pca
         // projection onto the orthogonal subspace
         if(current_dimension < max_dimension_to_compute - 1)
         {
-          it_o_projected_vectors it_tmp_projected(it_projected);
+          async_merger.init_counter();
 
-          // update of vectors in the orthogonal space
-          // for that to work, we need to reproject on the orthogonal subspace of all the previous eigenvalues
-          for(size_t s(0); s < size_data; ++it_tmp_projected, s++)
+          // pushing the update of the mu (and signs)
+          for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            typename it_o_projected_vectors::reference current_vector = *it_tmp_projected;
-            current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
+            ioService.post(
+              boost::bind(
+                &async_processor_t::project_onto_orthogonal_subspace, 
+                boost::ref(v_individual_accumulators[i]), 
+                boost::cref(*it_eigenvectors))); // this is not mu, since we are changing it before the process ends here
           }
 
           mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
 
-
-          // orthogonalisation 
+          // orthogonalisation of this new (randomly or given) initial eigenvector against the previous computed ones. 
           for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus <= it_eigenvectors; ++it_mus)
           {
             mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
           }
           mu /= norm_op(mu);
 
+          // wait for the workers
+          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
+          {
+            boost::this_thread::yield();
+          }
 
           
         }
@@ -1714,8 +1876,7 @@ namespace robust_pca
   private:
     random_data_generator<data_t> random_init_op;
     norm_mu_t norm_op;
-    double min_trim_percentage;
-    double max_trim_percentage;
+    double trimming_percentage;
 
     template <class vector_acc_t>
     void apply_quantile_to_vector(const data_t& current_data, vector_acc_t& v_acc) const
@@ -1784,10 +1945,9 @@ namespace robust_pca
     
     
   public:
-    robust_pca_with_stable_trimming_impl(double min_trim_percentage_ = 0, double max_trim_percentage_ = 1.) :
+    robust_pca_with_stable_trimming_impl(double trimming_percentage_ = 0) :
       random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable),
-      min_trim_percentage(min_trim_percentage_),
-      max_trim_percentage(max_trim_percentage_)
+      trimming_percentage(trimming_percentage_)
     {
       assert(min_trim_percentage_ < max_trim_percentage_);
     }
@@ -1860,7 +2020,7 @@ namespace robust_pca
 
 
       // Accumulator object containing the required quantiles. 
-      std::vector<double> probs = { min_trim_percentage, max_trim_percentage };
+      std::vector<double> probs = { trimming_percentage/2, 1-trimming_percentage/2 };
       const accumulator_t quantil_obj(extended_p_square_probabilities = probs);
 
       // vector of accumulator objects
@@ -1888,8 +2048,8 @@ namespace robust_pca
       // extracting the bounds
       for(int i = 0; i < number_of_dimensions; i++)
       {
-        v_min_threshold[i] = quantile(v_acc[i], quantile_probability = min_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::min>(v_acc[i]);
-        v_max_threshold[i] = quantile(v_acc[i], quantile_probability = max_trim_percentage); //extract_result</*tag::p_square_quantile*/tag::max>(v_acc[i]);// quantile(v_acc[i], quantile_probability = max_trim_percentage);
+        v_min_threshold[i] = quantile(v_acc[i], quantile_probability = trimming_percentage/2);
+        v_max_threshold[i] = quantile(v_acc[i], quantile_probability = 1-trimming_percentage/2);
       }
       
       
