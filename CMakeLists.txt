@@ -182,28 +182,34 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   if(WIN32)
     set(MATLAB_UNIT_TESTS_CMD ${MATLAB_UNIT_TESTS_CMD} -wait)
   endif()
-  
-  #add_custom_command(
-  #  OUTPUT $<TARGET_FILE_DIR:robustpca_m>/
-  #  DEPENDS foo.cfg.in
-  #  COMMAND ${CMAKE_COMMAND} -E copy foo.cfg.in foo.cfg
-  #)
-  
-  
-  add_custom_command(
-    TARGET robustpca_m
-    PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${Boost_SYSTEM_LIBRARY} $<TARGET_FILE_DIR:robustpca_m>/. #_$<CONFIGURATION>
-#    WORKING_DIRECTORY 
-    COMMENT "Copy ${Boost_SYSTEM_LIBRARY}" #_$<CONFIGURATION>
-    VERBATIM
+
+  macro(copy_dependency_with_config target_name dependency_name)
+    set(dependency_name_debug ${${dependency_name}_DEBUG})
+    set(dependency_name_non_debug ${${dependency_name}_RELEASE})
+    add_custom_command(
+      TARGET ${target_name}
+      PRE_BUILD
+      COMMAND ${CMAKE_COMMAND} -E echo copy ${dependency_name} (
+	      $<$<CONFIG:Debug>:${dependency_name_debug}>
+	      $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}>) 
+	      into 
+	      $<TARGET_FILE_DIR:${target_name}>/.
+
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+	      $<$<CONFIG:Debug>:${dependency_name_debug}>
+	      $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}> 
+	      $<TARGET_FILE_DIR:${target_name}>/.
+      COMMENT "Copy ${target_name} dependencies into the output folder"
     )    
   
+
+
+  endmacro(copy_dependency_with_config)
   
-  #add_custom_target(copy_boost_to_matlab
-    
-  #  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${Boost_SYSTEM_LIBRARY} $<TARGET_FILE_DIR:robustpca_m>/.)
-  #exectute_process(${CMAKE_COMMAND} -E copy_if_different ${Boost_THREAD_LIBRARY} $<TARGET_FILE_DIR:robustpca_m>/.)
+  copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
+  copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
+
+
 
 
   add_test(NAME robustpca_matlabtest-1
