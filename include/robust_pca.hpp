@@ -250,7 +250,7 @@ namespace robust_pca
     norm_mu_t norm_op;
 
     //! Number of parallel tasks that will be used for computing.
-    int nb_processors;
+    size_t nb_processors;
 
     //! Maximal size of a chunk (infinity by default).
     size_t max_chunk_size;
@@ -265,12 +265,14 @@ namespace robust_pca
       size_t nb_elements;
       data_t accumulator;
       std::vector<bool> v_signs;
-      int data_dimension;
+      size_t data_dimension;
 
       // this is to send an update of the value of mu to all listeners
       // the connexion should be managed externally
-      typedef boost::signals2::signal<void (data_t const&)> connector_accumulator_t;
-      typedef boost::signals2::signal<void ()>              connector_counter_t;
+      typedef boost::signals2::signal<void (data_t const&)>
+        connector_accumulator_t;
+      typedef boost::signals2::signal<void ()>
+        connector_counter_t;
       connector_accumulator_t signal_acc;
       connector_counter_t signal_counter;
 
@@ -294,7 +296,7 @@ namespace robust_pca
 
       //! Sets the dimension of the problem
       //! @pre data_dimensions_ strictly positive
-      void set_data_dimensions(int data_dimensions_)
+      void set_data_dimensions(size_t data_dimensions_)
       {
         data_dimension = data_dimensions_;
         assert(data_dimension > 0);
@@ -409,8 +411,8 @@ namespace robust_pca
     private:
       mutable boost::mutex internal_mutex;
       data_t current_value;
-      volatile int nb_updates;
-      const int data_dimension;
+      volatile size_t nb_updates;
+      const size_t data_dimension;
 
     public:
 
@@ -418,7 +420,7 @@ namespace robust_pca
        *
        * @param dimension_ the number of dimensions of the vector to accumulate
        */
-      asynchronous_results_merger(int data_dimension_) : data_dimension(data_dimension_)
+      asynchronous_results_merger(size_t data_dimension_) : data_dimension(data_dimension_)
       {}
 
       void init()
@@ -461,7 +463,7 @@ namespace robust_pca
       }
 
       //! Returns the number of notifications received so far.
-      int get_nb_updates() const
+      size_t get_nb_updates() const
       {
         // to avoid possibly corrupted data, but I think for int this is unnecessary
         boost::lock_guard<boost::mutex> guard(internal_mutex); 
@@ -495,7 +497,7 @@ namespace robust_pca
 
 
     //! Sets the number of parallel tasks used for computing.
-    bool set_nb_processors(int nb_processors_)
+    bool set_nb_processors(size_t nb_processors_)
     {
       nb_processors = nb_processors_;
       return true;
@@ -543,8 +545,8 @@ namespace robust_pca
      */
     template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
     bool batch_process(
-      const int max_iterations,
-      int max_dimension_to_compute,
+      const size_t max_iterations,
+      size_t max_dimension_to_compute,
       it_t const it, 
       it_t const ite, 
       it_o_projected_vectors const it_projected,
@@ -594,7 +596,7 @@ namespace robust_pca
       const size_t nb_chunks = (size_data + chunks_size - 1) / chunks_size;
 
       // number of dimensions of the data vectors
-      const int number_of_dimensions = static_cast<int>(it->size());
+      const size_t number_of_dimensions = it->size();
       
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
@@ -605,7 +607,7 @@ namespace robust_pca
 
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
       
-      int iterations = 0;
+      size_t iterations = 0;
 
 
       // preparing the ranges on which each processing thread will run.
@@ -660,7 +662,7 @@ namespace robust_pca
 
 
       // for each dimension
-      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
+      for(size_t current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
       {
 
         convergence_check<data_t> convergence_op(mu);
@@ -1008,7 +1010,7 @@ namespace robust_pca
       data_t &v_selective_accumulator,
       vector_number_elements_t& v_selective_acc_count) const
     {
-      for(int i = 0, j = initial_data.size(); i < j; i++)
+      for(size_t i = 0, j = initial_data.size(); i < j; i++)
       {
         typename data_t::value_type const v(sign ? initial_data[i] : -initial_data[i]);
         if(v < lower_bounds[i])
@@ -1393,8 +1395,8 @@ namespace robust_pca
      */
     template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
     bool batch_process(
-      const int max_iterations,
-      int max_dimension_to_compute,
+      const size_t max_iterations,
+      size_t max_dimension_to_compute,
       it_t const it,
       it_t const ite,
       it_o_projected_vectors const it_projected,
@@ -1418,7 +1420,7 @@ namespace robust_pca
 
       size_t size_data(0);
 
-      const int number_of_dimensions = static_cast<int>(it->size());
+      const size_t number_of_dimensions = it->size();
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
 
 
@@ -1462,14 +1464,14 @@ namespace robust_pca
 
 
       // for each dimension
-      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
+      for(size_t current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
       {
 
         convergence_check<data_t> convergence_op(mu);
 
 
 
-        for(int iterations = 0; (!convergence_op(mu) && iterations < max_iterations) || iterations == 0; iterations++)
+        for(size_t iterations = 0; (!convergence_op(mu) && iterations < max_iterations) || iterations == 0; iterations++)
         {
 
           // first pass on the data, we compute the bounds

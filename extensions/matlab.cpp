@@ -217,7 +217,7 @@ bool robust_pca_trimming_dispatch(
   std::vector<data_t> temporary_data(rows);
 
   // main instance
-  robust_pca_t instance(algorithm_configuration.trimming_percentage / 200, 1 - algorithm_configuration.trimming_percentage / 200);
+  robust_pca_t instance(algorithm_configuration.trimming_percentage / 100);
 
 
 
