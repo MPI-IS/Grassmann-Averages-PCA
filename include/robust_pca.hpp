@@ -16,6 +16,9 @@
 
 #include <boost/numeric/conversion/bounds.hpp>
 #include <boost/numeric/ublas/vector_expression.hpp>
+#include <boost/numeric/ublas/vector.hpp>
+
+
 #include <boost/random/uniform_real_distribution.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/random/mersenne_twister.hpp>
@@ -781,6 +784,9 @@ namespace robust_pca
 
     //! Norm used for normalizing @f$\mu@f$.
     norm_mu_t norm_op;
+    
+    //! Maximal size of a chunk (infinity by default).
+    size_t max_chunk_size;    
 
     //! The percentage of the data that should be trimmed.
     //! The trimming is performed symmetrically in the upper and lower distribution of the data, hence
@@ -951,9 +957,9 @@ namespace robust_pca
       {
         assert(right.v_bounds.size() == v_bounds.size());
         typename v_bounds_t::iterator it(v_bounds.begin()), ite(v_bounds.end());
-        typename v_bounds_t::const_iterator itinput(right.v_bounds.begin());
+        typename v_bounds_t::const_iterator it_input(right.v_bounds.begin());
 
-        for(; it < ite; ++it, ++itinput)
+        for(; it < ite; ++it, ++it_input)
         {
           it->merge(*it_input);
         }
@@ -1003,12 +1009,12 @@ namespace robust_pca
 
     //! Performs a selective update of the accumulator, given the bounds computed previously
     template <class vector_bounds_t, class vector_number_elements_t>
-    void selective_acc_to_vector(
+    static void selective_acc_to_vector(
       const vector_bounds_t& lower_bounds, const vector_bounds_t& upper_bounds,
       const data_t &initial_data,
       bool sign,
       data_t &v_selective_accumulator,
-      vector_number_elements_t& v_selective_acc_count) const
+      vector_number_elements_t& v_selective_acc_count)
     {
       for(size_t i = 0, j = initial_data.size(); i < j; i++)
       {
@@ -1081,7 +1087,6 @@ namespace robust_pca
         end = e;
         nb_elements = std::distance(b, e);
         assert(nb_elements > 0);
-        v_signs.resize(nb_elements);
         return true;
       }
 
@@ -1139,7 +1144,7 @@ namespace robust_pca
         s_double_heap_vector bounds_op;
 
         // we allocate the heaps only when needed
-        bounds_op.set_dimension(data_dimensions_);
+        bounds_op.set_dimension(data_dimension);
 
 
         for(size_t s = 0; s < nb_elements; ++it_data, s++)
@@ -1259,7 +1264,7 @@ namespace robust_pca
       void init_accumulation()
       {
         current_value = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
-        count_vector = boost::numeric::ublas::scalar_vector<size_t>(data_dimension, 0);
+        current_count = boost::numeric::ublas::scalar_vector<size_t>(data_dimension, 0);
       }
 
       //! Initialises the internal state of the bounds
@@ -1300,7 +1305,7 @@ namespace robust_pca
       void update(bounds_processor_t const& new_bounds)
       {
         boost::lock_guard<boost::mutex> guard(internal_mutex);
-        bounds.merge(new_bounds)
+        bounds.merge(new_bounds);
       }
 
 
@@ -1371,6 +1376,29 @@ namespace robust_pca
       assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }
 
+    //! Sets the number of parallel tasks used for computing.
+    bool set_nb_processors(size_t nb_processors_)
+    {
+      nb_processors = nb_processors_;
+      return true;
+    }
+    
+    //! Sets the maximum chunk size. 
+    //!
+    //! By default, the chunk size is the size of the data divided by the number of processing threads.
+    //! Lowering the chunk size should provid better granularity in the overall processing time at the end 
+    //! of the processing.
+    bool set_max_chunk_size(size_t chunk_size)
+    {
+      if(chunk_size == 0)
+      {
+        return false;
+      }
+      max_chunk_size = chunk_size;
+      return true;
+    }
+    
+    
 
 
     /*! Performs the computation of the current subspace on the elements given by the two iterators.
@@ -1757,7 +1785,7 @@ namespace robust_pca
           }
 
           // gathering the new bounds
-          async_processor_t::bounds_processor_t const& bounds = async_merger.get_computed_bounds();
+          typename async_processor_t::bounds_processor_t const& bounds = async_merger.get_computed_bounds();
           bounds.extract_bounds(v_min_threshold, v_max_threshold);
 
           // clearing the bounds
@@ -1951,7 +1979,7 @@ namespace robust_pca
       random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable),
       trimming_percentage(trimming_percentage_)
     {
-      assert(min_trim_percentage_ < max_trim_percentage_);
+      assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }
 
 
