@@ -85,39 +85,50 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
-  //const double initial_point[] = { 0.2097, 0.3959, 0.5626, 0.2334, 0.6545 };
+  if(DATA_DIMENSION == 5)
+  { 
   
-  // this is the initialisation of the sequence of random vectors for each dimension 
-  // and some gram_schmidt orthogonalisation was also applied on it.
-  const double initial_point[] = {
-    0.2658, -0.4880, 0.4029, 0.4855, 0.5414,
-    0.8306, 0.3194, 0.2228, -0.3925, 0.0663,
-    -0.2066, -0.4473, 0.6346, -0.4964, -0.3288,
-    -0.3310, 0.0890, -0.0642, -0.5345, 0.7699,
-    -0.2953, 0.6722, 0.6174, 0.2794, 0.0408,
-  };
-  //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
+    // this is the initialisation of the sequence of random vectors for each dimension 
+    // and some gram_schmidt orthogonalisation was also applied on it.
+    const double initial_point[] = {
+      0.2658, -0.4880, 0.4029, 0.4855, 0.5414,
+      0.8306, 0.3194, 0.2228, -0.3925, 0.0663,
+      -0.2066, -0.4473, 0.6346, -0.4964, -0.3288,
+      -0.3310, 0.0890, -0.0642, -0.5345, 0.7699,
+      -0.2953, 0.6722, 0.6174, 0.2794, 0.0408,
+    };
+    //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
 
 
-  std::vector< ub::vector<double> > vec_initial_point(dimensions);
-  for(int i = 0; i < dimensions; i++)
-  {
-    vec_initial_point[i].resize(dimensions);
-    for(int j = 0; j < dimensions; j++)
+    std::vector< ub::vector<double> > vec_initial_point(dimensions);
+    for(int i = 0; i < dimensions; i++)
     {
-      vec_initial_point[i](j) = initial_point[i*dimensions + j];
+      vec_initial_point[i].resize(dimensions);
+      for(int j = 0; j < dimensions; j++)
+      {
+        vec_initial_point[i](j) = initial_point[i*dimensions + j];
+      }
     }
+
+    BOOST_CHECK(instance.batch_process(
+      max_iterations,
+      dimensions,
+      const_row_iter_t(mat_data, 0),
+      const_row_iter_t(mat_data, mat_data.size1()),
+      temporary_data.begin(),
+      eigen_vectors.begin(),
+      &vec_initial_point));
   }
-
-  BOOST_CHECK(instance.batch_process(
-    max_iterations,
-    dimensions,
-    const_row_iter_t(mat_data, 0),
-    const_row_iter_t(mat_data, mat_data.size1()),
-    temporary_data.begin(),
-    eigen_vectors.begin(),
-    &vec_initial_point));
-
+  else
+  {
+    BOOST_CHECK(instance.batch_process(
+      max_iterations,
+      dimensions,
+      const_row_iter_t(mat_data, 0),
+      const_row_iter_t(mat_data, mat_data.size1()),
+      temporary_data.begin(),
+      eigen_vectors.begin()));
+  }
 
 
   // testing the output sizes
@@ -152,33 +163,34 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
   }
 
-
-  // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
-  // each dimension iteration being given by the vector "initial_point" above. Each column represents 
-  // an eigenvector.
-  static const double matlab_data[] = {
-   -0.0506,  0.9918, -0.0085,  0.1167, -0.0055,
-   -0.1120, -0.0348, -0.4900,  0.2504,  0.8267,
-   -0.0555,  0.0622,  0.6842, -0.4771,  0.5452,
-    0.0689,  0.0965, -0.5397, -0.8317, -0.0546,
-    0.9885,  0.0436,  0.0200,  0.0656,  0.1278,
-  };
-
-
-  for(int i = 0; i < dimensions; i++)
+  if(DATA_DIMENSION == 5)
   {
-    ub::vector<double> current_matlab_vector(dimensions);
-    for(int j = 0; j < dimensions; j++)
+    // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
+    // each dimension iteration being given by the vector "initial_point" above. Each column represents 
+    // an eigenvector.
+    static const double matlab_data[] = {
+     -0.0506,  0.9918, -0.0085,  0.1167, -0.0055,
+     -0.1120, -0.0348, -0.4900,  0.2504,  0.8267,
+     -0.0555,  0.0622,  0.6842, -0.4771,  0.5452,
+      0.0689,  0.0965, -0.5397, -0.8317, -0.0546,
+      0.9885,  0.0436,  0.0200,  0.0656,  0.1278,
+    };
+
+
+    for(int i = 0; i < dimensions; i++)
     {
-      current_matlab_vector(j) = matlab_data[i + j*dimensions];
+      ub::vector<double> current_matlab_vector(dimensions);
+      for(int j = 0; j < dimensions; j++)
+      {
+        current_matlab_vector(j) = matlab_data[i + j*dimensions];
+      }
+      BOOST_CHECKPOINT("iteration " << i);
+      BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 2.6E-2); 
+      // there is a slight difference between the two implementation when enabling the P^2 algorithm
+      // for producing the quantiles.
     }
-    BOOST_CHECKPOINT("iteration " << i);
-    BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 2.6E-2); 
-    // there is a slight difference between the two implementation when enabling the P^2 algorithm
-    // for producing the quantiles.
+
   }
-
-
 
 
 }
