@@ -1555,6 +1555,8 @@ namespace robust_pca
           // divide each of the acc by acc_counts, and then take the norm
           for(int i = 0; i < number_of_dimensions; i++)
           {
+            if(!acc_counts[i])
+              return false;
             assert(acc_counts[i]);
             mu[i] = acc[i] / acc_counts[i];
           }
