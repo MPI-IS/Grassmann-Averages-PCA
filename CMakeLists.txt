@@ -25,6 +25,7 @@ endif()
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
+set(Boost_REALPATH ON)
 if(NOT WITHOUT_TESTS)
   set(Boost_USE_MULTITHREADED ON)
 
@@ -167,6 +168,8 @@ if(NOT WITHOUT_MATLAB)
   endif()
   
   set_target_properties(robustpca_m PROPERTIES FOLDER "Matlab")
+
+
 endif()
 
 
@@ -189,9 +192,9 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     add_custom_command(
       TARGET ${target_name}
       PRE_BUILD
-      COMMAND ${CMAKE_COMMAND} -E echo copy ${dependency_name} (
+      COMMAND ${CMAKE_COMMAND} -E echo copy ${dependency_name} 
 	      $<$<CONFIG:Debug>:${dependency_name_debug}>
-	      $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}>) 
+	      $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}>
 	      into 
 	      $<TARGET_FILE_DIR:${target_name}>/.
 
@@ -206,9 +209,11 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
 
   endmacro(copy_dependency_with_config)
   
-  copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
-  copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
-
+  
+  if(NOT ${Boost_USE_STATIC_LIBS})
+    copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
+    copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
+  endif()
 
 
 
