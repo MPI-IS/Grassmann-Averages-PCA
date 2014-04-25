@@ -162,7 +162,7 @@ if(NOT WITHOUT_MATLAB)
   target_link_libraries(robustpca_m robustpca ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY})
 
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
-  set_target_properties(robustpca_m PROPERTIES SUFFIX ".${MEX_EXTENSION}")
+  set_target_properties(robustpca_m PROPERTIES SUFFIX ".${MATLAB_MEX_EXTENSION}")
   if(WIN32)
     set_target_properties(robustpca_m PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
   endif()
@@ -213,15 +213,15 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
       TARGET ${target_name}
       PRE_BUILD
       COMMAND ${CMAKE_COMMAND} -E echo copy ${dependency_name} 
-	      $<$<CONFIG:Debug>:${dependency_name_debug}>
-	      $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}>
-	      into 
-	      $<TARGET_FILE_DIR:${target_name}>/.
+        $<$<CONFIG:Debug>:${dependency_name_debug}>
+        $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}>
+        into 
+        $<TARGET_FILE_DIR:${target_name}>/.
 
       COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-	      $<$<CONFIG:Debug>:${dependency_name_debug}>
-	      $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}> 
-	      $<TARGET_FILE_DIR:${target_name}>/.
+        $<$<CONFIG:Debug>:${dependency_name_debug}>
+        $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}> 
+        $<TARGET_FILE_DIR:${target_name}>/.
       COMMENT "Copy ${target_name} dependencies into the output folder"
     )    
   
