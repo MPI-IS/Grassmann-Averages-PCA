@@ -104,10 +104,10 @@ bool robust_pca_dispatch(
 
 
   typedef external_storage_adaptor<input_array_type> input_storage_t;
-  typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
+  typedef ub::matrix<input_array_type, ub::row_major, input_storage_t> input_matrix_t;
 
   typedef external_storage_adaptor<double> output_storage_t;
-  typedef ub::matrix<double, ub::column_major, output_storage_t> output_matrix_t;
+  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t;
 
   const size_t &columns = algorithm_configuration.columns;
   const size_t &rows = algorithm_configuration.rows;
@@ -270,8 +270,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   
 
   // Check the dimensions of inputs
-  config.rows = mxGetM(X);
-  config.columns = mxGetN(X);
+  config.rows = mxGetN(X);
+  config.columns = mxGetM(X);
   
    
   const size_t &columns = config.columns;
