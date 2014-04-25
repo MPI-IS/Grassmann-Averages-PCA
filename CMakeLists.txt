@@ -38,9 +38,9 @@ if(NOT WITHOUT_TESTS)
   endif()
   set(Boost_NO_BOOST_CMAKE ON)
 
-  find_package(Boost COMPONENTS unit_test_framework system thread)
+  find_package(Boost COMPONENTS unit_test_framework system thread chrono)
 else()
-  find_package(Boost COMPONENTS system thread)
+  find_package(Boost COMPONENTS system thread chrono)
 endif()
 
 if(NOT ${Boost_FOUND})
@@ -187,8 +187,28 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   endif()
 
   macro(copy_dependency_with_config target_name dependency_name)
+
     set(dependency_name_debug ${${dependency_name}_DEBUG})
     set(dependency_name_non_debug ${${dependency_name}_RELEASE})
+
+    # check to see if the function GetPrerequisites can do the job
+
+    if(WIN32)
+      # on windows, the dependencies are .lib but we should copy .dll files
+      get_filename_component(dependency_name_debug1 ${dependency_name_debug} NAME_WE)
+      get_filename_component(dependency_name_debug_dir ${dependency_name_debug} DIRECTORY)
+      set(dependency_name_debug ${dependency_name_debug_dir}/${dependency_name_debug1}${CMAKE_SHARED_LIBRARY_SUFFIX})
+
+      message("blablabla ${dependency_name_debug}")
+
+      get_filename_component(dependency_name_non_debug1 ${dependency_name_non_debug} NAME_WE)
+      get_filename_component(dependency_name_non_debug_dir ${dependency_name_non_debug} DIRECTORY)
+      set(dependency_name_non_debug ${dependency_name_non_debug_dir}/${dependency_name_non_debug1}${CMAKE_SHARED_LIBRARY_SUFFIX})
+
+      message("blablabla ${dependency_name_non_debug}")
+    endif()
+
+
     add_custom_command(
       TARGET ${target_name}
       PRE_BUILD
@@ -210,9 +230,11 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   endmacro(copy_dependency_with_config)
   
   
-  if(NOT ${Boost_USE_STATIC_LIBS})
+  if(NOT Boost_USE_STATIC_LIBS)
+    message("blablabla")
     copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
     copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
+    copy_dependency_with_config(robustpca_m Boost_CHRONO_LIBRARY)
   endif()
 
 
