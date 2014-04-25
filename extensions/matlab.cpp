@@ -6,6 +6,8 @@
 //!@file
 //! Mex wrapper file for robust PCA
 
+// this first include is a small workaround for clang503/xcode5.1: algorithm should be included prior to mex.h
+#include <algorithm>
 
 #include "mex.h"
 
