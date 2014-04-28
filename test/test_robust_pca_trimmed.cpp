@@ -91,11 +91,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     // this is the initialisation of the sequence of random vectors for each dimension 
     // and some gram_schmidt orthogonalisation was also applied on it.
     const double initial_point[] = {
-      0.2658, -0.4880, 0.4029, 0.4855, 0.5414,
-      0.8306, 0.3194, 0.2228, -0.3925, 0.0663,
-      -0.2066, -0.4473, 0.6346, -0.4964, -0.3288,
-      -0.3310, 0.0890, -0.0642, -0.5345, 0.7699,
-      -0.2953, 0.6722, 0.6174, 0.2794, 0.0408,
+       0.2658, -0.4880,  0.4029,  0.4855,  0.5414,
+       0.8306,  0.3194,  0.2228, -0.3925,  0.0663,
+      -0.2066, -0.4473,  0.6346, -0.4964, -0.3288,
+      -0.3310,  0.0890, -0.0642, -0.5345,  0.7699,
+      -0.2953,  0.6722,  0.6174,  0.2794,  0.0408,
     };
     //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
 
