@@ -68,6 +68,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 
 BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 {
+  //BOOST_REQUIRE(false);
   using namespace robust_pca;
   using namespace robust_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
@@ -203,30 +204,46 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
-  const double initial_point[] = {0.2097, 0.3959, 0.5626, 0.2334, 0.6545};
-  BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point)/sizeof(initial_point[0])); // just in case
 
-  ub::vector<double> vec_initial_point(dimensions);
-  for(int i = 0; i < dimensions; i++)
-  {
-    vec_initial_point(i) = initial_point[i];
-  }
-
-  std::vector< ub::vector<double> > v_init_points(dimensions, vec_initial_point);
-
-  // setting the number of workers
   BOOST_CHECK(instance.set_nb_processors(7)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
 
-  // main call
-  BOOST_CHECK(instance.batch_process(
-    max_iterations,
-    dimensions,
-    const_row_iter_t(mat_data, 0),
-    const_row_iter_t(mat_data, mat_data.size1()),
-    temporary_data.begin(),
-    eigen_vectors.begin(),
-    &v_init_points));
+  
+  if(DATA_DIMENSION == 5)
+  {
+    const double initial_point[] = {0.2097, 0.3959, 0.5626, 0.2334, 0.6545};
+    BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point)/sizeof(initial_point[0])); // just in case
 
+    ub::vector<double> vec_initial_point(dimensions);
+    for(int i = 0; i < dimensions; i++)
+    {
+      vec_initial_point(i) = initial_point[i];
+    }
+
+    std::vector< ub::vector<double> > v_init_points(dimensions, vec_initial_point);
+
+    // setting the number of workers
+
+    // main call
+    BOOST_CHECK(instance.batch_process(
+      max_iterations,
+      dimensions,
+      const_row_iter_t(mat_data, 0),
+      const_row_iter_t(mat_data, mat_data.size1()),
+      temporary_data.begin(),
+      eigen_vectors.begin(),
+      &v_init_points));
+  }
+  else
+  {
+    BOOST_CHECK(instance.batch_process(
+      max_iterations,
+      dimensions,
+      const_row_iter_t(mat_data, 0),
+      const_row_iter_t(mat_data, mat_data.size1()),
+      temporary_data.begin(),
+      eigen_vectors.begin()));
+    
+  }
 
 
   // testing the output sizes
@@ -259,30 +276,31 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
   }
 
-
-  // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
-  // each dimension iteration being given by the vector "initial_point" above. Each column represents 
-  // an eigenvector.
-  static const double matlab_data[] = {
-   -0.0219,    0.0905,   -0.0057,    0.0914,    0.9914,
-   -0.0512,   -0.0875,    0.9873,   -0.1202,    0.0236,
-   -0.0624,    0.9889,    0.0908,    0.0336,   -0.0942,
-    0.0280,   -0.0508,    0.1193,    0.9875,   -0.0851,
-    0.9961,    0.0609,    0.0529,   -0.0298,    0.0195
-  };
-
-
-  for(int i = 0; i < dimensions; i++)
+  if(DATA_DIMENSION == 5)
   {
-    ub::vector<double> current_matlab_vector(dimensions);
-    for(int j = 0; j < dimensions; j++)
+    // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
+    // each dimension iteration being given by the vector "initial_point" above. Each column represents 
+    // an eigenvector.
+    static const double matlab_data[] = {
+     -0.0219,    0.0905,   -0.0057,    0.0914,    0.9914,
+     -0.0512,   -0.0875,    0.9873,   -0.1202,    0.0236,
+     -0.0624,    0.9889,    0.0908,    0.0336,   -0.0942,
+      0.0280,   -0.0508,    0.1193,    0.9875,   -0.0851,
+      0.9961,    0.0609,    0.0529,   -0.0298,    0.0195
+    };
+
+
+    for(int i = 0; i < dimensions; i++)
     {
-      current_matlab_vector(j) = matlab_data[i + j*dimensions];
+      ub::vector<double> current_matlab_vector(dimensions);
+      for(int j = 0; j < dimensions; j++)
+      {
+        current_matlab_vector(j) = matlab_data[i + j*dimensions];
+      }
+      BOOST_CHECKPOINT("iteration " << i);
+      BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 1E-3);
     }
-    BOOST_CHECKPOINT("iteration " << i);
-    BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 1E-3);
-  }
-  
+  }  
 
 
 
