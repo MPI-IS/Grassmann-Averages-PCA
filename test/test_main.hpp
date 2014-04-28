@@ -18,7 +18,7 @@
 extern boost::random::mt19937 rng;
 
 //#define FLUSH_MATRIX_TO_FILE
-const int DATA_DIMENSION=500;
+const int DATA_DIMENSION=100;
 
 // Fixture for the tests
 struct fixture_simple_matrix_creation
