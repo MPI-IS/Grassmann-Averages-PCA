@@ -96,6 +96,9 @@ set(RobustPCA_LIB
      include/private/boost_ublas_matrix_helper.hpp
 
      include/robust_pca.hpp
+     include/robust_pca_trimmed.hpp
+     include/private/utilities.hpp
+
      src/robust_pca.cpp)
 add_library(robustpca ${RobustPCA_LIB})
 target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY})

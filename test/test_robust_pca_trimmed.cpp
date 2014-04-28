@@ -10,7 +10,7 @@
 #include <boost/test/unit_test.hpp>
 #include <test/test_main.hpp>
 
-#include <include/robust_pca.hpp>
+#include <include/robust_pca_trimmed.hpp>
 #include <include/private/boost_ublas_matrix_helper.hpp>
 
 // data stored into a matrix

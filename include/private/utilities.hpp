@@ -14,6 +14,9 @@
  */
 
 
+#include <boost/numeric/conversion/bounds.hpp>
+
+
 #include <boost/asio/io_service.hpp>
 #include <boost/thread/thread.hpp>
 
