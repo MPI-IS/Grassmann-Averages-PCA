@@ -19,9 +19,6 @@
 #include <boost/numeric/ublas/vector.hpp>
 
 
-#include <boost/random/uniform_real_distribution.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
-#include <boost/random/mersenne_twister.hpp>
 
 #include <vector>
 
@@ -44,178 +41,17 @@
 #include <boost/thread/thread.hpp>
 #include <boost/signals2.hpp>
 
+// utilities
+#include <include/private/utilities.hpp>
+
+
+
+
 namespace robust_pca
 {
- 
-  //! Wrapper object for infinity/max @f$\ell_\infty@f$ norm.
-  struct norm_infinity
-  {
-    template <class vector_t>
-    double operator()(vector_t const& v) const
-    {
-      return boost::numeric::ublas::norm_inf(v);
-    }
-  };
-
-
-  //! Returns the square of the @f$\ell_2@f$ norm.
-  struct norm_ell2_square
-  {
-    template <class vector_t>
-    double operator()(vector_t const& v) const
-    {
-      double acc(0);
-      for(typename vector_t::const_iterator it(v.begin()), ite(v.end());
-          it < ite;
-          ++it)
-      {
-        typename vector_t::const_reference v(*it);
-        acc += v * v;
-      }
-      return acc;
-    }
-  };
-
-  //! Returns the @f$\ell_2@f$ norm of a vector.
-  struct norm2
-  {
-    typedef double result_type;
-    norm_ell2_square op;
-    template <class vector_t>
-    result_type operator()(vector_t const& v) const
-    {
-      return std::sqrt(op(v));
-    }
-  };
-
-
-  /*!@brief Checks the convergence of a numerical scheme.
-   *
-   * @tparam data_t: type of the data.
-   * @tparam norm_t: the norm used in order to compare the closeness of two successive results.
-   *
-   * The type of the data should meet the following requirements:
-   * - data_t should be default constructible 
-   * - data_t should be constructible with one parameter
-   * - operator- is defined between two instances of data_t and return a type compatible with the input of the norm operator.
-   *
-   * The convergence is assumed as soon as the norm between two subsequent states is less than a certain @f$\epsilon@f$, that is
-   * the functor returns true if:
-   * @f[\left\|v_t - v_{t-1}\right\| < \epsilon@f]
-   *
-   * @note When the convergense is reached, the states are not stored anymore (the calling algorithm is supposed to stop).
-   */
-  template <class data_t, class norm_t = norm_infinity>
-  struct convergence_check
-  {
-    const double epsilon;
-    norm_t norm_comparison;
-    data_t previous_state;
-
-    //! Initialise the instance with the initial state of the vector.
-    convergence_check(data_t const& current_state, double epsilon_ = 1E-5) : 
-      epsilon(epsilon_), 
-      previous_state(current_state)
-    {}
-
-    //! Returns true on convergence.
-    bool operator()(data_t const& current_state)
-    {
-      bool ret = norm_comparison(current_state - previous_state) < epsilon;
-      if(!ret)
-      {
-        previous_state = current_state;
-      }
-      return ret;
-    }
-
-  };
-
-
-  // some issues with the random number generator
-  const double fVeryBigButStillComputable = 1E10;
-  const double fVerySmallButStillComputable = -1E10;
-
-
-  /*!@brief Used to initialize the initial guess to some random data.
-   *
-   * @tparam data_t the type of the data returned. It should model a vector:
-   *  - default, copy constructible and constructible with a size
-   *  - has a member @c size returning a value of type @c data_t::Size_type
-   *  - has a field @c data_t::Value_type
-   */
-  template <
-    class data_t, 
-    class random_distribution_t = 
-      typename boost::mpl::if_<
-        boost::is_floating_point<typename data_t::value_type>,
-        boost::random::uniform_real_distribution<typename data_t::value_type>,
-        boost::random::uniform_int_distribution<typename data_t::value_type>
-      >::type,
-    class random_number_generator_t = boost::random::mt19937
-  >
-  struct random_data_generator
-  {
-    typedef typename data_t::value_type value_type;
-    mutable random_number_generator_t rng;
-    value_type min_bound;
-    value_type max_bound;
-    
-    //! Default construction
-    random_data_generator(
-      value_type min_value_ = boost::numeric::bounds<value_type>::lowest(),
-      value_type max_value_ = boost::numeric::bounds<value_type>::highest()) : 
-      rng(), 
-      min_bound(min_value_), 
-      max_bound(max_value_)
-    {}
-
-    //! Constructs from the specified seeded random number generator.
-    random_data_generator(
-      random_number_generator_t const &r,
-      value_type min_value_ = boost::numeric::bounds<value_type>::lowest(),
-      value_type max_value_ = boost::numeric::bounds<value_type>::highest()) : 
-      rng(r),
-      min_bound(min_value_), 
-      max_bound(max_value_)
-    {}
-
-
-    data_t operator()(const data_t& v) const
-    {
-      data_t out(v.size());
-      random_distribution_t dist(min_bound, max_bound);
-      for(typename data_t::size_type i(0), j(v.size()); i < j; i++)
-      {
-        out[i] = dist(rng);
-      }
-      return out;
-    }
-  };
 
 
 
-
-
-  namespace details
-  {
-    //! Ensures the proper stop of the processing pool
-    struct safe_stop
-    {
-      boost::asio::io_service& io_service;
-      boost::thread_group& thread_group;
-
-      safe_stop(boost::asio::io_service& ios, boost::thread_group& tg) : io_service(ios), thread_group(tg)
-      {
-      }
-
-      ~safe_stop()
-      {
-        io_service.stop();
-        thread_group.join_all();
-      }
-    };
-  }
 
 
 
@@ -242,12 +78,12 @@ namespace robust_pca
    * - to split the computation of the project among many threads.
    * @author Soren Hauberg, Raffi Enficiaud
    */
-  template <class data_t, class norm_mu_t = norm2>
+  template <class data_t, class norm_mu_t = details::norm2>
   struct robust_pca_impl
   {
   private:
     //! Random generator for initialising @f$\mu@f$ at each dimension. 
-    random_data_generator<data_t> random_init_op;
+    details::random_data_generator<data_t> random_init_op;
 
     //! Norm used for normalizing @f$\mu@f$.
     norm_mu_t norm_op;
@@ -430,18 +266,18 @@ namespace robust_pca
 
       void init()
       {
-        init_accumulation();
-        init_counter();
+        init_results();
+        init_notifications();
       }
 
       //! Initialises the internal state of the accumulator
-      void init_accumulation()
+      void init_results()
       {
         current_value = boost::numeric::ublas::scalar_vector<typename data_t::value_type>(data_dimension, 0);
       }
 
       //! Initialises the internal state of the counter
-      void init_counter()
+      void init_notifications()
       {
         nb_updates = 0;
       }
@@ -468,16 +304,11 @@ namespace robust_pca
         condition_.notify_one();
       }
 
-      //! Returns the number of notifications received so far.
-      size_t get_nb_updates() const
-      {
-        // to avoid possibly corrupted data, but I think for int this is unnecessary
-        boost::lock_guard<boost::mutex> guard(internal_mutex); 
-        return nb_updates;
-      }
-      
-      
-      bool wait_notifications(int nb_notifications)
+     
+      //! Returns once the number of updates reaches the number in argument.
+      //!
+      //!@warning if an inappropriate number is given, the method might never return.
+      bool wait_notifications(size_t nb_notifications)
       {
         boost::unique_lock<boost::mutex> lock(internal_mutex);
         while (nb_updates < nb_notifications)
@@ -511,7 +342,7 @@ namespace robust_pca
      * By default, the number of available processors is 1 and the maximum size of the chunks is the maximal size
      */
     robust_pca_impl() : 
-      random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable), 
+      random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable), 
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max())
     {}
@@ -588,7 +419,7 @@ namespace robust_pca
 
 
       // in case of non clean exit (or even in case of clean one).
-      details::safe_stop worker_lock_guard(ioService, threadpool);
+      details::threading::safe_stop worker_lock_guard(ioService, threadpool);
 
       // this is exactly the number of processors
       boost::asio::io_service::work work(ioService);
@@ -686,7 +517,7 @@ namespace robust_pca
       for(size_t current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
       {
 
-        convergence_check<data_t> convergence_op(mu);
+        details::convergence_check<data_t> convergence_op(mu);
 
         data_t previous_mu(mu);
 
@@ -700,10 +531,6 @@ namespace robust_pca
         }
 
         // waiting for completion (barrier)
-        //while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-        //{
-        //  boost::this_thread::yield();
-        //}
         async_merger.wait_notifications(v_individual_accumulators.size());
 
         // gathering the first mu
@@ -726,10 +553,6 @@ namespace robust_pca
           }
 
           // waiting for completion (barrier)
-          //while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-          //{
-          //  boost::this_thread::yield();
-          //}
           async_merger.wait_notifications(v_individual_accumulators.size());
 
           // gathering the mus
@@ -745,7 +568,7 @@ namespace robust_pca
         if(current_dimension < max_dimension_to_compute - 1)
         {
 
-          async_merger.init_counter();
+          async_merger.init_notifications();
 
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
@@ -759,10 +582,6 @@ namespace robust_pca
 
           mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
 
-          //while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-          //{
-          //  boost::this_thread::yield();
-          //}
           async_merger.wait_notifications(v_individual_accumulators.size());
 
         }
@@ -796,12 +615,12 @@ namespace robust_pca
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */
-  template <class data_t, class norm_mu_t = norm2>
+  template <class data_t, class norm_mu_t = details::norm2>
   struct robust_pca_with_trimming_impl
   {
   private:
     //! Random generator for initialising @f$\mu@f$ at each dimension. 
-    random_data_generator<data_t> random_init_op;
+    details::random_data_generator<data_t> random_init_op;
 
     //! Norm used for normalizing @f$\mu@f$.
     norm_mu_t norm_op;
@@ -1276,13 +1095,13 @@ namespace robust_pca
       //! Initializes the internal states
       void init()
       {
-        init_accumulation();
-        init_counter();
+        init_results();
+        init_notifications();
         init_bounds();
       }
 
       //! Initialises the internal state of the accumulator
-      void init_accumulation()
+      void init_results()
       {
         current_value = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
         current_count = boost::numeric::ublas::scalar_vector<size_t>(data_dimension, 0);
@@ -1302,7 +1121,7 @@ namespace robust_pca
       }
 
       //! Initialises the internal state of the counter
-      void init_counter()
+      void init_notifications()
       {
         nb_updates = 0;
       }
@@ -1340,13 +1159,21 @@ namespace robust_pca
         nb_updates ++;
       }
 
-      //! Returns the number of notifications received so far.
-      int get_nb_updates() const
+
+      bool wait_notifications(size_t nb_notifications)
       {
-        // to avoid possibly corrupted data, but I think for int this is unnecessary
-        boost::lock_guard<boost::mutex> guard(internal_mutex); 
-        return nb_updates;
+        boost::unique_lock<boost::mutex> lock(internal_mutex);
+        while (nb_updates < nb_notifications)
+        {
+          // when entering wait, the lock is unlocked and made available to other threads.
+          // when awakened, the lock is locked before wait returns. 
+          condition_.wait(lock);
+        }
+        
+        return true;
+        
       }
+
 
       //! Returns the current accumulated value.
       data_t const& get_accumulated_data() const
@@ -1391,7 +1218,7 @@ namespace robust_pca
 
   public:
     robust_pca_with_trimming_impl(double trimming_percentage_ = 0) :
-      random_init_op(fVerySmallButStillComputable, fVeryBigButStillComputable),
+      random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable),
       trimming_percentage(trimming_percentage_)
     {
       assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
@@ -1516,7 +1343,7 @@ namespace robust_pca
       for(size_t current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
       {
 
-        convergence_check<data_t> convergence_op(mu);
+        details::convergence_check<data_t> convergence_op(mu);
 
 
 
@@ -1547,9 +1374,6 @@ namespace robust_pca
             v_min_threshold[i] = quantile(v_acc[i], quantile_probability = trimming_percentage/2);
             v_max_threshold[i] = quantile(v_acc[i], quantile_probability = 1-trimming_percentage/2);
           }
-
-          //v_acc.clear();
-          
 
 
           data_t previous_mu = mu;
@@ -1802,10 +1626,8 @@ namespace robust_pca
 
 
           // waiting for completion (barrier)
-          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-          {
-            boost::this_thread::yield();
-          }
+          async_merger.wait_notifications(v_individual_accumulators.size());
+
 
           // gathering the new bounds
           typename async_processor_t::bounds_processor_t const& bounds = async_merger.get_computed_bounds();
@@ -1826,11 +1648,8 @@ namespace robust_pca
 
 
           // waiting for completion (barrier)
-          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-          {
-            boost::this_thread::yield();
-          }
-
+          async_merger.wait_notifications(v_individual_accumulators.size());
+          
 
           // gathering the mus
           mu = async_merger.get_accumulated_data();
@@ -1861,7 +1680,7 @@ namespace robust_pca
         // projection onto the orthogonal subspace
         if(current_dimension < max_dimension_to_compute - 1)
         {
-          async_merger.init_counter();
+          async_merger.init_notifications();
 
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
@@ -1883,10 +1702,7 @@ namespace robust_pca
           mu /= norm_op(mu);
 
           // wait for the workers
-          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-          {
-            boost::this_thread::yield();
-          }
+          async_merger.wait_notifications(v_individual_accumulators.size());
 
           
         }
@@ -1923,11 +1739,11 @@ namespace robust_pca
   *
   * @author Soren Hauberg, Raffi Enficiaud
   */
-  template <class data_t, class norm_mu_t = norm2>
+  template <class data_t, class norm_mu_t = details::norm2>
   struct robust_pca_with_stable_trimming_impl
   {
   private:
-    random_data_generator<data_t> random_init_op;
+    details::random_data_generator<data_t> random_init_op;
     norm_mu_t norm_op;
     double trimming_percentage;
 

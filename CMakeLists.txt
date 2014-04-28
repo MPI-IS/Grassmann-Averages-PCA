@@ -77,7 +77,10 @@ if(NOT WITHOUT_MATLAB)
 endif()
 
 
-
+# general defines
+if(WIN32)
+  add_definitions(-D_WIN32_WINNT=0x0501)
+endif()
 
 
 
@@ -199,13 +202,10 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
       get_filename_component(dependency_name_debug_dir ${dependency_name_debug} DIRECTORY)
       set(dependency_name_debug ${dependency_name_debug_dir}/${dependency_name_debug1}${CMAKE_SHARED_LIBRARY_SUFFIX})
 
-      message("blablabla ${dependency_name_debug}")
-
       get_filename_component(dependency_name_non_debug1 ${dependency_name_non_debug} NAME_WE)
       get_filename_component(dependency_name_non_debug_dir ${dependency_name_non_debug} DIRECTORY)
       set(dependency_name_non_debug ${dependency_name_non_debug_dir}/${dependency_name_non_debug1}${CMAKE_SHARED_LIBRARY_SUFFIX})
 
-      message("blablabla ${dependency_name_non_debug}")
     endif()
 
 
@@ -231,7 +231,6 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   
   
   if(NOT Boost_USE_STATIC_LIBS)
-    message("blablabla")
     copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
     copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
     copy_dependency_with_config(robustpca_m Boost_CHRONO_LIBRARY)

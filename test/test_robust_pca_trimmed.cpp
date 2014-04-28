@@ -140,11 +140,14 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   }
 
 
-  BOOST_MESSAGE("Generated eigen vectors are:");
-
-  for(int i = 0; i < dimensions; i++)
+  if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+    BOOST_MESSAGE("Generated eigen vectors are:");
+
+    for(int i = 0; i < dimensions; i++)
+    {
+      BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+    }
   }
 
   // testing orthogonality of all eigenvectors

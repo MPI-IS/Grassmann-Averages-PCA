@@ -130,11 +130,14 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   }
 
 
-  BOOST_MESSAGE("Generated eigen vectors are:");
-
-  for(int i = 0; i < dimensions; i++)
+  if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+    BOOST_MESSAGE("Generated eigen vectors are:");
+
+    for(int i = 0; i < dimensions; i++)
+    {
+      BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+    }
   }
 
   // testing orthogonality of all eigenvectors
@@ -146,6 +149,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     }
   }
 
+  // testing unitarity of all eigenvectors
   for(int i = 0; i < dimensions; i++)
   {
     BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
@@ -254,12 +258,14 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     BOOST_REQUIRE_EQUAL(eigen_vectors[i].size(), dimensions);
   }
 
-
-  BOOST_MESSAGE("Generated eigen vectors are:");
-
-  for(int i = 0; i < dimensions; i++)
+  if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+    BOOST_MESSAGE("Generated eigen vectors are:");
+
+    for(int i = 0; i < dimensions; i++)
+    {
+      BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+    }
   }
 
   // testing orthogonality of all eigenvectors
