@@ -417,6 +417,8 @@ namespace robust_pca
       volatile size_t nb_updates;
       const size_t data_dimension;
 
+      boost::condition_variable condition_;
+
     public:
 
       /*!Constructor
@@ -463,6 +465,7 @@ namespace robust_pca
       {
         boost::lock_guard<boost::mutex> guard(internal_mutex);
         nb_updates ++;
+        condition_.notify_one();
       }
 
       //! Returns the number of notifications received so far.
@@ -471,6 +474,21 @@ namespace robust_pca
         // to avoid possibly corrupted data, but I think for int this is unnecessary
         boost::lock_guard<boost::mutex> guard(internal_mutex); 
         return nb_updates;
+      }
+      
+      
+      bool wait_notifications(int nb_notifications)
+      {
+        boost::unique_lock<boost::mutex> lock(internal_mutex);
+        while (nb_updates < nb_notifications)
+        {
+          // when entering wait, the lock is unlocked and made available to other threads.
+          // when awakened, the lock is locked before wait returns. 
+          condition_.wait(lock);
+        }
+        
+        return true;
+        
       }
 
       //! Returns the current accumulated value.
@@ -682,10 +700,11 @@ namespace robust_pca
         }
 
         // waiting for completion (barrier)
-        while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-        {
-          boost::this_thread::yield();
-        }
+        //while(async_merger.get_nb_updates() < v_individual_accumulators.size())
+        //{
+        //  boost::this_thread::yield();
+        //}
+        async_merger.wait_notifications(v_individual_accumulators.size());
 
         // gathering the first mu
         mu = async_merger.get_accumulated_data();
@@ -707,10 +726,11 @@ namespace robust_pca
           }
 
           // waiting for completion (barrier)
-          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-          {
-            boost::this_thread::yield();
-          }
+          //while(async_merger.get_nb_updates() < v_individual_accumulators.size())
+          //{
+          //  boost::this_thread::yield();
+          //}
+          async_merger.wait_notifications(v_individual_accumulators.size());
 
           // gathering the mus
           mu = async_merger.get_accumulated_data();
@@ -739,10 +759,11 @@ namespace robust_pca
 
           mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
 
-          while(async_merger.get_nb_updates() < v_individual_accumulators.size())
-          {
-            boost::this_thread::yield();
-          }
+          //while(async_merger.get_nb_updates() < v_individual_accumulators.size())
+          //{
+          //  boost::this_thread::yield();
+          //}
+          async_merger.wait_notifications(v_individual_accumulators.size());
 
         }
         
