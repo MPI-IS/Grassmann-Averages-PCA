@@ -227,6 +227,7 @@ namespace robust_pca
       struct initialisation_vector_specific_dimension
       {
         const int data_dimension;
+        typedef typename data_t::value_type scalar_t;
 
         initialisation_vector_specific_dimension(int dimension) : data_dimension(dimension)
         {}
@@ -256,6 +257,7 @@ namespace robust_pca
         init_result_type initialisation_instance;
 
         volatile int nb_updates;
+        boost::condition_variable condition_;
 
       public:
 
