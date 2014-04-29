@@ -482,16 +482,32 @@ else()
     find_program(
       MATLAB_PROGRAM
       "matlab")
-    
-    if(${MATLAB_PROGRAM})
+  
+    if(NOT ${MATLAB_PROGRAM})
+      execute_process(COMMAND which matlab OUTPUT_VARIABLE _which_matlab RESULT_VARIABLE _which_matlab_result)
+      message(STATUS "blabalblabal ${_which_matlab_result}" )
+      if((${_which_matlab_result} EQUAL 0))# AND (EXISTS ${_which_matlab}))
+        message("blablablabalbalbalbalbalbal ${_which_matlab}")
+        set(MATLAB_PROGRAM ${_which_matlab})
+      endif()
+    endif()
+  
+    if(MATLAB_PROGRAM)
       message(STATUS "[MATLAB] found from the command line at ${MATLAB_PROGRAM}")
-      
+      if(IS_SYMLINK  ${MATLAB_PROGRAM})
+        message("is symlink")
+      endif()
       # resolve symlinks
       get_filename_component(_matlab_current_location ${MATLAB_PROGRAM} REALPATH)
-      
+      message(STATUS "symlinks _matlab_current_location ${_matlab_current_location}")
+      if(${CMAKE_VERSION} VERSION_LESS "2.8.12")
+        set(_directory_alias PATH)
+      else()
+        set(_directory_alias DIRECTORY)
+      endif()
       # get the directory (the command below has to be run twice)
-      get_filename_component(_matlab_current_location ${_matlab_current_location} DIRECTORY)
-      get_filename_component(_matlab_current_location ${_matlab_current_location} DIRECTORY) # Matlab should be in bin
+      get_filename_component(_matlab_current_location ${_matlab_current_location} ${_directory_alias})
+      get_filename_component(_matlab_current_location ${_matlab_current_location} ${_directory_alias}) # Matlab should be in bin
       list(APPEND _matlab_possible_roots "" ${_matlab_current_location}) # empty version
     endif()
     
