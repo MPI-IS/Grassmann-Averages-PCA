@@ -493,7 +493,10 @@ else()
     endif()
   
     if(MATLAB_PROGRAM)
-      message(STATUS "[MATLAB] found from the command line at ${MATLAB_PROGRAM}")
+      if(MATLAB_FIND_DEBUG)
+        message(STATUS "[MATLAB] found from the command line at ${MATLAB_PROGRAM}")
+      endif()
+
       if(IS_SYMLINK  ${MATLAB_PROGRAM})
         message("is symlink")
       endif()
@@ -516,9 +519,10 @@ else()
     if((NOT _matlab_possible_roots) OR APPLE)
       
       matlab_get_supported_releases(matlab_releases)
-      message(STATUS "[MATLAB] Matlab supported versions ${matlab_releases}. If more version should be supported "
-                     "the variable MATLAB_ADDITIONAL_VERSIONS can be set according to the documentation")
-      
+      if(MATLAB_FIND_DEBUG)
+        message(STATUS "[MATLAB] Matlab supported versions ${matlab_releases}. If more version should be supported "
+                       "the variable MATLAB_ADDITIONAL_VERSIONS can be set according to the documentation")
+      endif()
 
       foreach(current_matlab_release IN LISTS matlab_releases)
         set(_matlab_full_string "/Applications/MATLAB_${current_matlab_release}.app")
