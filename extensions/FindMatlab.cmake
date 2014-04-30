@@ -656,17 +656,18 @@ endif()
 unset(_matlab_64Build)
 
 
+if(NOT DEFINED MATLAB_MEX_EXTENSION)
+  set(_matlab_mex_extension "")
+  matlab_get_mex_suffix(${MATLAB_ROOT} _matlab_mex_extension)
 
-set(MATLAB_MEX_EXTENSION "")
-matlab_get_mex_suffix(${MATLAB_ROOT} MATLAB_MEX_EXTENSION)
-
-# This variable goes to the cache.
-set(MATLAB_MEX_EXTENSION ${MATLAB_MEX_EXTENSION} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
-
+  # This variable goes to the cache.
+  set(MATLAB_MEX_EXTENSION ${_matlab_mex_extension} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
+  unset(_matlab_mex_extension)
+endif()
 
 
 if(MATLAB_FIND_DEBUG)
-  message(STATUS "MATLAB_LIB_PREFIX_FOR_LOOKUP ${MATLAB_LIB_PREFIX_FOR_LOOKUP} | MATLAB_LIB_DIR_FOR_LOOKUP = ${MATLAB_LIB_DIR_FOR_LOOKUP}")
+  message(STATUS "[MATLAB] [DEBUG]MATLAB_LIB_PREFIX_FOR_LOOKUP = ${MATLAB_LIB_PREFIX_FOR_LOOKUP} | MATLAB_LIB_DIR_FOR_LOOKUP = ${MATLAB_LIB_DIR_FOR_LOOKUP}")
 endif()
 
 # WARNING: this thing pollutes the CMAKE_FIND_LIBRARY_PREFIXES global variable. 
@@ -675,9 +676,6 @@ set(CMAKE_FIND_LIBRARY_PREFIXES ${CMAKE_FIND_LIBRARY_PREFIXES} ${MATLAB_LIB_PREF
 
 
 set(MATLAB_REQUIRED_VARIABLES)
-
-# the MEX extension is required
-list(APPEND MATLAB_REQUIRED_VARIABLES MATLAB_MEX_EXTENSION)
 
 
 # the MEX library/header are required
@@ -696,6 +694,9 @@ find_library(
   NO_DEFAULT_PATH
 )
 list(APPEND MATLAB_REQUIRED_VARIABLES MATLAB_MEX_LIBRARY)
+
+# the MEX extension is required
+list(APPEND MATLAB_REQUIRED_VARIABLES MATLAB_MEX_EXTENSION)
 
 
 # component Mex Compiler
@@ -773,12 +774,19 @@ unset(_matlab_find_eng)
 
 set(MATLAB_LIBRARIES ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY} ${MATLAB_ENG_LIBRARY})
 
-find_package_handle_standard_args(
-  MATLAB 
-  FOUND_VAR MATLAB_FOUND
-  REQUIRED_VARS ${MATLAB_REQUIRED_VARIABLES} MATLAB_MEX_LIBRARY #MATLAB_REQUIRED_PROGRAMS MATLAB_REQUIRED_LIBRARIES MATLAB_REQUIRED_INCLUDE_DIRS
-  VERSION_VAR MATLAB_VERSION
-  HANDLE_COMPONENTS)
+if(CMAKE_VERSION VERSION_LESS "2.8.11")
+  find_package_handle_standard_args(
+    MATLAB
+    REQUIRED_VARS ${MATLAB_REQUIRED_VARIABLES} MATLAB_MEX_LIBRARY
+    VERSION_VAR MATLAB_VERSION)
+else()
+  find_package_handle_standard_args(
+    MATLAB 
+    FOUND_VAR MATLAB_FOUND
+    REQUIRED_VARS ${MATLAB_REQUIRED_VARIABLES} MATLAB_MEX_LIBRARY #MATLAB_REQUIRED_PROGRAMS MATLAB_REQUIRED_LIBRARIES MATLAB_REQUIRED_INCLUDE_DIRS
+    VERSION_VAR MATLAB_VERSION
+    HANDLE_COMPONENTS)
+endif()
 
 
 
