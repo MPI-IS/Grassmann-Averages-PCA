@@ -484,25 +484,21 @@ else()
       "matlab")
   
     if(NOT ${MATLAB_PROGRAM})
-      execute_process(COMMAND which matlab OUTPUT_VARIABLE _which_matlab RESULT_VARIABLE _which_matlab_result)
-      message(STATUS "blabalblabal ${_which_matlab_result}" )
-      if((${_which_matlab_result} EQUAL 0))# AND (EXISTS ${_which_matlab}))
-        message("blablablabalbalbalbalbalbal ${_which_matlab}")
-        set(MATLAB_PROGRAM ${_which_matlab})
+      #execute_process(COMMAND which matlab OUTPUT_VARIABLE _which_matlab RESULT_VARIABLE _which_matlab_result)
+      get_filename_component(MATLAB_PROGRAM "matlab" PROGRAM) 
+      if(MATLAB_FIND_DEBUG)
+        message(STATUS "[MATLAB] matlab program result from the command line ${MATLAB_PROGRAM}")
       endif()
+
     endif()
   
-    if(MATLAB_PROGRAM)
+    if(MATLAB_PROGRAM AND EXISTS ${MATLAB_PROGRAM})
       if(MATLAB_FIND_DEBUG)
         message(STATUS "[MATLAB] found from the command line at ${MATLAB_PROGRAM}")
       endif()
 
-      if(IS_SYMLINK  ${MATLAB_PROGRAM})
-        message("is symlink")
-      endif()
       # resolve symlinks
       get_filename_component(_matlab_current_location ${MATLAB_PROGRAM} REALPATH)
-      message(STATUS "symlinks _matlab_current_location ${_matlab_current_location}")
       if(${CMAKE_VERSION} VERSION_LESS "2.8.12")
         set(_directory_alias PATH)
       else()
@@ -511,34 +507,37 @@ else()
       # get the directory (the command below has to be run twice)
       get_filename_component(_matlab_current_location ${_matlab_current_location} ${_directory_alias})
       get_filename_component(_matlab_current_location ${_matlab_current_location} ${_directory_alias}) # Matlab should be in bin
-      list(APPEND _matlab_possible_roots "" ${_matlab_current_location}) # empty version
+      list(APPEND _matlab_possible_roots "NOT-FOUND" ${_matlab_current_location}) # empty version
     endif()
     
     # on mac, we look for the /Application paths
     # this corresponds to the behaviour on Windows. On Linux, we do not have any other guess.
-    if((NOT _matlab_possible_roots) OR APPLE)
+    if((NOT _matlab_possible_roots) AND APPLE)
       
-      matlab_get_supported_releases(matlab_releases)
+      matlab_get_supported_releases(_matlab_releases)
       if(MATLAB_FIND_DEBUG)
-        message(STATUS "[MATLAB] Matlab supported versions ${matlab_releases}. If more version should be supported "
+        message(STATUS "[MATLAB] Matlab supported versions ${_matlab_releases}. If more version should be supported "
                        "the variable MATLAB_ADDITIONAL_VERSIONS can be set according to the documentation")
       endif()
 
-      foreach(current_matlab_release IN LISTS matlab_releases)
-        set(_matlab_full_string "/Applications/MATLAB_${current_matlab_release}.app")
+      foreach(_current_matlab_release IN LISTS _matlab_releases)
+        set(_matlab_full_string "/Applications/MATLAB_${_current_matlab_release}.app")
         if(EXISTS ${_matlab_full_string})
           set(current_matlab_version)
-          matlab_get_version_from_release_name(${current_matlab_release} current_matlab_version)
-          list(APPEND _matlab_possible_roots ${current_matlab_version})
+          matlab_get_version_from_release_name(${_current_matlab_release} current_matlab_version)
+          list(APPEND _matlab_possible_roots ${_current_matlab_version})
           list(APPEND _matlab_possible_roots ${_matlab_full_string})
         endif()
         
         unset(_matlab_full_string)
-      endforeach(current_matlab_release)
-      unset(current_matlab_release)
-      
+      endforeach(_current_matlab_release)
+      unset(_current_matlab_release)
+      unset(_matlab_releases) 
     endif()
-    
+
+    # we need to clear MATLAB_PROGRAM here
+    unset(MATLAB_PROGRAM CACHE)
+    unset(MATLAB_PROGRAM) 
     
   elseif(NOT EXISTS ${MATLAB_ROOT})
     # if MATLAB_ROOT specified but erroneous
@@ -550,7 +549,7 @@ endif()
 
 
 if(MATLAB_FIND_DEBUG)
-  message(STATUS "Matlab ROOTS ${_matlab_possible_roots}")
+  message(STATUS "[MATLAB] Matlab root folders are ${_matlab_possible_roots}")
 endif()
 
 
@@ -570,11 +569,12 @@ if(NOT MATLAB_ROOT AND _matlab_possible_roots)
 endif()
 
 
-if(NOT MATLAB_VERSION)
+if(NOT MATLAB_VERSION OR ${MATLAB_VERSION} STREQUAL "NOT-FOUND")
   if((NOT DEFINED MATLAB_PROGRAM) OR (NOT ${MATLAB_PROGRAM}) OR (NOT EXISTS ${MATLAB_PROGRAM}))
     if(MATLAB_FIND_DEBUG)
       message(STATUS "[MATLAB] - Unknown version, looking for Matlab under ${MATLAB_ROOT}")
     endif()
+    message("MATLAB_PROGRAM ${MATLAB_PROGRAM}")
     find_program(
       MATLAB_PROGRAM
       matlab
@@ -582,7 +582,9 @@ if(NOT MATLAB_VERSION)
       DOC "Matlab main program"
       NO_DEFAULT_PATH
     )
-    
+    message("MATLAB_PROGRAM ${MATLAB_PROGRAM}")
+
+     
     
     if(MATLAB_PROGRAM)
       set(matlab_list_of_all_versions)
@@ -591,7 +593,7 @@ if(NOT MATLAB_VERSION)
       list(GET matlab_list_of_all_versions 0 MATLAB_VERSION_tmp)
           
       # set the version into the cache
-      set(MATLAB_VERSION ${MATLAB_VERSION_tmp} CACHE STRING "Matlab version (automatically determined)")
+      set(MATLAB_VERSION ${MATLAB_VERSION_tmp})# CACHE STRING "Matlab version (automatically determined)")
       list(LENGTH list_of_all_versions list_of_all_versions_length)
       if(${list_of_all_versions_length} GREATER 1)
         message(WARNING "[MATLAB] Found several versions, taking the first one (versions found ${list_of_all_versions})")
