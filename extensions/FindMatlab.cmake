@@ -474,6 +474,9 @@ if(WIN32)
   
 else()
   # for linux/osx
+  
+  
+  
 
   if(NOT DEFINED MATLAB_ROOT OR NOT ${MATLAB_ROOT})
   
@@ -486,8 +489,13 @@ else()
     if(NOT ${MATLAB_PROGRAM})
       #execute_process(COMMAND which matlab OUTPUT_VARIABLE _which_matlab RESULT_VARIABLE _which_matlab_result)
       get_filename_component(MATLAB_PROGRAM "matlab" PROGRAM) 
-      if(MATLAB_FIND_DEBUG)
-        message(STATUS "[MATLAB] matlab program result from the command line ${MATLAB_PROGRAM}")
+      get_filename_component(MATLAB_PROGRAM ${MATLAB_PROGRAM} ABSOLUTE) 
+      if(EXISTS ${MATLAB_PROGRAM})
+        if(MATLAB_FIND_DEBUG)
+          message(STATUS "[MATLAB] matlab program result from the command line ${MATLAB_PROGRAM}")
+        endif()
+      else()
+        unset(MATLAB_PROGRAM)
       endif()
 
     endif()
@@ -569,7 +577,11 @@ if(NOT MATLAB_ROOT AND _matlab_possible_roots)
 endif()
 
 
-if(NOT MATLAB_VERSION OR ${MATLAB_VERSION} STREQUAL "NOT-FOUND")
+if((NOT (DEFINED MATLAB_VERSION)) OR (NOT MATLAB_VERSION))
+  set(MATLAB_VERSION "NOT-FOUND")
+endif()
+
+if(${MATLAB_VERSION} STREQUAL "NOT-FOUND")
   if((NOT DEFINED MATLAB_PROGRAM) OR (NOT ${MATLAB_PROGRAM}) OR (NOT EXISTS ${MATLAB_PROGRAM}))
     if(MATLAB_FIND_DEBUG)
       message(STATUS "[MATLAB] - Unknown version, looking for Matlab under ${MATLAB_ROOT}")
@@ -700,7 +712,7 @@ list(APPEND MATLAB_REQUIRED_VARIABLES MATLAB_MEX_EXTENSION)
 
 
 # component Mex Compiler
-list(FIND MATLAB_FIND_COMPONENTS MEX_COMPILER _matlab_find_mex_compiler)
+list(FIND Matlab_FIND_COMPONENTS MEX_COMPILER _matlab_find_mex_compiler)
 if(_matlab_find_mex_compiler GREATER -1)
   find_program(
     MATLAB_MEX_COMPILER
@@ -716,7 +728,7 @@ if(_matlab_find_mex_compiler GREATER -1)
 endif()  
 
 # component Matlab program
-list(FIND MATLAB_FIND_COMPONENTS MAIN_PROGRAM _matlab_find_matlab_program)
+list(FIND Matlab_FIND_COMPONENTS MAIN_PROGRAM _matlab_find_matlab_program)
 if(_matlab_find_matlab_program GREATER -1)
   # todo cleanup with code above
   if(NOT DEFINED MATLAB_PROGRAM)
@@ -736,9 +748,8 @@ endif()
 
 
 # Component MX library
-list(FIND MATLAB_FIND_COMPONENTS MX_LIBRARY _matlab_find_mx)
+list(FIND Matlab_FIND_COMPONENTS MX_LIBRARY _matlab_find_mx)
 if(_matlab_find_mx GREATER -1)
-  
   find_library(
     MATLAB_MX_LIBRARY
     mx
@@ -752,7 +763,7 @@ if(_matlab_find_mx GREATER -1)
 endif()
 
 # Component ENG library
-list(FIND MATLAB_FIND_COMPONENTS ENG_LIBRARY _matlab_find_eng)
+list(FIND Matlab_FIND_COMPONENTS ENG_LIBRARY _matlab_find_eng)
 if(_matlab_find_eng GREATER -1)
   find_library(
     MATLAB_ENG_LIBRARY
