@@ -586,7 +586,6 @@ if(${MATLAB_VERSION} STREQUAL "NOT-FOUND")
     if(MATLAB_FIND_DEBUG)
       message(STATUS "[MATLAB] - Unknown version, looking for Matlab under ${MATLAB_ROOT}")
     endif()
-    message("MATLAB_PROGRAM ${MATLAB_PROGRAM}")
     find_program(
       MATLAB_PROGRAM
       matlab
@@ -594,7 +593,6 @@ if(${MATLAB_VERSION} STREQUAL "NOT-FOUND")
       DOC "Matlab main program"
       NO_DEFAULT_PATH
     )
-    message("MATLAB_PROGRAM ${MATLAB_PROGRAM}")
 
      
     
