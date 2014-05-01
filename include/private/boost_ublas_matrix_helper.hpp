@@ -29,7 +29,7 @@ namespace robust_pca
       public boost::iterator_facade<
         row_iter<matrix_t>                            // Derived
       , boost::numeric::ublas::matrix_row<matrix_t>   // Value
-      , boost::random_access_traversal_tag            // CategoryOrTraversal
+      , std::random_access_iterator_tag               // CategoryOrTraversal
       , boost::numeric::ublas::matrix_row<matrix_t>   // reference
       >
     {
