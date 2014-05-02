@@ -84,6 +84,20 @@ endif()
 
 
 
+# compilation options
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-std=c++11 HAS_CXX11_FLAG)
+check_cxx_compiler_flag(-std=c++0x HAS_CXX0X_FLAG)
+if (HAS_CXX11_FLAG)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+elseif(HAS_CXX0X_FLAG)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+endif()
+
+
+
+
+
 
 include_directories(${Boost_INCLUDE_DIRS})
 
