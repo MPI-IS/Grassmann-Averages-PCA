@@ -70,7 +70,7 @@ namespace robust_pca
     double trimming_percentage;
 
     //! Number of parallel tasks that will be used for computing.
-    int nb_processors;
+    size_t nb_processors;
 
     //! Type of the element of data_t. 
     typedef typename data_t::value_type scalar_t;
@@ -508,12 +508,15 @@ namespace robust_pca
      */
     struct asynchronous_results_merger : boost::noncopyable
     {
+    public:
+      typedef s_double_heap_vector bounds_processor_t;
+
     private:
       mutable boost::mutex internal_mutex;
       data_t current_value;
       count_vector_t current_count;
 
-      typedef s_double_heap_vector bounds_processor_t;
+      
       bounds_processor_t bounds;
       
       volatile int nb_updates;
@@ -665,6 +668,7 @@ namespace robust_pca
     //! Sets the number of parallel tasks used for computing.
     bool set_nb_processors(size_t nb_processors_)
     {
+      assert(nb_processors_ >= 1);
       nb_processors = nb_processors_;
       return true;
     }
@@ -1068,7 +1072,7 @@ namespace robust_pca
 
 
           // gathering the new bounds
-          typename async_processor_t::bounds_processor_t const& bounds = async_merger.get_computed_bounds();
+          typename asynchronous_results_merger::bounds_processor_t const& bounds = async_merger.get_computed_bounds();
           bounds.extract_bounds(v_min_threshold, v_max_threshold);
 
           // clearing the bounds
