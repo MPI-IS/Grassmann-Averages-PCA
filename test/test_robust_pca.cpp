@@ -163,11 +163,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     // each dimension iteration being given by the vector "initial_point" above. Each column represents 
     // an eigenvector.
     static const double matlab_data[] = {
-     -0.0219,    0.0905,   -0.0057,    0.0914,    0.9914,
-     -0.0512,   -0.0875,    0.9873,   -0.1202,    0.0236,
-     -0.0624,    0.9889,    0.0908,    0.0336,   -0.0942,
-      0.0280,   -0.0508,    0.1193,    0.9875,   -0.0851,
-      0.9961,    0.0609,    0.0529,   -0.0298,    0.0195
+      -0.0318,    0.0564,   -0.0290,   -0.0136,    0.9974,
+       0.0242,    0.0061,    0.9993,   -0.0013,    0.0295,
+      -0.0118,    0.9982,   -0.0041,    0.0153,   -0.0567,
+      -0.0307,   -0.0149,    0.0017,    0.9993,    0.0136,
+       0.9987,    0.0130,   -0.0252,    0.0305,    0.0308,
     };
 
 
@@ -180,6 +180,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       }
       BOOST_CHECKPOINT("iteration " << i);
       BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 1E-3);
+      //std::cout << "computed = " << eigen_vectors[i] << std::endl;
+      //std::cout << "matlab = " << current_matlab_vector << std::endl;
     }
   }
 
@@ -288,11 +290,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     // each dimension iteration being given by the vector "initial_point" above. Each column represents 
     // an eigenvector.
     static const double matlab_data[] = {
-     -0.0219,   0.0905,  -0.0057,   0.0914,   0.9914,
-     -0.0512,  -0.0875,   0.9873,  -0.1202,   0.0236,
-     -0.0624,   0.9889,   0.0908,   0.0336,  -0.0942,
-      0.0280,  -0.0508,   0.1193,   0.9875,  -0.0851,
-      0.9961,   0.0609,   0.0529,  -0.0298,   0.0195
+      -0.0318,    0.0564,   -0.0290,   -0.0136,    0.9974,
+       0.0242,    0.0061,    0.9993,   -0.0013,    0.0295,
+      -0.0118,    0.9982,   -0.0041,    0.0153,   -0.0567,
+      -0.0307,   -0.0149,    0.0017,    0.9993,    0.0136,
+       0.9987,    0.0130,   -0.0252,    0.0305,    0.0308,
     };
 
 
