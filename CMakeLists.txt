@@ -3,7 +3,7 @@
 # (See accompanying file LICENSE.txt or copy at
 # http://opensource.org/licenses/BSD-3-Clause)
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.11)
 project(RobustPCA)
 
 
