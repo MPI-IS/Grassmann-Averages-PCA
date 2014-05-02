@@ -148,9 +148,15 @@ if(NOT WITHOUT_TESTS)
 
   # basically, we cannot concatenate PATH with something else. I tried different configuration, and the spaces and ; in PATH do
   # not play well with the command itself. Even the PATH=%PATH%;blablabla with space does not seem to work.
+  list(LENGTH Boost_LIBRARY_DIRS _boost_lib_length)
+  if(${_boost_lib_length} GREATER 1)
+    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
+  else()
+    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
+  endif()
   set_tests_properties(
     robustpca_test-1 
-    PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${Boost_LIBRARY_DIRS})
+    PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
 endif()
 
 
