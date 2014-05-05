@@ -60,7 +60,7 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
       display(t2)
       
       
-      testCase.verifyLess(t1, t2);
+      testCase.verifyLessThan(t1, t2);
       
     end
     
