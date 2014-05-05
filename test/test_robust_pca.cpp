@@ -18,6 +18,8 @@
 // data stored into a matrix
 #include <boost/numeric/ublas/io.hpp>
 
+// boost chrono
+#include <boost/chrono/include.hpp>
 
 
 
@@ -72,6 +74,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   using namespace robust_pca;
   using namespace robust_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
+  typedef boost::chrono::steady_clock clock_type;
+
 
   typedef robust_pca_impl< ub::vector<double> > robust_pca_t;  
   robust_pca_t instance;
@@ -84,6 +88,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
+
+  clock_type::duration elapsed;
   if(DATA_DIMENSION == 5)
   {
     const double initial_point[] = {0.2097, 0.3959, 0.5626, 0.2334, 0.6545};
@@ -96,6 +102,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     }
 
     std::vector< ub::vector<double> > v_init_points(dimensions, vec_initial_point);
+    clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process(
       max_iterations,
       dimensions,
@@ -104,9 +111,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       temporary_data.begin(),
       eigen_vectors.begin(),
       &v_init_points));
+    elapsed = clock_type::now() - start;
   }
   else
   {
+    clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process(
       max_iterations,
       dimensions,
@@ -114,9 +123,12 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       const_row_iter_t(mat_data, mat_data.size1()),
       temporary_data.begin(),
       eigen_vectors.begin()));
+    elapsed = clock_type::now() - start;
   }
 
 
+  std::cout << "processing " << nb_elements << " elements "
+            << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
 
   
 
@@ -198,6 +210,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   using namespace robust_pca;
   using namespace robust_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
+  typedef boost::chrono::steady_clock clock_type;
+
 
   typedef robust_pca_impl< ub::vector<double> > robust_pca_t;  
   robust_pca_t instance;
@@ -214,6 +228,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   BOOST_CHECK(instance.set_nb_processors(7)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
 
   
+  clock_type::duration elapsed;
   if(DATA_DIMENSION == 5)
   {
     const double initial_point[] = {0.2097, 0.3959, 0.5626, 0.2334, 0.6545};
@@ -230,6 +245,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     // setting the number of workers
 
     // main call
+    clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process(
       max_iterations,
       dimensions,
@@ -238,9 +254,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       temporary_data.begin(),
       eigen_vectors.begin(),
       &v_init_points));
+    elapsed = clock_type::now() - start;
   }
   else
   {
+    clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process(
       max_iterations,
       dimensions,
@@ -248,9 +266,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       const_row_iter_t(mat_data, mat_data.size1()),
       temporary_data.begin(),
       eigen_vectors.begin()));
-    
+    elapsed = clock_type::now() - start;
   }
 
+  std::cout << "processing " << nb_elements << " elements "
+            << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
 
   // testing the output sizes
   BOOST_REQUIRE_EQUAL(eigen_vectors.size(), dimensions);
