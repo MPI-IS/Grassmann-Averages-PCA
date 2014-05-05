@@ -442,7 +442,7 @@ if(WIN32)
   # for windows
   
   
-  if(NOT DEFINED MATLAB_USER_ROOT OR NOT ${MATLAB_USER_ROOT})
+  if((NOT DEFINED MATLAB_USER_ROOT) OR (NOT MATLAB_USER_ROOT))
     # if MATLAB_USER_ROOT not specified, we look for Matlab installation in the registry
     # if unsuccessful, we look for all known revision and filter the existing ones. 
   
@@ -477,11 +477,8 @@ if(WIN32)
 else()
   # for linux/osx
   
-  
-  
-
-  if(NOT DEFINED MATLAB_USER_ROOT OR NOT ${MATLAB_USER_ROOT})
-  
+  if((NOT DEFINED MATLAB_USER_ROOT) OR (NOT MATLAB_USER_ROOT))
+    message("2222")
     # if MATLAB_USER_ROOT not specified, we look for Matlab from the command line PATH
     # maybe using CMAKE_PROGRAM_PATH to add some more hints
     find_program(
@@ -517,7 +514,7 @@ else()
       # get the directory (the command below has to be run twice)
       get_filename_component(_matlab_current_location ${_matlab_current_location} ${_directory_alias})
       get_filename_component(_matlab_current_location ${_matlab_current_location} ${_directory_alias}) # Matlab should be in bin
-      list(APPEND _matlab_possible_roots "NOT-FOUND" ${_matlab_current_location}) # empty version
+      list(APPEND _matlab_possible_roots "NOTFOUND" ${_matlab_current_location}) # empty version
     endif()
     
     # on mac, we look for the /Application paths
@@ -554,6 +551,8 @@ else()
     if(MATLAB_FIND_DEBUG)
       message(WARNING "[MATLAB] the specified path for MATLAB_USER_ROOT does not exist (${MATLAB_USER_ROOT})")
     endif()
+  else()
+    list(APPEND _matlab_possible_roots "NOTFOUND" ${MATLAB_USER_ROOT}) # empty version 
   endif()
 endif()
 
@@ -566,13 +565,13 @@ endif()
 
 
 # take the first possible Matlab root
-if(NOT MATLAB_USER_ROOT AND _matlab_possible_roots)
+if(_matlab_possible_roots)
   list(GET _matlab_possible_roots 0 Matlab_VERSION_STRING)
   list(GET _matlab_possible_roots 1 Matlab_ROOT_DIR)
   list(LENGTH _matlab_possible_roots numbers_of_matlab_roots)
   
   # adding a warning in case of ambiguity
-  if(numbers_of_matlab_roots GREATER 2)
+  if(numbers_of_matlab_roots GREATER 2 AND MATLAB_FIND_DEBUG)
     message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${Matlab_VERSION_STRING} (located ${Matlab_ROOT_DIR})."
                     " If this is not the desired behaviour, provide the -DMATLAB_ROOT on the command line")
   endif()
@@ -580,10 +579,10 @@ endif()
 
 
 if((NOT (DEFINED Matlab_VERSION_STRING)) OR (NOT Matlab_VERSION_STRING))
-  set(Matlab_VERSION_STRING "NOT-FOUND")
+  set(Matlab_VERSION_STRING "NOTFOUND")
 endif()
 
-if(${Matlab_VERSION_STRING} STREQUAL "NOT-FOUND")
+if(${Matlab_VERSION_STRING} STREQUAL "NOTFOUND")
   if((NOT DEFINED Matlab_PROGRAM) OR (NOT ${Matlab_PROGRAM}) OR (NOT EXISTS ${Matlab_PROGRAM}))
     if(MATLAB_FIND_DEBUG)
       message(STATUS "[MATLAB] - Unknown version, looking for Matlab under ${Matlab_ROOT_DIR}")
@@ -726,7 +725,7 @@ if(_matlab_find_mex_compiler GREATER -1)
   )
   
   if(Matlab_MEX_COMPILER)
-    set(MATLAB_MEX_COMPILER_FOUND TRUE)
+    set(Matlab_MEX_COMPILER_FOUND TRUE)
   endif()
 endif()  
 
@@ -744,7 +743,7 @@ if(_matlab_find_matlab_program GREATER -1)
     )
   endif()
   if(Matlab_PROGRAM)
-    set(MATLAB_MAIN_PROGRAM_FOUND TRUE)
+    set(Matlab_MAIN_PROGRAM_FOUND TRUE)
   endif()
 
 endif()  
@@ -761,7 +760,7 @@ if(_matlab_find_mx GREATER -1)
   )
   
   if(Matlab_MX_LIBRARY)
-    set(MATLAB_MX_LIBRARY_FOUND TRUE)
+    set(Matlab_MX_LIBRARY_FOUND TRUE)
   endif()
 endif()
 
@@ -775,7 +774,7 @@ if(_matlab_find_eng GREATER -1)
     NO_DEFAULT_PATH
   )
   if(Matlab_ENG_LIBRARY)
-    set(MATLAB_ENG_LIBRARY_FOUND TRUE)
+    set(Matlab_ENG_LIBRARY_FOUND TRUE)
   endif()
 endif()
 
