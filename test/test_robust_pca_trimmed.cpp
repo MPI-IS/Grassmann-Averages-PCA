@@ -98,11 +98,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     // this is the initialisation of the sequence of random vectors for each dimension 
     // and some gram_schmidt orthogonalisation was also applied on it.
     const double initial_point[] = {
-      -0.0318,    0.0564,   -0.0290,   -0.0136,    0.9974,
-       0.0242,    0.0061,    0.9993,   -0.0013,    0.0295,
-      -0.0118,    0.9982,   -0.0041,    0.0153,   -0.0567,
-      -0.0307,   -0.0149,    0.0017,    0.9993,    0.0136,
-       0.9987,    0.0130,   -0.0252,    0.0305,    0.0308,
+       0.2658,   -0.4880,    0.4029,    0.4855,    0.5414,
+       0.8306,    0.3194,    0.2228,   -0.3925,    0.0663,
+      -0.2066,   -0.4473,    0.6346,   -0.4964,   -0.3288,
+      -0.3310,    0.0890,   -0.0642,   -0.5345,    0.7699,
+      -0.2953,    0.6722,    0.6174,    0.2794,    0.0408
     };
     //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
 
@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       vec_initial_point[i].resize(dimensions);
       for(int j = 0; j < dimensions; j++)
       {
-        vec_initial_point[i](j) = initial_point[i*dimensions + j];
+        vec_initial_point[i](j) = initial_point[j*dimensions + i];
       }
     }
 
@@ -188,12 +188,13 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     // each dimension iteration being given by the vector "initial_point" above. Each column represents 
     // an eigenvector.
     static const double matlab_data[] = {
-     -0.0506,  0.9918, -0.0085,  0.1167, -0.0055,
-     -0.1120, -0.0348, -0.4900,  0.2504,  0.8267,
-     -0.0555,  0.0622,  0.6842, -0.4771,  0.5452,
-      0.0689,  0.0965, -0.5397, -0.8317, -0.0546,
-      0.9885,  0.0436,  0.0200,  0.0656,  0.1278,
+      -0.0365,   -0.0529,    0.0556,    0.9964,   -0.0058,
+       0.9983,   -0.0457,    0.0088,    0.0337,    0.0073,
+      -0.0076,   -0.0120,    0.9982,   -0.0565,    0.0165,
+      -0.0084,   -0.0242,   -0.0166,    0.0051,    0.9995,
+       0.0436,    0.9972,    0.0150,    0.0538,    0.0245,
     };
+
 
 
     for(int i = 0; i < dimensions; i++)
@@ -236,7 +237,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
-  BOOST_CHECK(instance.set_nb_processors(7)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
+  BOOST_CHECK(instance.set_nb_processors(1)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
 
   clock_type::duration elapsed;
   if(DATA_DIMENSION == 5)
@@ -245,11 +246,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     // this is the initialisation of the sequence of random vectors for each dimension 
     // and some gram_schmidt orthogonalisation was also applied on it.
     const double initial_point[] = {
-       0.2658, -0.4880,  0.4029,  0.4855,  0.5414,
-       0.8306,  0.3194,  0.2228, -0.3925,  0.0663,
-      -0.2066, -0.4473,  0.6346, -0.4964, -0.3288,
-      -0.3310,  0.0890, -0.0642, -0.5345,  0.7699,
-      -0.2953,  0.6722,  0.6174,  0.2794,  0.0408,
+       0.2658,   -0.4880,    0.4029,    0.4855,    0.5414,
+       0.8306,    0.3194,    0.2228,   -0.3925,    0.0663,
+      -0.2066,   -0.4473,    0.6346,   -0.4964,   -0.3288,
+      -0.3310,    0.0890,   -0.0642,   -0.5345,    0.7699,
+      -0.2953,    0.6722,    0.6174,    0.2794,    0.0408
     };
     //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
 
@@ -260,7 +261,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       vec_initial_point[i].resize(dimensions);
       for(int j = 0; j < dimensions; j++)
       {
-        vec_initial_point[i](j) = initial_point[i*dimensions + j];
+        vec_initial_point[i](j) = initial_point[j*dimensions + i];
       }
     }
 
@@ -333,11 +334,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     // each dimension iteration being given by the vector "initial_point" above. Each column represents 
     // an eigenvector.
     static const double matlab_data[] = {
-     -0.0506,  0.9918, -0.0085,  0.1167, -0.0055,
-     -0.1120, -0.0348, -0.4900,  0.2504,  0.8267,
-     -0.0555,  0.0622,  0.6842, -0.4771,  0.5452,
-      0.0689,  0.0965, -0.5397, -0.8317, -0.0546,
-      0.9885,  0.0436,  0.0200,  0.0656,  0.1278,
+      -0.0365,   -0.0529,    0.0556,    0.9964,   -0.0058,
+       0.9983,   -0.0457,    0.0088,    0.0337,    0.0073,
+      -0.0076,   -0.0120,    0.9982,   -0.0565,    0.0165,
+      -0.0084,   -0.0242,   -0.0166,    0.0051,    0.9995,
+       0.0436,    0.9972,    0.0150,    0.0538,    0.0245,
     };
 
 
