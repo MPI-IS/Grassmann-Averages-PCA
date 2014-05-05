@@ -61,7 +61,7 @@ if(NOT WITHOUT_MATLAB)
     message(FATAL_ERROR "Unable to find Matlab include directory")
   else()
     message(STATUS "[MATLAB] - version ${Matlab_VERSION}")
-    message(STATUS "[MATLAB] - include directory ${Matlab_INCLUDE_DIR}")
+    message(STATUS "[MATLAB] - include directory ${Matlab_INCLUDE_DIRS}")
     message(STATUS "[MATLAB] - mex library ${Matlab_MEX_LIBRARY}")
     message(STATUS "[MATLAB] - mex extension ${Matlab_MEX_EXTENSION}")
     message(STATUS "[MATLAB] - mx library ${Matlab_MX_LIBRARY}")
@@ -183,7 +183,7 @@ endif()
 if(NOT WITHOUT_MATLAB)
   
 
-  include_directories(${Matlab_INCLUDE_DIR})
+  include_directories(${Matlab_INCLUDE_DIRS})
   set(RobustPCAMEX_LIB
       extensions/matlab.cpp)
   add_library(robustpca_m SHARED ${RobustPCAMEX_LIB})
