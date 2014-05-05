@@ -200,7 +200,7 @@ namespace robust_pca
        *  The dimension corresponds to the number of elements of each data vector.
        *  @pre dimension >= 0
        */
-      void set_dimension(int dimension)
+      void set_dimension(size_t dimension)
       {
         assert(dimension >= 0);
         v_bounds.resize(dimension);
@@ -323,7 +323,7 @@ namespace robust_pca
       container_iterator_t begin, end;
       
       size_t nb_elements;                 //!< The size of the current dataset
-      int data_dimension;                 //!< The dimension of the data
+      size_t data_dimension;              //!< The dimension of the data
       int nb_elements_to_keep;            //!< The number of elements to keep.
       
       //! Upper and lower bounds on data computed by the main thread. These vectors
@@ -370,7 +370,7 @@ namespace robust_pca
 
       //! Sets the dimension of the data vectors
       //! @pre data_dimensions_ is strictly positive
-      void set_data_dimensions(int data_dimensions_)
+      void set_data_dimensions(size_t data_dimensions_)
       {
         assert(data_dimensions_ > 0);
         data_dimension = data_dimensions_;
@@ -531,7 +531,7 @@ namespace robust_pca
       bounds_processor_t bounds;
       
       volatile int nb_updates;
-      const int data_dimension;
+      const size_t data_dimension;
       
       boost::condition_variable condition_;
 
@@ -541,7 +541,7 @@ namespace robust_pca
        *
        * @param dimension_ the number of dimensions of the vector to accumulate
        */
-      asynchronous_results_merger(int data_dimension_) : data_dimension(data_dimension_)
+      asynchronous_results_merger(size_t data_dimension_) : data_dimension(data_dimension_)
       {}
 
       //! Initializes the internal states
@@ -725,8 +725,8 @@ namespace robust_pca
      */
     template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
     bool batch_process(
-      const int max_iterations,
-      int max_dimension_to_compute,
+      const size_t max_iterations,
+      size_t max_dimension_to_compute,
       it_t const it,
       it_t const ite,
       it_o_projected_vectors const it_projected,
@@ -778,7 +778,7 @@ namespace robust_pca
 
 
       // number of dimensions of the data vectors
-      const int number_of_dimensions = static_cast<int>(it->size());
+      const size_t number_of_dimensions = it->size();
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
 
 
