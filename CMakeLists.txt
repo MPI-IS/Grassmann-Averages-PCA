@@ -264,7 +264,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   add_test(NAME robustpca_matlabtest-1
             COMMAND ${MATLAB_PROGRAM} ${MATLAB_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
            -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test', '${Boost_LIBRARY_DIRS}'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 30)
+  set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 180)
   # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
   # check the content of the log file.
   #set_tests_properties(robustpca_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
