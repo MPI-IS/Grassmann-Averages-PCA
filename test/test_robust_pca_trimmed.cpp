@@ -23,6 +23,10 @@
 
 // boost heaps
 #include <boost/heap/fibonacci_heap.hpp>
+#include <boost/heap/pairing_heap.hpp>
+
+// boost chrono
+#include <boost/chrono/include.hpp>
 
 #include <fstream>
 
@@ -73,6 +77,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   using namespace robust_pca;
   using namespace robust_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
+  typedef boost::chrono::steady_clock clock_type;
+  
 
   typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
   robust_pca_t instance(0.);
@@ -85,17 +91,18 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
+  clock_type::duration elapsed;
   if(DATA_DIMENSION == 5)
   { 
   
     // this is the initialisation of the sequence of random vectors for each dimension 
     // and some gram_schmidt orthogonalisation was also applied on it.
     const double initial_point[] = {
-       0.2658, -0.4880,  0.4029,  0.4855,  0.5414,
-       0.8306,  0.3194,  0.2228, -0.3925,  0.0663,
-      -0.2066, -0.4473,  0.6346, -0.4964, -0.3288,
-      -0.3310,  0.0890, -0.0642, -0.5345,  0.7699,
-      -0.2953,  0.6722,  0.6174,  0.2794,  0.0408,
+      -0.0318,    0.0564,   -0.0290,   -0.0136,    0.9974,
+       0.0242,    0.0061,    0.9993,   -0.0013,    0.0295,
+      -0.0118,    0.9982,   -0.0041,    0.0153,   -0.0567,
+      -0.0307,   -0.0149,    0.0017,    0.9993,    0.0136,
+       0.9987,    0.0130,   -0.0252,    0.0305,    0.0308,
     };
     //BOOST_REQUIRE_EQUAL(dimensions, sizeof(initial_point) / sizeof(initial_point[0])); // just in case
 
@@ -110,6 +117,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       }
     }
 
+    clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process(
       max_iterations,
       dimensions,
@@ -118,9 +126,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       temporary_data.begin(),
       eigen_vectors.begin(),
       &vec_initial_point));
+    elapsed = clock_type::now() - start;
   }
   else
   {
+    clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process(
       max_iterations,
       dimensions,
@@ -128,7 +138,13 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       const_row_iter_t(mat_data, mat_data.size1()),
       temporary_data.begin(),
       eigen_vectors.begin()));
+    elapsed = clock_type::now() - start;
   }
+  
+  
+  std::cout << "processing " << nb_elements << " elements "
+            << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
+  
 
 
   // testing the output sizes
@@ -202,9 +218,12 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 
 BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 {
+
   using namespace robust_pca;
   using namespace robust_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
+  typedef boost::chrono::steady_clock clock_type;
+  
 
   typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
   robust_pca_t instance(0.);
@@ -219,7 +238,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 
   BOOST_CHECK(instance.set_nb_processors(7)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
 
-
+  clock_type::duration elapsed;
   if(DATA_DIMENSION == 5)
   { 
   
@@ -245,6 +264,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       }
     }
 
+    clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process_multithreaded(
       max_iterations,
       dimensions,
@@ -253,9 +273,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       temporary_data.begin(),
       eigen_vectors.begin(),
       &vec_initial_point));
+    elapsed = clock_type::now() - start;
   }
   else
   {
+    clock_type::time_point start = clock_type::now(); 
     BOOST_CHECK(instance.batch_process_multithreaded(
       max_iterations,
       dimensions,
@@ -263,7 +285,11 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       const_row_iter_t(mat_data, mat_data.size1()),
       temporary_data.begin(),
       eigen_vectors.begin()));
+    elapsed = clock_type::now() - start;
   }
+  
+  std::cout << "processing " << nb_elements << " elements "
+    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
 
 
   // testing the output sizes

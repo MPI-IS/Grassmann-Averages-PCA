@@ -146,7 +146,7 @@ if(NOT WITHOUT_TESTS)
       test/test_robust_pca_trimmed.cpp
       test/test_row_proxy.cpp)
   add_executable(robustpca_test ${RobustPCA_tests})
-  target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+  target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
 
   # the main definition is in there
   set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
