@@ -79,6 +79,41 @@ namespace robust_pca
 
 
 
+    /*!@brief Gram Schmidt orthonormalisation of a collection of vectors.
+     * @tparam it_t iterator on the collection of vectors. Should model a forward input iterator.
+     * @tparam norm_t type of the norm operator.
+     * 
+     * @param it beginning of the collection of vectors
+     * @param ite end of the collection of vectors
+     * @param start first element of the collection to be orthonormalized. start should be inside the range given by it and ite. 
+     */
+    template <class it_t, class norm_t>
+    bool gram_schmidt_orthonormalisation(it_t it, it_t ite, it_t start, norm_t const &norm_op)
+    {
+      
+      if(start == it)
+      {
+        *start /= norm_op(*start);
+        ++start;
+      }
+
+      it_t previous(start);
+              
+      for(; start != ite; ++previous, ++start)
+      {
+        typename it_t::reference current = *start;
+        for(it_t it_orthonormalised_element(it); it_orthonormalised_element < previous; ++it_orthonormalised_element)
+        {
+          current -= boost::numeric::ublas::inner_prod(current, *it_orthonormalised_element) * (*it_orthonormalised_element);
+        }
+        current /= norm_op(current);
+              
+      }
+      return true;
+    }
+
+
+
     /*!@brief Checks the convergence of a numerical scheme.
      *
      * @tparam data_t: type of the data.

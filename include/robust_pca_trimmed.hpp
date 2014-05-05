@@ -967,16 +967,34 @@ namespace robust_pca
 
       // number of dimensions of the data vectors
       const int number_of_dimensions = static_cast<int>(it->size());
-
-      // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
-      data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
-      assert(mu.size() == number_of_dimensions);
-      typename norm_mu_t::result_type norm_mu(norm_op(mu));// normalizing
-      mu /= norm_mu;
-
-
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
 
+
+      // initial iterator on the output eigenvectors
+      it_o_eigenvalues_t const it_output_eigen_vector_beginning(it_eigenvectors);
+      it_o_eigenvalues_t it_output_eigen_vector_end(it_output_eigen_vector_beginning);
+      std::advance(it_output_eigen_vector_end, max_dimension_to_compute);
+
+      // the initialisation of mus
+      {
+        
+        it_o_eigenvalues_t it_eigen(it_output_eigen_vector_beginning);
+        for(int i = 0; it_eigen != it_output_eigen_vector_end; ++it_eigen, ++i)
+        {
+          *it_eigen = initial_guess != 0 ? (*initial_guess)[i] : random_init_op(*it);
+        }
+      }
+      if(!details::gram_schmidt_orthonormalisation(it_output_eigen_vector_beginning, it_output_eigen_vector_end, it_output_eigen_vector_beginning, norm_op))
+      {
+        return false;
+      }
+
+
+      // preparing mu
+      data_t mu(*it_eigenvectors);
+      assert(mu.size() == number_of_dimensions);
+      typename norm_mu_t::result_type norm_mu;
+      
 
       // vector of valid bounds. These bounds will be shared among every workers. 
       std::vector<double> v_min_threshold(number_of_dimensions);
@@ -1051,8 +1069,6 @@ namespace robust_pca
 
 
 
-      // initial iterator on the output eigenvectors
-      it_o_eigenvalues_t const it_output_eigen_vector_beginning(it_eigenvectors);
 
 
 
@@ -1147,14 +1163,26 @@ namespace robust_pca
                 boost::cref(*it_eigenvectors))); // this is not mu, since we are changing it before the process ends here
           }
 
-          mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);
-
-          // orthogonalisation of this new (randomly or given) initial eigenvector against the previous computed ones. 
-          for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus <= it_eigenvectors; ++it_mus)
+          // this is to follow the matlab implementation, but the idea is the following:
+          // each time we pick a new candidate vector, we project it to the orthogonal subspace of the previously computed 
+          // eigenvectors. This can be done in two ways:
+          // 1. compute the projection on the orthogonal subspace of the current (or next) candidate
+          // 2. compute the projection on the orthogonal subspace of the remainder elements
+          //
+          // in order to be consistent with the matlab implementation, the second choice is implemented here
+          if(current_dimension+1 < max_dimension_to_compute)
           {
-            mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
+            it_o_eigenvalues_t remainder(it_eigenvectors);
+            ++remainder;
+
+            if(!details::gram_schmidt_orthonormalisation(it_output_eigen_vector_beginning, it_output_eigen_vector_end, remainder, norm_op))
+            {
+              return false;
+            }
+
+            mu = *remainder;
           }
-          mu /= norm_op(mu);
+
 
           // wait for the workers
           async_merger.wait_notifications(v_individual_accumulators.size());
