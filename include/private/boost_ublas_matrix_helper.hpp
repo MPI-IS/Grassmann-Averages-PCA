@@ -102,6 +102,22 @@ namespace robust_pca
         return typename this_type::difference_type(r.index) - typename this_type::difference_type(index); // sign promotion
       }
 
+      void advance(typename this_type::difference_type n)
+      {
+        if(n < 0)
+        {
+          assert((-n) <= static_cast<typename this_type::difference_type>(index));
+          index -= n;
+        }
+        else
+        {
+          assert(n + index <= matrix->size1());
+          index += n;
+        }
+        
+      }
+
+
     };
 
 

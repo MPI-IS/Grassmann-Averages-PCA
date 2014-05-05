@@ -58,6 +58,24 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_read)
 
 }
 
+BOOST_AUTO_TEST_CASE(test_row_proxy_advance)
+{
+  using namespace robust_pca::ublas_adaptor;
+  namespace ub = boost::numeric::ublas;
+
+  typedef ub::matrix<double> matrix_t;
+  typedef row_iter<matrix_t> row_iter_t;
+
+
+  matrix_t mat(3, 4);
+
+  row_iter_t it(mat, 0), ite(mat, 3);
+  std::advance(it, 3);
+  BOOST_CHECK(it == ite);
+}
+
+
+
 
 BOOST_AUTO_TEST_CASE(test_row_proxy_write)
 {
