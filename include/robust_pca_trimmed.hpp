@@ -170,10 +170,10 @@ namespace robust_pca
         }
       }
 
-      void extract_bounds(double &min_bound, double &max_bound) const
+      void extract_bounds(scalar_t &min_bound, scalar_t &max_bound) const
       {
-        min_bound = lowh.top();
-        max_bound = highh.top();
+        min_bound = lowh.size() == 0 ? boost::numeric::bounds<scalar_t>::lowest() : lowh.top();
+        max_bound = highh.size() == 0 ? boost::numeric::bounds<scalar_t>::highest() : highh.top();
       }
 
       //! Clear the content of the heaps when these are not needed anymore
@@ -379,7 +379,7 @@ namespace robust_pca
       //! Sets the number of element to keep in the upper and lower distributions.
       void set_nb_elements_to_keep(int nb_elements_to_keep_)
       {
-        assert(nb_elements_to_keep_ > 0);
+        assert(nb_elements_to_keep_ >= 0);
         nb_elements_to_keep = nb_elements_to_keep_;
       }
 
@@ -415,37 +415,46 @@ namespace robust_pca
       //! Computes the bounds of the current subset
       void compute_bounds(data_t const &mu)
       {
-        container_iterator_t it_data(begin);
-
-        // The structure in charge of computing the bounds. The instance is local to
-        // this call.
-        s_double_heap_vector bounds_op;
-
-        // we allocate the heaps only when needed
-        bounds_op.set_dimension(data_dimension);
-
-
-        for(size_t s = 0; s < nb_elements; ++it_data, s++)
+        if(nb_elements_to_keep == 0)
         {
-          typename container_iterator_t::reference current_data = *it_data;
-          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
-
-          if(s < nb_elements_to_keep)
-          { 
-            bounds_op.push(current_data, sign);
-          }
-          else
-          {
-            bounds_op.push_or_ignore(current_data, sign);
-          }
+          // in this special case, we do nothing
+          // the bounds should be able to cope with this special case also.
         }
+        else
+        {
+
+          container_iterator_t it_data(begin);
+
+          // The structure in charge of computing the bounds. The instance is local to
+          // this call.
+          s_double_heap_vector bounds_op;
+
+          // we allocate the heaps only when needed
+          bounds_op.set_dimension(data_dimension);
 
 
-        // posts the new value to the listeners
-        signal_bounds(bounds_op);
+          for(size_t s = 0; s < nb_elements; ++it_data, s++)
+          {
+            typename container_iterator_t::reference current_data = *it_data;
+            bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+
+            if(s < nb_elements_to_keep)
+            { 
+              bounds_op.push(current_data, sign);
+            }
+            else
+            {
+              bounds_op.push_or_ignore(current_data, sign);
+            }
+          }
+
+
+          // posts the new value to the listeners
+          signal_bounds(bounds_op);
         
-        // we free the heaps right now, will be done in the destructor anyway.
-        bounds_op.clear_all();
+          // we free the heaps right now, will be done in the destructor anyway.
+          bounds_op.clear_all();
+        }
 
         signal_counter();
 
@@ -600,6 +609,7 @@ namespace robust_pca
       {
         boost::lock_guard<boost::mutex> guard(internal_mutex);
         nb_updates ++;
+        condition_.notify_one();
       }
 
 
@@ -1079,6 +1089,7 @@ namespace robust_pca
 
           // clearing the bounds
           async_merger.clear_bounds();
+          async_merger.init_notifications();
 
           // pushing the computation of the updated mu
           for(int i = 0; i < v_individual_accumulators.size(); i++)

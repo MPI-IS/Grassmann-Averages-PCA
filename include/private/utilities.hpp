@@ -309,6 +309,7 @@ namespace robust_pca
         {
           boost::lock_guard<boost::mutex> guard(internal_mutex);
           nb_updates ++;
+          condition_.notify_one();
         }
      
         //! Returns once the number of updates reaches the number in argument.

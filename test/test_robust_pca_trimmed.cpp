@@ -426,3 +426,39 @@ BOOST_AUTO_TEST_CASE(test_heap)
   }  
   
 }
+
+
+
+BOOST_AUTO_TEST_CASE(test_heap_vector)
+{
+  typedef boost::heap::pairing_heap<double, boost::heap::compare< std::less<double> > > low_heap_t;
+  
+  low_heap_t lowh;
+  
+  const int K = 7;
+  
+  boost::random::uniform_real_distribution<double> dist;
+  for(int i = 0; i < 100; i++)
+  {
+    double current = dist(rng);
+    if(lowh.size() < K)
+    {
+      lowh.push(current);
+    }
+    else if(lowh.value_comp()(current, lowh.top()))
+    {
+      lowh.push(current);
+      lowh.pop();
+    }
+  }
+  
+  BOOST_CHECK_EQUAL(lowh.size(), K);
+#if 1
+  std::vector<low_heap_t> v(10, lowh);
+  for(int i = 0; i < 10; i++)
+  {
+    BOOST_CHECK_EQUAL(v[i].size(), K);
+  }
+#endif
+}
+
