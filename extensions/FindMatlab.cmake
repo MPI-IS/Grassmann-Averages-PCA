@@ -8,15 +8,15 @@
 # to be able to compile Matlab extensions (mex files). It can also be used to run unit test on these mex extensions,
 # and run Matlab.
 #
-# The variable ``MATLAB_ROOT`` may be specified in order to give the path of the desired Matlab version. Also, 
-# additionnal information is provided when ``MATLAB_FIND_DEBUG`` is set.
+# The variable ``MATLAB_USER_ROOT`` may be specified in order to give the path of the desired Matlab version.  
 # Otherwise, the behaviour is platform dependant:
 #
 # - on Windows, the installed versions of Matlab are retrieved from the Windows registry
 # - on Mac, the installed versions of Matlab are given by the MATLAB pathes in /Application
 # - on Unix, the desired Matlab should be accessible from the PATH.
 #
-# When a Matlab binary is found and the ``MATLAB_VERSION`` is not given, then the
+# Additionnal information is provided when ``MATLAB_FIND_DEBUG`` is set.
+# When a Matlab binary is found automatically and the ``MATLAB_VERSION`` is not given, then the
 # version is queried from Matlab directly. On Windows, it can make a window running Matlab appear.
 #
 # The mapping of the release names and the version of Matlab is performed by defining pairs (name, version). 
@@ -41,16 +41,18 @@
 #
 # Defined variables
 # -----------------
-# * ``MATLAB_FOUND`` true if the Matlab installation is found.
-# * ``MATLAB_ROOT`` the root of the Matlab installation
-# * ``MATLAB_VERSION`` the version of the Matlab installation
-# * ``MATLAB_PROGRAM`` the Matlab binary program. Available only if the component ``MAIN_PROGRAM`` is asked
-# * ``MATLAB_INCLUDE_DIR`` the path of the Matlab libraries headers
-# * ``MATLAB_MEX_LIBRARY`` library for mex
-# * ``MATLAB_MX_LIBRARY`` mx library of Matlab (arrays). Available only if the component ``MX_LIBRARY`` is asked
-# * ``MATLAB_ENG_LIBRARY`` Matlab engine library. Available only if the component ``ENG_LIBRARY`` is asked
-# * ``MATLAB_LIBRARIES`` the whole set of libraries of Matlab
-# * ``MATLAB_MEX_COMPILER`` the mex compiler of Matlab. Currently not used internally. Available only if the component ``MEX_COMPILER`` is asked
+# * ``Matlab_FOUND`` true if the Matlab installation is found.
+# * ``MATLAB_USER_ROOT`` the root of the Matlab installation. This is given by the user.
+# * ``Matlab_ROOT_DIR`` the root of the Matlab installation determined by the FindMatlab module.
+# * ``Matlab_VERSION_STRING`` the version of the Matlab installation
+# * ``Matlab_PROGRAM`` the Matlab binary program. Available only if the component ``MAIN_PROGRAM`` is asked
+# * ``Matlab_INCLUDE_DIRS`` the path of the Matlab libraries headers
+# * ``Matlab_MEX_LIBRARY`` library for mex
+# * ``Matlab_MX_LIBRARY`` mx library of Matlab (arrays). Available only if the component ``MX_LIBRARY`` is asked
+# * ``Matlab_ENG_LIBRARY`` Matlab engine library. Available only if the component ``ENG_LIBRARY`` is asked
+# * ``Matlab_LIBRARIES`` the whole set of libraries of Matlab
+# * ``Matlab_MEX_COMPILER`` the mex compiler of Matlab. Currently not used internally. Available only if the component ``MEX_COMPILER`` is asked
+# * ``Matlab_MEX_EXTENSION`` the extension of the mex files for the current platform (given by Matlab).
 #
 #
 # Defined macros
@@ -434,14 +436,14 @@ endfunction(matlab_get_version_from_matlab_run)
 set(_matlab_possible_roots)
 
 
-# listing the Matlab versions installed on the WIN machine if MATLAB_ROOT is not set
+# listing the Matlab versions installed on the WIN machine if MATLAB_USER_ROOT is not set
 if(WIN32)
   
   # for windows
   
   
-  if(NOT DEFINED MATLAB_ROOT OR NOT ${MATLAB_ROOT})
-    # if MATLAB_ROOT not specified, we look for Matlab installation in the registry
+  if(NOT DEFINED MATLAB_USER_ROOT OR NOT ${MATLAB_USER_ROOT})
+    # if MATLAB_USER_ROOT not specified, we look for Matlab installation in the registry
     # if unsuccessful, we look for all known revision and filter the existing ones. 
   
     # testing if we are able to extract the needed information from the registry
@@ -463,11 +465,11 @@ if(WIN32)
     
     
     
-  elseif(NOT EXISTS ${MATLAB_ROOT})
+  elseif(NOT EXISTS ${MATLAB_USER_ROOT})
   
-    # if MATLAB_ROOT specified but erroneous
+    # if MATLAB_USER_ROOT specified but erroneous
     if(MATLAB_FIND_DEBUG)
-      message(WARNING "[MATLAB] the specified path for MATLAB_ROOT does not exist (${MATLAB_ROOT})")
+      message(WARNING "[MATLAB] the specified path for MATLAB_USER_ROOT does not exist (${MATLAB_USER_ROOT})")
     endif()
   endif()
  
@@ -478,35 +480,35 @@ else()
   
   
 
-  if(NOT DEFINED MATLAB_ROOT OR NOT ${MATLAB_ROOT})
+  if(NOT DEFINED MATLAB_USER_ROOT OR NOT ${MATLAB_USER_ROOT})
   
-    # if MATLAB_ROOT not specified, we look for Matlab from the command line PATH
+    # if MATLAB_USER_ROOT not specified, we look for Matlab from the command line PATH
     # maybe using CMAKE_PROGRAM_PATH to add some more hints
     find_program(
-      MATLAB_PROGRAM
+      Matlab_PROGRAM
       "matlab")
   
-    if(NOT ${MATLAB_PROGRAM})
+    if(NOT ${Matlab_PROGRAM})
       #execute_process(COMMAND which matlab OUTPUT_VARIABLE _which_matlab RESULT_VARIABLE _which_matlab_result)
-      get_filename_component(MATLAB_PROGRAM "matlab" PROGRAM) 
-      get_filename_component(MATLAB_PROGRAM ${MATLAB_PROGRAM} ABSOLUTE) 
-      if(EXISTS ${MATLAB_PROGRAM})
+      get_filename_component(Matlab_PROGRAM "matlab" PROGRAM) 
+      get_filename_component(Matlab_PROGRAM ${Matlab_PROGRAM} ABSOLUTE) 
+      if(EXISTS ${Matlab_PROGRAM})
         if(MATLAB_FIND_DEBUG)
-          message(STATUS "[MATLAB] matlab program result from the command line ${MATLAB_PROGRAM}")
+          message(STATUS "[MATLAB] matlab program result from the command line ${Matlab_PROGRAM}")
         endif()
       else()
-        unset(MATLAB_PROGRAM)
+        unset(Matlab_PROGRAM)
       endif()
 
     endif()
   
-    if(MATLAB_PROGRAM AND EXISTS ${MATLAB_PROGRAM})
+    if(Matlab_PROGRAM AND EXISTS ${Matlab_PROGRAM})
       if(MATLAB_FIND_DEBUG)
-        message(STATUS "[MATLAB] found from the command line at ${MATLAB_PROGRAM}")
+        message(STATUS "[MATLAB] found from the command line at ${Matlab_PROGRAM}")
       endif()
 
       # resolve symlinks
-      get_filename_component(_matlab_current_location ${MATLAB_PROGRAM} REALPATH)
+      get_filename_component(_matlab_current_location ${Matlab_PROGRAM} REALPATH)
       if(${CMAKE_VERSION} VERSION_LESS "2.8.12")
         set(_directory_alias PATH)
       else()
@@ -543,14 +545,14 @@ else()
       unset(_matlab_releases) 
     endif()
 
-    # we need to clear MATLAB_PROGRAM here
-    unset(MATLAB_PROGRAM CACHE)
-    unset(MATLAB_PROGRAM) 
+    # we need to clear Matlab_PROGRAM here
+    unset(Matlab_PROGRAM CACHE)
+    unset(Matlab_PROGRAM) 
     
-  elseif(NOT EXISTS ${MATLAB_ROOT})
-    # if MATLAB_ROOT specified but erroneous
+  elseif(NOT EXISTS ${MATLAB_USER_ROOT})
+    # if MATLAB_USER_ROOT specified but erroneous
     if(MATLAB_FIND_DEBUG)
-      message(WARNING "[MATLAB] the specified path for MATLAB_ROOT does not exist (${MATLAB_ROOT})")
+      message(WARNING "[MATLAB] the specified path for MATLAB_USER_ROOT does not exist (${MATLAB_USER_ROOT})")
     endif()
   endif()
 endif()
@@ -564,46 +566,46 @@ endif()
 
 
 # take the first possible Matlab root
-if(NOT MATLAB_ROOT AND _matlab_possible_roots)
-  list(GET _matlab_possible_roots 0 MATLAB_VERSION)
-  list(GET _matlab_possible_roots 1 MATLAB_ROOT)
+if(NOT MATLAB_USER_ROOT AND _matlab_possible_roots)
+  list(GET _matlab_possible_roots 0 Matlab_VERSION_STRING)
+  list(GET _matlab_possible_roots 1 Matlab_ROOT_DIR)
   list(LENGTH _matlab_possible_roots numbers_of_matlab_roots)
   
   # adding a warning in case of ambiguity
   if(numbers_of_matlab_roots GREATER 2)
-    message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${MATLAB_VERSION} (located ${MATLAB_ROOT})."
+    message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${Matlab_VERSION_STRING} (located ${Matlab_ROOT_DIR})."
                     " If this is not the desired behaviour, provide the -DMATLAB_ROOT on the command line")
   endif()
 endif()
 
 
-if((NOT (DEFINED MATLAB_VERSION)) OR (NOT MATLAB_VERSION))
-  set(MATLAB_VERSION "NOT-FOUND")
+if((NOT (DEFINED Matlab_VERSION_STRING)) OR (NOT Matlab_VERSION_STRING))
+  set(Matlab_VERSION_STRING "NOT-FOUND")
 endif()
 
-if(${MATLAB_VERSION} STREQUAL "NOT-FOUND")
-  if((NOT DEFINED MATLAB_PROGRAM) OR (NOT ${MATLAB_PROGRAM}) OR (NOT EXISTS ${MATLAB_PROGRAM}))
+if(${Matlab_VERSION_STRING} STREQUAL "NOT-FOUND")
+  if((NOT DEFINED Matlab_PROGRAM) OR (NOT ${Matlab_PROGRAM}) OR (NOT EXISTS ${Matlab_PROGRAM}))
     if(MATLAB_FIND_DEBUG)
-      message(STATUS "[MATLAB] - Unknown version, looking for Matlab under ${MATLAB_ROOT}")
+      message(STATUS "[MATLAB] - Unknown version, looking for Matlab under ${Matlab_ROOT_DIR}")
     endif()
     find_program(
-      MATLAB_PROGRAM
+      Matlab_PROGRAM
       matlab
-      PATHS ${MATLAB_ROOT} ${MATLAB_ROOT}/bin
+      PATHS ${Matlab_ROOT_DIR} ${Matlab_ROOT_DIR}/bin
       DOC "Matlab main program"
       NO_DEFAULT_PATH
     )
 
      
     
-    if(MATLAB_PROGRAM)
+    if(Matlab_PROGRAM)
       set(matlab_list_of_all_versions)
-      matlab_get_version_from_matlab_run(${MATLAB_PROGRAM} matlab_list_of_all_versions)
+      matlab_get_version_from_matlab_run(${Matlab_PROGRAM} matlab_list_of_all_versions)
     
       list(GET matlab_list_of_all_versions 0 MATLAB_VERSION_tmp)
           
       # set the version into the cache
-      set(MATLAB_VERSION ${MATLAB_VERSION_tmp})# CACHE STRING "Matlab version (automatically determined)")
+      set(Matlab_VERSION_STRING ${MATLAB_VERSION_tmp})# CACHE STRING "Matlab version (automatically determined)")
       list(LENGTH list_of_all_versions list_of_all_versions_length)
       if(${list_of_all_versions_length} GREATER 1)
         message(WARNING "[MATLAB] Found several versions, taking the first one (versions found ${list_of_all_versions})")
@@ -614,13 +616,13 @@ endif()
 
 
 if(MATLAB_FIND_DEBUG)
-  message(STATUS "[MATLAB] Current version is ${MATLAB_VERSION} located ${MATLAB_ROOT}")
+  message(STATUS "[MATLAB] Current version is ${Matlab_VERSION_STRING} located ${Matlab_ROOT_DIR}")
 endif()
 
 
 
 
-file(TO_CMAKE_PATH ${MATLAB_ROOT} MATLAB_ROOT)
+file(TO_CMAKE_PATH ${Matlab_ROOT_DIR} Matlab_ROOT_DIR)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
   set(_matlab_64Build FALSE)
@@ -645,14 +647,14 @@ endif()
 
 
 
-set(MATLAB_BIN_DIR ${MATLAB_ROOT}/bin)
-set(MATLAB_INCLUDE_DIR_TO_LOOK ${MATLAB_ROOT}/extern/include)
+set(MATLAB_BIN_DIR ${Matlab_ROOT_DIR}/bin)
+set(MATLAB_INCLUDE_DIR_TO_LOOK ${Matlab_ROOT_DIR}/extern/include)
 if(_matlab_64Build)
-  set(MATLAB_BIN_DIR_ARCH ${MATLAB_ROOT}/bin/${MATLAB_BIN1}${MATLAB_suffix64}  CACHE PATH "Matlab directory for architecture specific binaries")
-  set(MATLAB_EXTERN_LIB_DIR ${MATLAB_ROOT}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
+  set(MATLAB_BIN_DIR_ARCH ${Matlab_ROOT_DIR}/bin/${MATLAB_BIN1}${MATLAB_suffix64}  CACHE PATH "Matlab directory for architecture specific binaries")
+  set(MATLAB_EXTERN_LIB_DIR ${Matlab_ROOT_DIR}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
 else()
-  set(MATLAB_BIN_DIR_ARCH ${MATLAB_ROOT}/bin/${MATLAB_BIN1}${MATLAB_suffix32} CACHE PATH "Matlab directory for architecture specific binaries" )
-  set(MATLAB_EXTERN_LIB_DIR ${MATLAB_ROOT}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
+  set(MATLAB_BIN_DIR_ARCH ${Matlab_ROOT_DIR}/bin/${MATLAB_BIN1}${MATLAB_suffix32} CACHE PATH "Matlab directory for architecture specific binaries" )
+  set(MATLAB_EXTERN_LIB_DIR ${Matlab_ROOT_DIR}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
 endif()
 
 if(WIN32)
@@ -666,12 +668,12 @@ endif()
 unset(_matlab_64Build)
 
 
-if(NOT DEFINED MATLAB_MEX_EXTENSION)
+if(NOT DEFINED Matlab_MEX_EXTENSION)
   set(_matlab_mex_extension "")
-  matlab_get_mex_suffix(${MATLAB_ROOT} _matlab_mex_extension)
+  matlab_get_mex_suffix(${Matlab_ROOT_DIR} _matlab_mex_extension)
 
   # This variable goes to the cache.
-  set(MATLAB_MEX_EXTENSION ${_matlab_mex_extension} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
+  set(Matlab_MEX_EXTENSION ${_matlab_mex_extension} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
   unset(_matlab_mex_extension)
 endif()
 
@@ -685,42 +687,45 @@ endif()
 set(CMAKE_FIND_LIBRARY_PREFIXES ${CMAKE_FIND_LIBRARY_PREFIXES} ${MATLAB_LIB_PREFIX_FOR_LOOKUP})
 
 
-set(MATLAB_REQUIRED_VARIABLES)
+set(_matlab_required_variables)
 
 
 # the MEX library/header are required
 find_path(
-  MATLAB_INCLUDE_DIR
+  Matlab_INCLUDE_DIRS
   mex.h
   PATHS ${MATLAB_INCLUDE_DIR_TO_LOOK}
   NO_DEFAULT_PATH
   )
-list(APPEND MATLAB_REQUIRED_VARIABLES MATLAB_INCLUDE_DIR)
+list(APPEND _matlab_required_variables Matlab_INCLUDE_DIRS)
 
 find_library(
-  MATLAB_MEX_LIBRARY
+  Matlab_MEX_LIBRARY
   mex
   PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
   NO_DEFAULT_PATH
 )
-list(APPEND MATLAB_REQUIRED_VARIABLES MATLAB_MEX_LIBRARY)
+list(APPEND _matlab_required_variables Matlab_MEX_LIBRARY)
 
 # the MEX extension is required
-list(APPEND MATLAB_REQUIRED_VARIABLES MATLAB_MEX_EXTENSION)
+list(APPEND _matlab_required_variables Matlab_MEX_EXTENSION)
+
+# the matlab root is required
+list(APPEND _matlab_required_variables Matlab_ROOT_DIR)
 
 
 # component Mex Compiler
 list(FIND Matlab_FIND_COMPONENTS MEX_COMPILER _matlab_find_mex_compiler)
 if(_matlab_find_mex_compiler GREATER -1)
   find_program(
-    MATLAB_MEX_COMPILER
+    Matlab_MEX_COMPILER
     "mex"
     PATHS ${MATLAB_BIN_DIR_ARCH}
     DOC "Matlab MEX compiler"
     NO_DEFAULT_PATH
   )
   
-  if(MATLAB_MEX_COMPILER)
+  if(Matlab_MEX_COMPILER)
     set(MATLAB_MEX_COMPILER_FOUND TRUE)
   endif()
 endif()  
@@ -729,16 +734,16 @@ endif()
 list(FIND Matlab_FIND_COMPONENTS MAIN_PROGRAM _matlab_find_matlab_program)
 if(_matlab_find_matlab_program GREATER -1)
   # todo cleanup with code above
-  if(NOT DEFINED MATLAB_PROGRAM)
+  if(NOT DEFINED Matlab_PROGRAM)
     find_program(
-      MATLAB_PROGRAM
+      Matlab_PROGRAM
       matlab
-      PATHS ${MATLAB_ROOT} ${MATLAB_ROOT}/bin
+      PATHS ${Matlab_ROOT_DIR} ${Matlab_ROOT_DIR}/bin
       DOC "Matlab main program"
       NO_DEFAULT_PATH
     )
   endif()
-  if(MATLAB_PROGRAM)
+  if(Matlab_PROGRAM)
     set(MATLAB_MAIN_PROGRAM_FOUND TRUE)
   endif()
 
@@ -749,13 +754,13 @@ endif()
 list(FIND Matlab_FIND_COMPONENTS MX_LIBRARY _matlab_find_mx)
 if(_matlab_find_mx GREATER -1)
   find_library(
-    MATLAB_MX_LIBRARY
+    Matlab_MX_LIBRARY
     mx
     PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
     NO_DEFAULT_PATH
   )
   
-  if(MATLAB_MX_LIBRARY)
+  if(Matlab_MX_LIBRARY)
     set(MATLAB_MX_LIBRARY_FOUND TRUE)
   endif()
 endif()
@@ -764,12 +769,12 @@ endif()
 list(FIND Matlab_FIND_COMPONENTS ENG_LIBRARY _matlab_find_eng)
 if(_matlab_find_eng GREATER -1)
   find_library(
-    MATLAB_ENG_LIBRARY
+    Matlab_ENG_LIBRARY
     eng
     PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
     NO_DEFAULT_PATH
   )
-  if(MATLAB_ENG_LIBRARY)
+  if(Matlab_ENG_LIBRARY)
     set(MATLAB_ENG_LIBRARY_FOUND TRUE)
   endif()
 endif()
@@ -781,37 +786,39 @@ unset(_matlab_find_mx)
 unset(_matlab_find_eng)
 
 
-set(MATLAB_LIBRARIES ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY} ${MATLAB_ENG_LIBRARY})
+set(Matlab_LIBRARIES ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} ${Matlab_ENG_LIBRARY})
 
 if(CMAKE_VERSION VERSION_LESS "2.8.11")
   find_package_handle_standard_args(
-    MATLAB
-    REQUIRED_VARS ${MATLAB_REQUIRED_VARIABLES} MATLAB_MEX_LIBRARY
-    VERSION_VAR MATLAB_VERSION)
+    Matlab
+    REQUIRED_VARS ${_matlab_required_variables}
+    VERSION_VAR Matlab_VERSION_STRING)
 else()
   find_package_handle_standard_args(
-    MATLAB 
-    FOUND_VAR MATLAB_FOUND
-    REQUIRED_VARS ${MATLAB_REQUIRED_VARIABLES} MATLAB_MEX_LIBRARY #MATLAB_REQUIRED_PROGRAMS MATLAB_REQUIRED_LIBRARIES MATLAB_REQUIRED_INCLUDE_DIRS
-    VERSION_VAR MATLAB_VERSION
+    Matlab 
+    FOUND_VAR Matlab_FOUND
+    REQUIRED_VARS ${_matlab_required_variables} #MATLAB_REQUIRED_PROGRAMS MATLAB_REQUIRED_LIBRARIES MATLAB_REQUIRED_INCLUDE_DIRS
+    VERSION_VAR Matlab_VERSION_STRING
     HANDLE_COMPONENTS)
 endif()
 
+unset(_matlab_required_variables)
 
 
 
-if(MATLAB_INCLUDE_DIR AND MATLAB_LIBRARIES)
+if(Matlab_INCLUDE_DIRS AND Matlab_LIBRARIES)
   mark_as_advanced(
-    MATLAB_LIBRARIES
-    MATLAB_MEX_LIBRARY
-    MATLAB_MX_LIBRARY
-    MATLAB_ENG_LIBRARY
-    MATLAB_INCLUDE_DIR
-    MATLAB_FOUND
-    MATLAB_ROOT
-    MATLAB_VERSION
-    MATLAB_PROGRAM
-    MATLAB_MEX_EXTENSION
+    Matlab_LIBRARIES
+    Matlab_MEX_LIBRARY
+    Matlab_MX_LIBRARY
+    Matlab_ENG_LIBRARY
+    Matlab_INCLUDE_DIRS
+    Matlab_FOUND
+    MATLAB_USER_ROOT
+    Matlab_ROOT_DIR
+    Matlab_VERSION_STRING
+    Matlab_PROGRAM
+    Matlab_MEX_EXTENSION
   )
 endif()
 

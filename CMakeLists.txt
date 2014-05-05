@@ -57,15 +57,15 @@ if(NOT WITHOUT_MATLAB)
   find_package(Matlab 8.2 EXACT REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
   
   # the following lines should not be needed
-  if(NOT ${MATLAB_FOUND})
+  if(NOT ${Matlab_FOUND})
     message(FATAL_ERROR "Unable to find Matlab include directory")
   else()
-    message(STATUS "[MATLAB] - version ${MATLAB_VERSION}")
-    message(STATUS "[MATLAB] - include directory ${MATLAB_INCLUDE_DIR}")
-    message(STATUS "[MATLAB] - mex library ${MATLAB_MEX_LIBRARY}")
-    message(STATUS "[MATLAB] - mex extension ${MATLAB_MEX_EXTENSION}")
-    message(STATUS "[MATLAB] - mx library ${MATLAB_MX_LIBRARY}")
-    message(STATUS "[MATLAB] - matlab ${MATLAB_PROGRAM}")
+    message(STATUS "[MATLAB] - version ${Matlab_VERSION}")
+    message(STATUS "[MATLAB] - include directory ${Matlab_INCLUDE_DIR}")
+    message(STATUS "[MATLAB] - mex library ${Matlab_MEX_LIBRARY}")
+    message(STATUS "[MATLAB] - mex extension ${Matlab_MEX_EXTENSION}")
+    message(STATUS "[MATLAB] - mx library ${Matlab_MX_LIBRARY}")
+    message(STATUS "[MATLAB] - matlab ${Matlab_PROGRAM}")
   endif()
 
   # Adding a project for the script that finds Matlab, the script being under development currently
@@ -183,14 +183,14 @@ endif()
 if(NOT WITHOUT_MATLAB)
   
 
-  include_directories(${MATLAB_INCLUDE_DIR})
+  include_directories(${Matlab_INCLUDE_DIR})
   set(RobustPCAMEX_LIB
       extensions/matlab.cpp)
   add_library(robustpca_m SHARED ${RobustPCAMEX_LIB})
-  target_link_libraries(robustpca_m robustpca ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY})
+  target_link_libraries(robustpca_m robustpca ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
 
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
-  set_target_properties(robustpca_m PROPERTIES SUFFIX ".${MATLAB_MEX_EXTENSION}")
+  set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
   if(WIN32)
     set_target_properties(robustpca_m PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
   endif()
@@ -209,9 +209,9 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     SOURCES test/robustpca_matlab_unit_tests.m)
   set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
 
-  set(MATLAB_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
+  set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
   if(WIN32)
-    set(MATLAB_UNIT_TESTS_CMD ${MATLAB_UNIT_TESTS_CMD} -wait)
+    set(Matlab_UNIT_TESTS_CMD ${Matlab_UNIT_TESTS_CMD} -wait)
   endif()
 
   macro(copy_dependency_with_config target_name dependency_name)
@@ -264,7 +264,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
 
 
   add_test(NAME robustpca_matlabtest-1
-            COMMAND ${MATLAB_PROGRAM} ${MATLAB_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
+            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
            -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test', '${Boost_LIBRARY_DIRS}'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
   set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 180)
   # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
