@@ -630,38 +630,41 @@ else()
 endif()
 
 if(APPLE)
-  set(MATLAB_BIN1 "mac") # i should be for intel
-  set(MATLAB_suffix32 "i")
-  set(MATLAB_suffix64 "i64")
+  set(_matlab_bin_prefix "mac") # i should be for intel
+  set(_matlab_bin_suffix_32bits "i")
+  set(_matlab_bin_suffix_64bits "i64")
 elseif(UNIX)
-  set(MATLAB_BIN1 "gln")
-  set(MATLAB_suffix32 "x86")
-  set(MATLAB_suffix64 "xa64")
+  set(_matlab_bin_prefix "gln")
+  set(_matlab_bin_suffix_32bits "x86")
+  set(_matlab_bin_suffix_64bits "xa64")
 else()
-  set(MATLAB_BIN1 "win")
-  set(MATLAB_suffix32 "32")
-  set(MATLAB_suffix64 "64")
+  set(_matlab_bin_prefix "win")
+  set(_matlab_bin_suffix_32bits "32")
+  set(_matlab_bin_suffix_64bits "64")
 endif()
 
 
 
-
-set(MATLAB_BIN_DIR ${Matlab_ROOT_DIR}/bin)
 set(MATLAB_INCLUDE_DIR_TO_LOOK ${Matlab_ROOT_DIR}/extern/include)
 if(_matlab_64Build)
-  set(MATLAB_BIN_DIR_ARCH ${Matlab_ROOT_DIR}/bin/${MATLAB_BIN1}${MATLAB_suffix64}  CACHE PATH "Matlab directory for architecture specific binaries")
-  set(MATLAB_EXTERN_LIB_DIR ${Matlab_ROOT_DIR}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
+  set(_matlab_current_suffix ${_matlab_bin_suffix_64bits})
 else()
-  set(MATLAB_BIN_DIR_ARCH ${Matlab_ROOT_DIR}/bin/${MATLAB_BIN1}${MATLAB_suffix32} CACHE PATH "Matlab directory for architecture specific binaries" )
-  set(MATLAB_EXTERN_LIB_DIR ${Matlab_ROOT_DIR}/extern/lib/${MATLAB_BIN1}${MATLAB_suffix64} CACHE PATH "Matlab directory for link")
+  set(_matlab_current_suffix ${_matlab_bin_suffix_32bits})
 endif()
 
+set(Matlab_BINARIES_DIR 
+    ${Matlab_ROOT_DIR}/bin/${_matlab_bin_prefix}${_matlab_current_suffix} 
+    CACHE PATH "Matlab directory for architecture specific binaries" )
+set(Matlab_EXTERN_LIBRARY_DIR 
+    ${Matlab_ROOT_DIR}/extern/lib/${_matlab_bin_prefix}${_matlab_current_suffix} 
+    CACHE PATH "Matlab libraries directory")
+
 if(WIN32)
-  set(MATLAB_LIB_DIR_FOR_LOOKUP ${MATLAB_EXTERN_LIB_DIR}/microsoft)
-  set(MATLAB_LIB_PREFIX_FOR_LOOKUP "lib")
+  set(_matlab_lib_dir_for_search ${Matlab_EXTERN_LIBRARY_DIR}/microsoft)
+  set(_matlab_lib_prefix_for_search "lib")
 else()
-  set(MATLAB_LIB_DIR_FOR_LOOKUP ${MATLAB_BIN_DIR_ARCH})
-  set(MATLAB_LIB_PREFIX_FOR_LOOKUP "lib")
+  set(_matlab_lib_dir_for_search ${Matlab_BINARIES_DIR})
+  set(_matlab_lib_prefix_for_search "lib")
 endif()
 
 unset(_matlab_64Build)
@@ -678,12 +681,12 @@ endif()
 
 
 if(MATLAB_FIND_DEBUG)
-  message(STATUS "[MATLAB] [DEBUG]MATLAB_LIB_PREFIX_FOR_LOOKUP = ${MATLAB_LIB_PREFIX_FOR_LOOKUP} | MATLAB_LIB_DIR_FOR_LOOKUP = ${MATLAB_LIB_DIR_FOR_LOOKUP}")
+  message(STATUS "[MATLAB] [DEBUG]_matlab_lib_prefix_for_search = ${_matlab_lib_prefix_for_search} | _matlab_lib_dir_for_search = ${_matlab_lib_dir_for_search}")
 endif()
 
 # WARNING: this thing pollutes the CMAKE_FIND_LIBRARY_PREFIXES global variable. 
 # Should it be restored afterwards? Is there a more appropriate way to do that?
-set(CMAKE_FIND_LIBRARY_PREFIXES ${CMAKE_FIND_LIBRARY_PREFIXES} ${MATLAB_LIB_PREFIX_FOR_LOOKUP})
+set(CMAKE_FIND_LIBRARY_PREFIXES ${CMAKE_FIND_LIBRARY_PREFIXES} ${_matlab_lib_prefix_for_search})
 
 
 set(_matlab_required_variables)
@@ -701,7 +704,7 @@ list(APPEND _matlab_required_variables Matlab_INCLUDE_DIRS)
 find_library(
   Matlab_MEX_LIBRARY
   mex
-  PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
+  PATHS ${_matlab_lib_dir_for_search}
   NO_DEFAULT_PATH
 )
 list(APPEND _matlab_required_variables Matlab_MEX_LIBRARY)
@@ -719,7 +722,7 @@ if(_matlab_find_mex_compiler GREATER -1)
   find_program(
     Matlab_MEX_COMPILER
     "mex"
-    PATHS ${MATLAB_BIN_DIR_ARCH}
+    PATHS ${Matlab_BINARIES_DIR}
     DOC "Matlab MEX compiler"
     NO_DEFAULT_PATH
   )
@@ -755,7 +758,7 @@ if(_matlab_find_mx GREATER -1)
   find_library(
     Matlab_MX_LIBRARY
     mx
-    PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
+    PATHS ${_matlab_lib_dir_for_search}
     NO_DEFAULT_PATH
   )
   
@@ -770,7 +773,7 @@ if(_matlab_find_eng GREATER -1)
   find_library(
     Matlab_ENG_LIBRARY
     eng
-    PATHS ${MATLAB_LIB_DIR_FOR_LOOKUP}
+    PATHS ${_matlab_lib_dir_for_search}
     NO_DEFAULT_PATH
   )
   if(Matlab_ENG_LIBRARY)
@@ -783,6 +786,8 @@ unset(_matlab_find_matlab_program)
 unset(_matlab_find_mex_compiler)
 unset(_matlab_find_mx)
 unset(_matlab_find_eng)
+
+unset(_matlab_lib_dir_for_search)
 
 
 set(Matlab_LIBRARIES ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} ${Matlab_ENG_LIBRARY})
@@ -802,8 +807,12 @@ else()
 endif()
 
 unset(_matlab_required_variables)
-
-
+unset(_matlab_bin_prefix)
+unset(_matlab_bin_suffix_32bits)
+unset(_matlab_bin_suffix_64bits)
+unset(_matlab_current_suffix)
+unset(_matlab_lib_dir_for_search)
+unset(_matlab_lib_prefix_for_search)
 
 if(Matlab_INCLUDE_DIRS AND Matlab_LIBRARIES)
   mark_as_advanced(
@@ -818,6 +827,7 @@ if(Matlab_INCLUDE_DIRS AND Matlab_LIBRARIES)
     Matlab_VERSION_STRING
     Matlab_PROGRAM
     Matlab_MEX_EXTENSION
+    Matlab_BINARIES_DIR
   )
 endif()
 
