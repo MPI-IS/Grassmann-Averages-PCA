@@ -805,7 +805,6 @@ namespace robust_pca
       // preparing mu
       data_t mu(*it_eigenvectors);
       assert(mu.size() == number_of_dimensions);
-      typename norm_mu_t::result_type norm_mu;
       
 
       // vector of valid bounds. These bounds will be shared among every workers. 
