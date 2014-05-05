@@ -25,7 +25,7 @@
 
 // boost heaps
 #include <boost/heap/fibonacci_heap.hpp>
-
+#include <boost/heap/pairing_heap.hpp>
 
 
 // for the thread pools
@@ -94,8 +94,10 @@ namespace robust_pca
     {  
       //!@name Heap types
       //!@{
-      typedef boost::heap::fibonacci_heap<scalar_t, boost::heap::compare< std::less<scalar_t> > > low_heap_t;
-      typedef boost::heap::fibonacci_heap<scalar_t, boost::heap::compare< std::greater<scalar_t> > > high_heap_t;
+      // apparently fibonacci heaps have a problem in the copy construction on Visual C++ 2013,
+      // so I am using pairing_heap here.
+      typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::less<scalar_t> > > low_heap_t;
+      typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::greater<scalar_t> > > high_heap_t;
       //!@}
 
 
