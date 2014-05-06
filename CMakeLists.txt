@@ -222,7 +222,7 @@ if(NOT WITHOUT_MATLAB)
     
 
     add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
-    target_compile_definitions(${library_name}_matlab_loader PUBLIC MATLAB_SO_WRAP=$<TARGET_FILE_NAME:${library_name}>) 
+    target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"$<TARGET_FILE_NAME:${library_name}>\"") 
     target_link_libraries(${library_name}_matlab_loader dl ${Matlab_MEX_LIBRARY})
     
     add_dependencies(${library_name}_matlab_loader ${library_name}) # do not change to target_link_library here
