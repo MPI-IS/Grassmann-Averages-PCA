@@ -208,7 +208,7 @@ function(matlab_extract_all_installed_versions_from_registry win64 matlab_versio
         current_match ${match})
       #message(STATUS "current match is ${CMAKE_MATCH_0} ${CMAKE_MATCH_1} ${CMAKE_MATCH_2} ${CMAKE_MATCH_3} ${CMAKE_MATCH_4}")
       
-      set(current_matlab_version ${CMAKE_MATCH_1})
+      set(_matlab_current_version ${CMAKE_MATCH_1})
       set(current_matlab_version_major ${CMAKE_MATCH_2})
       set(current_matlab_version_minor ${CMAKE_MATCH_4})
       if(NOT current_matlab_version_minor)
@@ -217,7 +217,8 @@ function(matlab_extract_all_installed_versions_from_registry win64 matlab_versio
       
       #message(STATUS "Matlab in registry ${current_matlab_version_major}.${current_matlab_version_minor}")
 
-      list(APPEND matlabs_from_registry ${current_matlab_version})
+      list(APPEND matlabs_from_registry ${_matlab_current_version})
+      unset(_matlab_current_version)
     endforeach(match)
     
   endif()
@@ -275,18 +276,20 @@ endmacro(extract_matlab_versions_from_registry_brute_force)
 function(matlab_get_all_valid_matlab_roots_from_registry matlab_versions matlab_roots)
   
   set(_matlab_roots_list )
-  foreach(current_matlab_version ${matlab_versions})
+  foreach(_matlab_current_version ${matlab_versions})
     get_filename_component(
       current_MATLAB_ROOT
-      "[HKEY_LOCAL_MACHINE\\SOFTWARE\\MathWorks\\MATLAB\\${current_matlab_version};MATLABROOT]"
+      "[HKEY_LOCAL_MACHINE\\SOFTWARE\\MathWorks\\MATLAB\\${_matlab_current_version};MATLABROOT]"
       ABSOLUTE)
       
     if(EXISTS ${current_MATLAB_ROOT})
-      list(APPEND _matlab_roots_list ${current_matlab_version} ${current_MATLAB_ROOT})
+      list(APPEND _matlab_roots_list ${_matlab_current_version} ${current_MATLAB_ROOT})
     endif()
   
-  endforeach(current_matlab_version)
+  endforeach(_matlab_current_version)
+  unset(_matlab_current_version)
   set(${matlab_roots} ${_matlab_roots_list} PARENT_SCOPE)
+  unset(_matlab_roots_list)
 endfunction(matlab_get_all_valid_matlab_roots_from_registry)
 
 
@@ -527,18 +530,22 @@ else()
                        "the variable MATLAB_ADDITIONAL_VERSIONS can be set according to the documentation")
       endif()
 
-      foreach(_current_matlab_release IN LISTS _matlab_releases)
-        set(_matlab_full_string "/Applications/MATLAB_${_current_matlab_release}.app")
+      foreach(_matlab_current_release IN LISTS _matlab_releases)
+        set(_matlab_full_string "/Applications/MATLAB_${_matlab_current_release}.app")
         if(EXISTS ${_matlab_full_string})
-          set(current_matlab_version)
-          matlab_get_version_from_release_name(${_current_matlab_release} current_matlab_version)
-          list(APPEND _matlab_possible_roots ${_current_matlab_version})
+          set(_matlab_current_version)
+          matlab_get_version_from_release_name(${_matlab_current_release} _matlab_current_version)
+          if(MATLAB_FIND_DEBUG)
+            message(STATUS "[MATLAB] Found version ${_matlab_current_release} (${_matlab_current_version}) in ${_matlab_full_string}")
+          endif()
+          list(APPEND _matlab_possible_roots ${_matlab_current_version})
           list(APPEND _matlab_possible_roots ${_matlab_full_string})
+          unset(_matlab_current_version)
         endif()
         
         unset(_matlab_full_string)
-      endforeach(_current_matlab_release)
-      unset(_current_matlab_release)
+      endforeach(_matlab_current_release)
+      unset(_matlab_current_release)
       unset(_matlab_releases) 
     endif()
 
