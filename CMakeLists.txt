@@ -229,6 +229,7 @@ if(NOT WITHOUT_MATLAB)
     set_target_properties(${library_name}_matlab_loader 
       PROPERTIES 
         PREFIX ""
+        OUTPUT_NAME ${library_name}
         SUFFIX ".${Matlab_MEX_EXTENSION}"
         FOLDER "Matlab")
 
