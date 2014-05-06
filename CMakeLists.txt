@@ -80,6 +80,21 @@ endif()
 # general defines
 if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
+else()
+  # this is mainly because of Boost to which the mex file is linked. 
+  # Basically, it will change the rpath of the produced .mex file to point to either $ORIGIN (ldd variants)
+  # or @loader_path (otool variants). Then dependant .so/.dylib will be found relatively to the .mex file, which
+  # is in this case the current directory. 
+  # This means also that the boost dependencies should be copied into the target directory of the .mex file, which is 
+  # performed below in this file
+  set(CMAKE_SKIP_BUILD_RPATH  FALSE)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  if(NOT APPLE)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+  elseif(UNIX) # APPLE is Unix
+    set(CMAKE_INSTALL_RPATH "@loader_path") # to be tested on osx
+  endif()
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
 
