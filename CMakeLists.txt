@@ -205,7 +205,47 @@ if(NOT WITHOUT_MATLAB)
   target_link_libraries(robustpca_m robustpca ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
 
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
-  set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
+  set(Matlab_NEED_WRAPPER TRUE)
+
+
+  macro(create_matlab_mex_wrapper library_name)
+
+    set(_matlab_wrapper_template ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.cpp)
+    set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.cpp)
+    set_target_properties(${library_name} 
+      PROPERTIES 
+        PREFIX ""
+        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") # to avoid the possibility to call it from matlab*
+    
+    # the template contains all the necessary code. The library to load is defined by a #define
+    configure_file("extensions/matlab_wrapper.cpp.template" ${_matlab_wrapper_template_output} COPYONLY)
+    
+
+    add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
+    target_compile_definitions(${library_name}_matlab_loader PUBLIC MATLAB_SO_WRAP=$<TARGET_FILE_NAME:${library_name}>) 
+    target_link_libraries(${library_name}_matlab_loader dl ${Matlab_MEX_LIBRARY})
+    
+    add_dependencies(${library_name}_matlab_loader ${library_name}) # do not change to target_link_library here
+    set_target_properties(${library_name}_matlab_loader 
+      PROPERTIES 
+        PREFIX ""
+        SUFFIX ".${Matlab_MEX_EXTENSION}"
+        FOLDER "Matlab")
+
+    unset(_matlab_wrapper_template)
+    unset(_matlab_mex_to_load)
+
+  endmacro(create_matlab_mex_wrapper)
+
+
+  if(UNIX AND NOT APPLE AND Matlab_NEED_WRAPPER)
+    create_matlab_mex_wrapper(robustpca_m)
+  else()
+    set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
+  endif()
+
+
+
   if(WIN32)
     set_target_properties(robustpca_m PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
   endif()

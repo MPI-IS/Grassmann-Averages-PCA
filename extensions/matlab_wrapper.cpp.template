@@ -1,0 +1,36 @@
+
+#ifndef MATLAB_SO_WRAP
+  #error MATLAB_SO_WRAP should be defined
+#endif
+
+
+#warning The mex wrapped library is MATLAB_SO_WRAP
+
+
+#define DLIB_NAME(X) #X
+#include "mex.h"
+#include <dlfcn.h>
+
+typedef void (*entryfunc_t)(int, mxArray**, int, const mxArray**);
+
+
+entryfunc_t populate()
+{
+  void *fh = dlopen (DLIB_NAME(MATLAB_SO_WRAP), RTLD_NOW | RTLD_DEEPBIND );
+  void *p = dlsym (fh, "mexFunction");
+  return reinterpret_cast<entryfunc_t> (p);
+}
+
+
+static entryfunc_t gMexEntry = populate();
+
+
+
+void mexFunction(int nlhs, mxArray * plhs[], int nrhs, const mxArray * prhs[])
+{
+  if(!gMexEntry)
+  {
+    mexErrMsgTxt("MATLAB Wrapper: cannot find " DLIB_NAME(MATLAB_SO_WRAP));
+  }
+  gMexEntry (nlhs, plhs, nrhs, prhs);
+}
