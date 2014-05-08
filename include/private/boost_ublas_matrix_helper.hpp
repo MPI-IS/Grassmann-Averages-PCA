@@ -29,7 +29,7 @@ namespace robust_pca
       public boost::iterator_facade<
         row_iter<matrix_t>                            // Derived
       , boost::numeric::ublas::matrix_row<matrix_t>   // Value
-      , boost::random_access_traversal_tag            // CategoryOrTraversal
+      , std::random_access_iterator_tag               // CategoryOrTraversal
       , boost::numeric::ublas::matrix_row<matrix_t>   // reference
       >
     {
@@ -101,6 +101,22 @@ namespace robust_pca
         assert((matrix != 0) && (r.matrix == matrix));
         return typename this_type::difference_type(r.index) - typename this_type::difference_type(index); // sign promotion
       }
+
+      void advance(typename this_type::difference_type n)
+      {
+        if(n < 0)
+        {
+          assert((-n) <= static_cast<typename this_type::difference_type>(index));
+          index -= n;
+        }
+        else
+        {
+          assert(n + index <= matrix->size1());
+          index += n;
+        }
+        
+      }
+
 
     };
 

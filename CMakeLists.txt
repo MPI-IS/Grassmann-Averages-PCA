@@ -3,7 +3,7 @@
 # (See accompanying file LICENSE.txt or copy at
 # http://opensource.org/licenses/BSD-3-Clause)
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.11)
 project(RobustPCA)
 
 
@@ -22,6 +22,10 @@ endif()
 
 # Boost, uBlas and some other header only libraries are needed in any case. The boost.test framework
 # is optional.
+
+# disable auto link
+add_definitions(-DBOOST_ALL_NO_LIB)
+set(Boost_REALPATH ON)
 if(NOT WITHOUT_TESTS)
   set(Boost_USE_MULTITHREADED ON)
 
@@ -34,9 +38,9 @@ if(NOT WITHOUT_TESTS)
   endif()
   set(Boost_NO_BOOST_CMAKE ON)
 
-  find_package(Boost COMPONENTS unit_test_framework)
+  find_package(Boost COMPONENTS unit_test_framework system thread chrono)
 else()
-  find_package(Boost)
+  find_package(Boost COMPONENTS system thread chrono)
 endif()
 
 if(NOT ${Boost_FOUND})
@@ -48,12 +52,20 @@ endif()
 # Matlab bindings
 if(NOT WITHOUT_MATLAB)
   # simple wart to the current state of the Matlab release into the community
-  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/extensions)
-  find_package(Matlab REQUIRED)
+  set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/extensions ${CMAKE_MODULE_PATH})
+  set(MATLAB_FIND_DEBUG TRUE)
+  find_package(Matlab 8.2 EXACT REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
   
   # the following lines should not be needed
-  if(NOT MATLAB_INCLUDE_DIR)
+  if(NOT ${Matlab_FOUND})
     message(FATAL_ERROR "Unable to find Matlab include directory")
+  else()
+    message(STATUS "[MATLAB] - version ${Matlab_VERSION_STRING}")
+    message(STATUS "[MATLAB] - include directory ${Matlab_INCLUDE_DIRS}")
+    message(STATUS "[MATLAB] - mex library ${Matlab_MEX_LIBRARY}")
+    message(STATUS "[MATLAB] - mex extension ${Matlab_MEX_EXTENSION}")
+    message(STATUS "[MATLAB] - mx library ${Matlab_MX_LIBRARY}")
+    message(STATUS "[MATLAB] - matlab ${Matlab_PROGRAM}")
   endif()
 
   # Adding a project for the script that finds Matlab, the script being under development currently
@@ -65,7 +77,41 @@ if(NOT WITHOUT_MATLAB)
 endif()
 
 
+# general defines
+if(WIN32)
+  add_definitions(-D_WIN32_WINNT=0x0501)
+else()
+  # this is mainly because of Boost to which the mex file is linked. 
+  # Basically, it will change the rpath of the produced .mex file to point to either $ORIGIN (ldd variants)
+  # or @loader_path (otool variants). Then dependant .so/.dylib will be found relatively to the .mex file, which
+  # is in this case the current directory. 
+  # This means also that the boost dependencies should be copied into the target directory of the .mex file, which is 
+  # performed below in this file
+  set(CMAKE_SKIP_BUILD_RPATH  FALSE)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  if(NOT APPLE)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+  elseif(UNIX) # APPLE is Unix
+    set(CMAKE_INSTALL_RPATH "@loader_path") # to be tested on osx
+  endif()
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+endif()
 
+
+
+# compilation options
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-std=c++11 HAS_CXX11_FLAG)
+check_cxx_compiler_flag(-std=c++0x HAS_CXX0X_FLAG)
+if (HAS_CXX11_FLAG)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+elseif(HAS_CXX0X_FLAG)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+endif()
+
+if(MSVC)
+  add_definitions(-D_SCL_SECURE_NO_WARNINGS)
+endif()
 
 
 
@@ -81,8 +127,12 @@ set(RobustPCA_LIB
      include/private/boost_ublas_matrix_helper.hpp
 
      include/robust_pca.hpp
+     include/robust_pca_trimmed.hpp
+     include/private/utilities.hpp
+
      src/robust_pca.cpp)
 add_library(robustpca ${RobustPCA_LIB})
+target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY})
 
 
 
@@ -113,7 +163,7 @@ if(NOT WITHOUT_TESTS)
       test/test_robust_pca_trimmed.cpp
       test/test_row_proxy.cpp)
   add_executable(robustpca_test ${RobustPCA_tests})
-  target_link_libraries(robustpca_test ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+  target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
 
   # the main definition is in there
   set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
@@ -129,9 +179,15 @@ if(NOT WITHOUT_TESTS)
 
   # basically, we cannot concatenate PATH with something else. I tried different configuration, and the spaces and ; in PATH do
   # not play well with the command itself. Even the PATH=%PATH%;blablabla with space does not seem to work.
+  list(LENGTH Boost_LIBRARY_DIRS _boost_lib_length)
+  if(${_boost_lib_length} GREATER 1)
+    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
+  else()
+    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
+  endif()
   set_tests_properties(
     robustpca_test-1 
-    PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${Boost_LIBRARY_DIRS})
+    PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
 endif()
 
 
@@ -142,19 +198,62 @@ endif()
 if(NOT WITHOUT_MATLAB)
   
 
-  include_directories(${MATLAB_INCLUDE_DIR})
+  include_directories(${Matlab_INCLUDE_DIRS})
   set(RobustPCAMEX_LIB
       extensions/matlab.cpp)
   add_library(robustpca_m SHARED ${RobustPCAMEX_LIB})
-  target_link_libraries(robustpca_m ${MATLAB_MEX_LIBRARY} ${MATLAB_MX_LIBRARY})
+  target_link_libraries(robustpca_m robustpca ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
 
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
-  set_target_properties(robustpca_m PROPERTIES SUFFIX ".${MEX_EXTENSION}")
+  set(Matlab_NEED_WRAPPER TRUE)
+
+
+  macro(create_matlab_mex_wrapper library_name)
+
+    set(_matlab_wrapper_template ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.cpp)
+    set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.cpp)
+    set_target_properties(${library_name} 
+      PROPERTIES 
+        PREFIX ""
+        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") # to avoid the possibility to call it from matlab*
+    
+    # the template contains all the necessary code. The library to load is defined by a #define
+    configure_file("extensions/matlab_wrapper.cpp.template" ${_matlab_wrapper_template_output} COPYONLY)
+    
+
+    add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
+    target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"$<TARGET_FILE_NAME:${library_name}>\"") 
+    target_link_libraries(${library_name}_matlab_loader dl ${Matlab_MEX_LIBRARY})
+    
+    add_dependencies(${library_name}_matlab_loader ${library_name}) # do not change to target_link_library here
+    set_target_properties(${library_name}_matlab_loader 
+      PROPERTIES 
+        PREFIX ""
+        OUTPUT_NAME ${library_name}
+        SUFFIX ".${Matlab_MEX_EXTENSION}"
+        FOLDER "Matlab")
+
+    unset(_matlab_wrapper_template)
+    unset(_matlab_mex_to_load)
+
+  endmacro(create_matlab_mex_wrapper)
+
+
+  if(UNIX AND NOT APPLE AND Matlab_NEED_WRAPPER)
+    create_matlab_mex_wrapper(robustpca_m)
+  else()
+    set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
+  endif()
+
+
+
   if(WIN32)
     set_target_properties(robustpca_m PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
   endif()
   
   set_target_properties(robustpca_m PROPERTIES FOLDER "Matlab")
+
+
 endif()
 
 
@@ -163,21 +262,77 @@ endif()
 if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   add_custom_target(
     robustpca_matlab_unittest_scripts 
-    SOURCES test/matlab_unit_tests.m)
+    SOURCES test/robustpca_matlab_unit_tests.m)
   set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
 
-  set(MATLAB_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
+  set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
   if(WIN32)
-    set(MATLAB_UNIT_TESTS_CMD ${MATLAB_UNIT_TESTS_CMD} -wait)
+    set(Matlab_UNIT_TESTS_CMD ${Matlab_UNIT_TESTS_CMD} -wait)
+  endif()
+
+  macro(copy_dependency_with_config target_name dependency_name)
+
+    set(dependency_name_debug ${${dependency_name}_DEBUG})
+    set(dependency_name_non_debug ${${dependency_name}_RELEASE})
+
+    # check to see if the function GetPrerequisites can do the job
+
+    if(WIN32)
+      # on windows, the dependencies are .lib but we should copy .dll files
+      get_filename_component(dependency_name_debug1 ${dependency_name_debug} NAME_WE)
+      get_filename_component(dependency_name_debug_dir ${dependency_name_debug} DIRECTORY)
+      set(dependency_name_debug ${dependency_name_debug_dir}/${dependency_name_debug1}${CMAKE_SHARED_LIBRARY_SUFFIX})
+
+      get_filename_component(dependency_name_non_debug1 ${dependency_name_non_debug} NAME_WE)
+      get_filename_component(dependency_name_non_debug_dir ${dependency_name_non_debug} DIRECTORY)
+      set(dependency_name_non_debug ${dependency_name_non_debug_dir}/${dependency_name_non_debug1}${CMAKE_SHARED_LIBRARY_SUFFIX})
+
+    endif()
+
+
+    add_custom_command(
+      TARGET ${target_name}
+      PRE_BUILD
+      COMMAND ${CMAKE_COMMAND} -E echo copy ${dependency_name} 
+        $<$<CONFIG:Debug>:${dependency_name_debug}>
+        $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}>
+        into 
+        $<TARGET_FILE_DIR:${target_name}>/.
+
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+        $<$<CONFIG:Debug>:${dependency_name_debug}>
+        $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}> 
+        $<TARGET_FILE_DIR:${target_name}>/.
+      COMMENT "Copy ${target_name} dependencies into the output folder"
+    )    
+  
+
+
+  endmacro(copy_dependency_with_config)
+  
+  
+  if(NOT Boost_USE_STATIC_LIBS)
+    copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
+    copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
+    copy_dependency_with_config(robustpca_m Boost_CHRONO_LIBRARY)
   endif()
 
 
+
   add_test(NAME robustpca_matlabtest-1
-            COMMAND ${MATLAB_PROGRAM} ${MATLAB_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
-           -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test');runtests('matlab_unit_tests'), exit(max(ans(1,:).Failed))")
-  set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 30)
+            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
+           -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
+  set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 180)
   # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
   # check the content of the log file.
   #set_tests_properties(robustpca_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
+  
+  add_test(NAME robustpca_matlabtest-2
+            CONFIGURATIONS Release
+            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_2.log 
+           -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
+  set_tests_properties(robustpca_matlabtest-2 PROPERTIES TIMEOUT 180)
+
+  
 endif()
 

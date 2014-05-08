@@ -17,6 +17,9 @@
 // random number generator
 extern boost::random::mt19937 rng;
 
+//#define FLUSH_MATRIX_TO_FILE
+const int DATA_DIMENSION=5;
+
 // Fixture for the tests
 struct fixture_simple_matrix_creation
 {
@@ -39,20 +42,25 @@ struct fixture_simple_matrix_creation
     rng.seed();
 
     //std::cout << "current seed : " << ;
-
+#ifdef FLUSH_MATRIX_TO_FILE
     const std::string filename = "./toto.txt";
     std::ofstream ff(filename.c_str());
 
     BOOST_REQUIRE(ff.is_open());
+#endif
 
     for(int i = 0; i < nb_elements; i++)
     {
       for(int j = 0; j < dimensions; j++)
       {
         mat_data(i, j) = dist(rng);
+#ifdef FLUSH_MATRIX_TO_FILE
         ff << mat_data(i, j) << " ";
+#endif
       }
+#ifdef FLUSH_MATRIX_TO_FILE
       ff << std::endl;
+#endif
     }
 
 

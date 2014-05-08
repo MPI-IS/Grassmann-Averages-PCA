@@ -6,12 +6,15 @@
 //!@file
 //! Mex wrapper file for robust PCA
 
+// this first include is a small workaround for clang503/xcode5.1: algorithm should be included prior to mex.h
+#include <algorithm>
 
 #include "mex.h"
 
 #include <boost/numeric/ublas/storage.hpp>
 
 #include <include/robust_pca.hpp>
+#include <include/robust_pca_trimmed.hpp>
 #include <include/private/boost_ublas_matlab_helper.hpp>
 #include <include/private/boost_ublas_matrix_helper.hpp>
 
@@ -39,38 +42,6 @@ struct matlab_matrix_allocation<double>
 
 
 
-//! An helper class that implements the storage concept of boost::ublas
-//! and performs the allocation on matlab side. It is also possible
-//! to provide a matlab array.
-template <class T>
-class matlab_matrix_storage
-{ 
-  typedef T& reference;
-
-  //! Default constructible
-  matlab_matrix_storage() : pData(0)
-  {
-  }
-
-  //! Size constructible
-  matlab_matrix_storage(size_t s) : pData(0)
-  {
-    mxArray *v = matlab_matrix_allocation<T>::allocate(s);
-
-  }
-
-
-
-  //! Random access container
-  reference operator[](size_t i)
-  {
-    return pData[i];
-  }
-
-
-private:
-  T* pData;
-};
 
 
 template <class output_type, class input_type>
@@ -105,9 +76,26 @@ output_type get_matlab_array_value(mxArray const* array_, size_t index_row, size
 }
 
 
+struct s_algorithm_configuration
+{
+  size_t rows;
+  size_t columns;
+
+  size_t max_dimension;
+  size_t max_iterations;
+  size_t max_chunk_size;
+  size_t nb_processors;
+  double trimming_percentage;
+
+  // we should also add the initial value of the eigen vectors
+};
+
 
 template <class input_array_type>
-bool robust_pca_dispatch(mxArray const* X, size_t rows, size_t columns, size_t max_dimension, int max_iterations, mxArray *outputMatrix)
+bool robust_pca_dispatch(
+  mxArray const* X, 
+  s_algorithm_configuration const& algorithm_configuration, 
+  mxArray *outputMatrix)
 {
   namespace ub = boost::numeric::ublas;
 
@@ -117,12 +105,15 @@ bool robust_pca_dispatch(mxArray const* X, size_t rows, size_t columns, size_t m
 
 
   typedef external_storage_adaptor<input_array_type> input_storage_t;
-  typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
+  typedef ub::matrix<input_array_type, ub::row_major, input_storage_t> input_matrix_t;
 
   typedef external_storage_adaptor<double> output_storage_t;
-  typedef ub::matrix<double, ub::column_major, output_storage_t> output_matrix_t;
+  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t;
 
-
+  const size_t &columns = algorithm_configuration.columns;
+  const size_t &rows = algorithm_configuration.rows;
+  const size_t &max_dimension = algorithm_configuration.max_dimension;
+  const size_t &max_iterations = algorithm_configuration.max_iterations;
   const size_t dimension = columns;
 
   // input data matrix, external storage.
@@ -146,7 +137,113 @@ bool robust_pca_dispatch(mxArray const* X, size_t rows, size_t columns, size_t m
   // should be matlab style
   std::vector<data_t> temporary_data(rows);
 
+
+  // main instance
   robust_pca_t instance;
+
+  if(algorithm_configuration.nb_processors > 0)
+  {
+    if(!instance.set_nb_processors(algorithm_configuration.nb_processors))
+    {
+      mexWarnMsgTxt("Incorrect number of processors. Please consult the documentation.");
+      return false;
+    }
+  }
+
+  if(algorithm_configuration.nb_processors > 0)
+  {
+    if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
+    {
+	    mexWarnMsgTxt("Incorrect chunk size. Please consult the documentation.");
+      return false;
+    }
+  }
+
+  return instance.batch_process(
+    max_iterations,
+    max_dimension,
+    const_input_row_iter_t(input_data, 0),
+    const_input_row_iter_t(input_data, input_data.size1()),
+    temporary_data.begin(),
+    output_row_iter_t(output_eigen_vectors, 0));
+
+
+}
+
+template <class input_array_type>
+bool robust_pca_trimming_dispatch(
+  mxArray const* X,
+  s_algorithm_configuration const& algorithm_configuration, 
+  mxArray *outputMatrix)
+{
+  namespace ub = boost::numeric::ublas;
+
+  using namespace robust_pca;
+  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::ublas_matlab_helper;
+
+
+  typedef external_storage_adaptor<input_array_type> input_storage_t;
+  typedef ub::matrix<input_array_type, ub::row_major, input_storage_t> input_matrix_t;
+
+  typedef external_storage_adaptor<double> output_storage_t;
+  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t;
+
+
+  const size_t &columns = algorithm_configuration.columns;
+  const size_t &rows = algorithm_configuration.rows;
+  const size_t &max_dimension = algorithm_configuration.max_dimension;
+  const size_t &max_iterations = algorithm_configuration.max_iterations;
+
+
+  const size_t dimension = columns;
+
+  // input data matrix, external storage.
+  input_storage_t input_storage(rows*columns, mxGetPr(X));
+  input_matrix_t input_data(rows, columns, input_storage);
+
+  // output data matrix, also external storage for uBlas
+  output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
+  output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
+
+
+
+
+  // this is the form of the data extracted from the storage
+  typedef ub::vector<double> data_t;
+  typedef robust_pca_with_trimming_impl< data_t > robust_pca_t;
+
+  typedef row_iter<const input_matrix_t> const_input_row_iter_t;
+  typedef row_iter<output_matrix_t> output_row_iter_t;
+
+  // should be matlab style
+  std::vector<data_t> temporary_data(rows);
+
+  // main instance
+  robust_pca_t instance(algorithm_configuration.trimming_percentage / 100);
+
+
+  if(algorithm_configuration.nb_processors > 0)
+  {
+    if(!instance.set_nb_processors(algorithm_configuration.nb_processors))
+    {
+      mexWarnMsgTxt("Incorrect number of processors. Please consult the documentation.");
+      return false;
+    }
+  }
+
+  if(algorithm_configuration.nb_processors > 0)
+  {
+    if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
+    {
+	    mexWarnMsgTxt("Incorrect chunk size. Please consult the documentation.");
+      return false;
+    }
+  }
+
+
+
+
   return instance.batch_process(
     max_iterations,
     max_dimension,
@@ -160,14 +257,13 @@ bool robust_pca_dispatch(mxArray const* X, size_t rows, size_t columns, size_t m
 
 
 
-
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
 
   // arguments checking
-  if (nrhs < 1 || nrhs > 2)
+  if (nrhs < 1 || nrhs > 4)
   {
-	  mexErrMsgTxt("One or two input arguments required. ");
+	  mexErrMsgTxt("Incorrect number of arguments. Please consult the documentation.");
   }
 
   const mxArray* const X = prhs[0];
@@ -176,52 +272,114 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // checking the format of the data
   if (!mxIsDouble(X) && !mxIsSingle(X))
   {
-	  mexErrMsgTxt("Unsupported input format");
+	  mexErrMsgTxt("Unsupported input format (floating point required)");
   }
 
   if(mxIsComplex(X))
   {
-    mexErrMsgTxt("Unsupported format (should be scalar)");
+    mexErrMsgTxt("Unsupported format (scalar data required)");
   }
+
+
+
+
+
+  s_algorithm_configuration config;
 
 
 
   
 
   // Check the dimensions of inputs
-  const size_t rows = mxGetM(X);
-  const size_t columns = mxGetN(X);
+  config.rows = mxGetN(X);
+  config.columns = mxGetM(X);
+  
+   
+  const size_t &columns = config.columns;
+  size_t &max_dimension = config.max_dimension;
+  double &trimming_percentage = config.trimming_percentage;
+  size_t &max_chunk_size = config.max_chunk_size;
+  size_t &nb_iterations_max = config.max_iterations;
+  size_t &nb_processing_threads = config.nb_processors;
+
   size_t dimension = columns;
-  size_t max_dimension = dimension;
-  if (nrhs == 2)
+
+
+  // third argument is the optional trimming percentage
+  bool b_trimming = false;
+  trimming_percentage = -1;
+  if(nrhs >= 2)
   {
-    const mxArray* const maxDimArray = prhs[1];
-    if(!mxIsNumeric(maxDimArray))
+    const mxArray* const trimmingArray = prhs[1];
+    if(!mxIsNumeric(trimmingArray))
     {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non numeric argument)");
+      mexErrMsgTxt("Erroneous argument for the trimming percentage (non numeric argument)");
     }
 
-    if(mxIsEmpty(maxDimArray))
+    if(mxIsEmpty(trimmingArray))
     {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (empty value)");
+      mexErrMsgTxt("Erroneous argument for the trimming percentage (empty value)");
     }
 
-    if(mxGetNumberOfElements(maxDimArray) > 1)
+    if(mxGetNumberOfElements(trimmingArray) > 1)
     {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (non scalar)");
+      mexErrMsgTxt("Erroneous argument for the trimming percentage (non scalar)");
     }
 
-    mxClassID classId = mxGetClassID(maxDimArray);
+    mxClassID classId = mxGetClassID(trimmingArray);
     if(classId == mxDOUBLE_CLASS || classId == mxSINGLE_CLASS)
     {
       //mexErrMsgTxt("Erroneous argument for the maximal dimension specification (floating point type)");
     }
-    max_dimension = static_cast<size_t>(mxGetScalar(maxDimArray) + 0.5);
 
+    b_trimming = true;
+    trimming_percentage = mxGetScalar(trimmingArray);
 
-    if(max_dimension >= dimension)
+    if(trimming_percentage < 0 || trimming_percentage > 100)
     {
-      mexErrMsgTxt("Erroneous argument for the maximal dimension specification (exceeds the dimension of the data)");
+      mexErrMsgTxt("Erroneous argument for the trimming percentage (not within the range [0, 100])");
+    }
+
+    b_trimming = trimming_percentage > 0 && trimming_percentage < 100;
+  }
+
+
+  nb_iterations_max = 1000;
+  max_chunk_size = std::numeric_limits<size_t>::max();
+  nb_processing_threads = 1;
+  max_dimension = dimension;
+
+  if(nrhs == 3)
+  {
+    const mxArray* const algorithmConfiguration = prhs[2];
+
+    if(!mxIsStruct(algorithmConfiguration))
+    {
+      mexErrMsgTxt("Erroneous argument for the algorithm configuration (not a structure)");
+    }
+    
+    mxArray *nb_iteration_array = mxGetField(algorithmConfiguration, 0, "nb_iterations_max");
+    if(nb_iteration_array != 0)
+    {
+      nb_iterations_max = static_cast<int>(mxGetScalar(nb_iteration_array) + 0.5);
+    }
+
+    mxArray *max_chunk_size_array = mxGetField(algorithmConfiguration, 0, "max_chunk_size");
+    if(max_chunk_size_array != 0)
+    {
+      max_chunk_size = static_cast<size_t>(mxGetScalar(max_chunk_size_array) + 0.5);
+    }
+
+    mxArray *nb_processing_threads_array = mxGetField(algorithmConfiguration, 0, "nb_processing_threads");
+    if(nb_processing_threads_array != 0)
+    {
+      nb_processing_threads = static_cast<size_t>(mxGetScalar(nb_processing_threads_array) + 0.5);
+    }
+
+    mxArray *nb_max_dimensions = mxGetField(algorithmConfiguration, 0, "max_dimensions");
+    if(nb_max_dimensions != 0)
+    {
+      max_dimension = static_cast<size_t>(mxGetScalar(nb_max_dimensions) + 0.5);
     }
   }
 
@@ -233,12 +391,25 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   mxArray *outputMatrix = plhs[0];
   assert(outputMatrix);
 
+
+
+  
   bool result = false;
   switch(mxGetClassID(X))
   {
   case mxDOUBLE_CLASS:
-    result = robust_pca_dispatch<double>(X, rows, columns, max_dimension, 1000, outputMatrix);
+  {
+    if(!b_trimming)
+    {
+      result = robust_pca_dispatch<double>(X, config, outputMatrix);
+    }
+    else
+    {
+      result = robust_pca_trimming_dispatch<double>(X, config, outputMatrix);
+    }
+    
     break;
+  }
   default:
     break;
   }

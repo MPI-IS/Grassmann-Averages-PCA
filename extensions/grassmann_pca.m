@@ -23,17 +23,17 @@ function [vectors, output] = grassmann_pca (X, K)
     for k = 1:K
       %% Compute k'th principal component
       mu = rand(D, 1); %G (1, :).'; % Dx1
-      mu = mu / norm(mu(:))
+      mu = mu / norm(mu(:));
       
       %% Initialize using a few EM iterations
       % {
-      for iter = 1:3
-        dots = X * mu; % Nx1
-        mu = dots.' * X; % 1xD
-        mu = mu(:) / norm(mu); % Dx1
-      end % for
+      %for iter = 1:3
+      %  dots = X * mu; % Nx1
+      %  mu = dots.' * X; % 1xD
+      %  mu = mu(:) / norm(mu); % Dx1
+      %end % for
       % }
-      print 'new mu starting the iterations is' mu
+      %print 'new mu starting the iterations is' mu
       
       
       %% Now the Grassmann average

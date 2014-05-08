@@ -58,6 +58,24 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_read)
 
 }
 
+BOOST_AUTO_TEST_CASE(test_row_proxy_advance)
+{
+  using namespace robust_pca::ublas_adaptor;
+  namespace ub = boost::numeric::ublas;
+
+  typedef ub::matrix<double> matrix_t;
+  typedef row_iter<matrix_t> row_iter_t;
+
+
+  matrix_t mat(3, 4);
+
+  row_iter_t it(mat, 0), ite(mat, 3);
+  std::advance(it, 3);
+  BOOST_CHECK(it == ite);
+}
+
+
+
 
 BOOST_AUTO_TEST_CASE(test_row_proxy_write)
 {
@@ -131,6 +149,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_read_specific_storage)
 
 }
 
+// testing the row write access capability on for the row proxy, element wise
 BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage)
 {
   using namespace robust_pca::ublas_adaptor;
@@ -167,7 +186,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage)
 }
 
 
-
+// testing the row write access capability for the row proxy, vector access
 BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage_row_access)
 {
   using namespace robust_pca::ublas_adaptor;
@@ -199,7 +218,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage_row_access)
 
 
 
-
+// testing the row write access capability for the row proxy, vector access, external storage
 BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_external_storage)
 {
   using namespace robust_pca::ublas_adaptor;
@@ -249,5 +268,42 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_external_storage)
     }
   }
 
+}
+
+
+#if 0
+namespace std
+{
+
+  template <class T>
+  struct iterator_traits< robust_pca::ublas_adaptor::row_iter<T> >
+  {
+    
+  };
+  
+}
+#endif
+
+// testing the row write access capability for the row proxy, vector access, external storage
+BOOST_AUTO_TEST_CASE(test_row_proxy_random_access_iterator)
+{
+  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::ublas_matlab_helper;
+  namespace ub = boost::numeric::ublas;
+  
+  typedef ub::matrix<double, ub::row_major > matrix_t;
+  typedef row_iter<matrix_t> row_iter_t;
+
+  matrix_t mat(20, 30);
+  row_iter_t it(mat, 0), ite(mat, 3);
+  BOOST_CHECK_EQUAL(ite-it, 3);
+
+  BOOST_CHECK(
+    (
+      boost::is_same<
+        std::iterator_traits<row_iter_t>::iterator_category,
+        std::random_access_iterator_tag
+      >::value
+    ));
 }
 

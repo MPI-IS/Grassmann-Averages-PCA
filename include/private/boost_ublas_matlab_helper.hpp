@@ -13,7 +13,9 @@
 
 
 /*!@file
- * @todo remove dependencies/references on matlab. The storage itself just states that it is external.
+ * This file contains some helper function for wrapping matlab arrays into C++. One of the achievements
+ * is the implementation of a specific storage for uBlas wrapping existing array, which avoids the need
+ * to copy data, and behaves well with uBlas. 
  */
 
 
@@ -63,8 +65,8 @@ namespace robust_pca
 
       external_storage_adaptor(size_type size, pointer data) :
         size_(size), 
-        data_(data) {
-      }
+        data_(data)
+      {}
 
 
       /*! Constructor from another instance
@@ -124,7 +126,7 @@ namespace robust_pca
         return data_[i];
       }
 
-      // Iterators simply are pointers. TYhere is no need to
+      // Iterators simply are pointers. There is no need to
       // provide an iterator for the const version, as the normal pointer is convertible 
       // to the const pointer. There is no ambiguity with the call neither, since the 
       // call should not change the storage itself.
