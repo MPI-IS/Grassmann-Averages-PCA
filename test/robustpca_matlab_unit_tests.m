@@ -15,6 +15,31 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
       mat = rand(3,3);
       ret = robustpca_m(mat');
       testCase.verifyEqual(size(ret), size(mat));
+
+
+      % by default, uses all dimensions
+      mat = rand(10,3);
+      ret = robustpca_m(mat');
+      testCase.verifyEqual(size(ret, 1), size(mat, 2));
+      testCase.verifyEqual(size(ret, 2), size(mat, 2));
+
+
+      % we ask for the first 2 eigenvectors
+      algorithm_config = {};
+      algorithm_config.max_dimensions = 2;
+
+      mat = rand(100,5);
+      ret = robustpca_m(mat', 0, algorithm_config);
+      testCase.verifyEqual(size(ret, 1), size(mat, 2)); % dimension
+      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of eigenvectors
+      display(ret);
+
+      % also the case for the trimmed version
+      ret = robustpca_m(mat', 1, algorithm_config);
+      testCase.verifyEqual(size(ret, 1), size(mat, 2)); % dimension
+      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of eigenvectors
+      display(ret);
+
     end
 
     function testSizesReturnMaxDimension(testCase)
@@ -67,16 +92,15 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
     
     
     function testTrimming2Dimensions(testCase)
-      mat = rand(1000, 100);
+      mat = rand(1000, 100); % 1000 elements, dimension 100 each
 
       algorithm_config = {};
       algorithm_config.max_dimensions = 2; % max dimension
 
-      ret = robustpca_m(mat', 2, algorithm_config); % 2 percent
+      ret = robustpca_m(mat', 5, algorithm_config); % 5 percent
       
-      
-      testCase.verifyEqual(size(ret', 1), size(mat, 1));
-      testCase.verifyEqual(size(ret', 2), algorithm_config.max_dimensions);
+      testCase.verifyEqual(size(ret, 1), size(mat, 2));
+      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions);
     end
   end
 end
