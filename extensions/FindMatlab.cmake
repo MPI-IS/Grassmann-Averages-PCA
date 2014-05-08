@@ -481,7 +481,7 @@ else()
   # for linux/osx
   
   if((NOT DEFINED MATLAB_USER_ROOT) OR (NOT MATLAB_USER_ROOT))
-    message("2222")
+
     # if MATLAB_USER_ROOT not specified, we look for Matlab from the command line PATH
     # maybe using CMAKE_PROGRAM_PATH to add some more hints
     find_program(
