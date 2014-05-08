@@ -4,9 +4,6 @@
 #endif
 
 
-
-
-#define DLIB_NAME(X) X
 #include "mex.h"
 #include <dlfcn.h>
 
@@ -18,7 +15,7 @@ typedef void (*entryfunc_t)(int, mxArray**, int, const mxArray**);
 
 entryfunc_t populate()
 {
-  void *fh = dlopen (DLIB_NAME(MATLAB_SO_WRAP), RTLD_NOW | RTLD_DEEPBIND );
+  void *fh = dlopen (MATLAB_SO_WRAP, RTLD_NOW | RTLD_DEEPBIND );
   if(!fh)
     return 0;
   void *p = dlsym (fh, "mexFunction");
@@ -30,7 +27,7 @@ void mexFunction(int nlhs, mxArray * plhs[], int nrhs, const mxArray * prhs[])
   static entryfunc_t gMexEntry = populate();
   if(!gMexEntry)
   {
-    mexErrMsgTxt("MATLAB Wrapper: cannot find " DLIB_NAME(MATLAB_SO_WRAP));
+    mexErrMsgTxt("MATLAB Wrapper: cannot find " MATLAB_SO_WRAP);
   }
 
   gMexEntry (nlhs, plhs, nrhs, prhs);
