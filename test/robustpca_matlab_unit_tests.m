@@ -44,7 +44,7 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
       
       tic
         u = robustpca_m(mat', 0, algorithm_config);
-      t1 = toc
+      t1 = toc;
 
       % t1 = timeit(f, 1)
       
@@ -53,7 +53,7 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
 
       tic
         u = robustpca_m(mat', 0, algorithm_config);
-      t2 = toc
+      t2 = toc;
       
       
       display(t1)
