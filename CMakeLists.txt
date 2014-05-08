@@ -31,7 +31,7 @@ if(NOT WITHOUT_TESTS)
 
   set(Boost_DEBUG ON)
   set(Boost_DETAILED_FAILURE_MSG ON)
-  if(NOT DEFINED BOOST_ROOT)
+  if(DEFINED BOOST_ROOT)
     set(Boost_NO_SYSTEM_PATHS ON)
   else()
     set(Boost_NO_SYSTEM_PATHS OFF)
@@ -54,7 +54,7 @@ if(NOT WITHOUT_MATLAB)
   # simple wart to the current state of the Matlab release into the community
   set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/extensions ${CMAKE_MODULE_PATH})
   set(MATLAB_FIND_DEBUG TRUE)
-  find_package(Matlab 8.2 EXACT REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
+  find_package(Matlab 8.2 REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
   
   # the following lines should not be needed
   if(NOT ${Matlab_FOUND})
@@ -86,7 +86,9 @@ else()
   # or @loader_path (otool variants). Then dependant .so/.dylib will be found relatively to the .mex file, which
   # is in this case the current directory. 
   # This means also that the boost dependencies should be copied into the target directory of the .mex file, which is 
-  # performed below in this file
+  # performed below in this file. However, this is not enough and in most case a wrapper should be implemented in order
+  # to load the .mex with the necessary load flags (load flags that honors the .mex symbols from its dependencies prior to the ones of
+  # the process).
   set(CMAKE_SKIP_BUILD_RPATH  FALSE)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
   if(NOT APPLE)
