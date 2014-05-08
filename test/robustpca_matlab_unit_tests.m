@@ -66,13 +66,17 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
     
     
     
-    function testSizesReturnWithDimensions(testCase)
-      mat = rand(100,100);
-      ret = robustpca_m(mat', 2);
+    function testTrimming2Dimensions(testCase)
+      mat = rand(1000, 100);
+
+      algorithm_config = {};
+      algorithm_config.max_dimensions = 2; % max dimension
+
+      ret = robustpca_m(mat', 2, algorithm_config); % 2 percent
       
       
       testCase.verifyEqual(size(ret', 1), size(mat, 1));
-      testCase.verifyEqual(size(ret', 2), 2);
+      testCase.verifyEqual(size(ret', 2), algorithm_config.max_dimensions);
     end
   end
 end

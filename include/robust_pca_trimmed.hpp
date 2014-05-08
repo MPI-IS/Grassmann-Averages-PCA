@@ -61,8 +61,6 @@ namespace robust_pca
     //! Norm used for normalizing @f$\mu@f$.
     norm_mu_t norm_op;
     
-    //! Maximal size of a chunk (infinity by default).
-    size_t max_chunk_size;    
 
     //! The percentage of the data that should be trimmed.
     //! The trimming is performed symmetrically in the upper and lower distribution of the data, hence
@@ -71,6 +69,9 @@ namespace robust_pca
 
     //! Number of parallel tasks that will be used for computing.
     size_t nb_processors;
+
+    //! Maximal size of a chunk (infinity by default).
+    size_t max_chunk_size;    
 
     //! Type of the element of data_t. 
     typedef typename data_t::value_type scalar_t;
@@ -651,28 +652,12 @@ namespace robust_pca
 
 
 
-
-
-    //! Updates the quantile for each dimension of the vector
-    template <class vector_acc_t>
-    void apply_quantile_to_vector(const data_t& current_data, bool sign, vector_acc_t& v_acc) const
-    {
-      typename vector_acc_t::iterator it_acc_features(v_acc.begin());
-      for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_acc_features)
-      {
-        typename data_t::value_type v(sign ? *it : -(*it));
-        (*it_acc_features)(v);
-      }
-    }
-
-
-
-
-
   public:
     robust_pca_with_trimming_impl(double trimming_percentage_ = 0) :
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable),
-      trimming_percentage(trimming_percentage_)
+      trimming_percentage(trimming_percentage_),
+      nb_processors(1),
+      max_chunk_size(std::numeric_limits<size_t>::max())
     {
       assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }

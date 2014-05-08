@@ -223,6 +223,26 @@ bool robust_pca_trimming_dispatch(
   robust_pca_t instance(algorithm_configuration.trimming_percentage / 100);
 
 
+  if(algorithm_configuration.nb_processors > 0)
+  {
+    if(!instance.set_nb_processors(algorithm_configuration.nb_processors))
+    {
+      mexWarnMsgTxt("Incorrect number of processors. Please consult the documentation.");
+      return false;
+    }
+  }
+
+  if(algorithm_configuration.nb_processors > 0)
+  {
+    if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
+    {
+	    mexWarnMsgTxt("Incorrect chunk size. Please consult the documentation.");
+      return false;
+    }
+  }
+
+
+
 
   return instance.batch_process(
     max_iterations,
