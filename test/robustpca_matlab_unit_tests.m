@@ -61,7 +61,7 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
     
     
     function testComputationTimeMonothread(testCase)
-      mat = rand(1000,5); % 1000 points, dimension 5
+      mat = rand(100000,500); % 1000 points, dimension 5
 
       algorithm_config = {};
       algorithm_config.max_dimensions = 5;
@@ -69,16 +69,12 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
       
       tic
         u = robustpca_m(mat', 0, algorithm_config);
-      t1 = toc;
+      t1 = toc
 
-      % t1 = timeit(f, 1)
-      
       algorithm_config.nb_processing_threads = 1;
-      %t2 = timeit(f, 1)
-
       tic
         u = robustpca_m(mat', 0, algorithm_config);
-      t2 = toc;
+      t2 = toc
       
       
       display(t1)
