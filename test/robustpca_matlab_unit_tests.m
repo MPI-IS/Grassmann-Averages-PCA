@@ -59,32 +59,7 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
     end
     
     
-    
-    function testComputationTimeMonothread(testCase)
-      mat = rand(100000,500); % 1000 points, dimension 5
 
-      algorithm_config = {};
-      algorithm_config.max_dimensions = 5;
-      algorithm_config.nb_processing_threads = 7;
-      
-      tic
-        u = robustpca_m(mat', 0, algorithm_config);
-      t1 = toc
-
-      algorithm_config.nb_processing_threads = 1;
-      tic
-        u = robustpca_m(mat', 0, algorithm_config);
-      t2 = toc
-      
-      
-      display(t1)
-      display(t2)
-      
-      
-      testCase.verifyLessThan(t1, t2);
-      
-    end
-    
     
     
     function testTrimming2Dimensions(testCase)
