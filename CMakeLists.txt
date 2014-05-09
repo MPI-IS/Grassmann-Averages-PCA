@@ -213,7 +213,7 @@ if(NOT WITHOUT_MATLAB)
   macro(create_matlab_mex_wrapper library_name)
 
     set(_matlab_wrapper_template ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.cpp)
-    set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.cpp)
+    set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.c)
     set_target_properties(${library_name} 
       PROPERTIES 
         PREFIX ""
@@ -225,7 +225,7 @@ if(NOT WITHOUT_MATLAB)
 
     add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
     target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"$<TARGET_FILE_NAME:${library_name}>\"") 
-    target_link_libraries(${library_name}_matlab_loader dl ${Matlab_MEX_LIBRARY})
+    target_link_libraries(${library_name}_matlab_loader dl)# ${Matlab_MEX_LIBRARY})
     
     add_dependencies(${library_name}_matlab_loader ${library_name}) # do not change to target_link_library here
     set_target_properties(${library_name}_matlab_loader 

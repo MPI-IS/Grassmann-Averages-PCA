@@ -7,8 +7,6 @@
 #include "mex.h"
 #include <dlfcn.h>
 
-#include <string>
-#include <sstream>
 
 typedef void (*entryfunc_t)(int, mxArray**, int, const mxArray**);
 
@@ -19,12 +17,18 @@ entryfunc_t populate()
   if(!fh)
     return 0;
   void *p = dlsym (fh, "mexFunction");
-  return reinterpret_cast<entryfunc_t> (p);
+  return (entryfunc_t) (p);
 }
 
+static bool first_time = true;
+static entryfunc_t gMexEntry = 0;
 void mexFunction(int nlhs, mxArray * plhs[], int nrhs, const mxArray * prhs[])
 {
-  static entryfunc_t gMexEntry = populate();
+  if(gMexEntry == 0 && first_time)
+  {
+    gMexEntry = populate();
+    first_time = false;
+  }
   if(!gMexEntry)
   {
     mexErrMsgTxt("MATLAB Wrapper: cannot find " MATLAB_SO_WRAP);
