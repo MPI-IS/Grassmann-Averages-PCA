@@ -223,7 +223,7 @@ namespace robust_pca
     namespace threading
     {
 
-      //! Ensures the proper stop of the processing pool
+      //! Ensures the proper stop of the processing pool and the finalisation of all threads.
       struct safe_stop
       {
         boost::asio::io_service& io_service;

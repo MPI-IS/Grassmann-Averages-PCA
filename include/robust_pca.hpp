@@ -228,88 +228,28 @@ namespace robust_pca
      * which contains the sum of all accumulators. 
      *
      */
-    struct asynchronous_results_merger : boost::noncopyable
+    struct asynchronous_results_merger : 
+      details::threading::asynchronous_results_merger<
+        data_t,
+        details::threading::merger_addition<data_t>,
+        details::threading::initialisation_vector_specific_dimension<data_t>
+        >
     {
     private:
-      mutable boost::mutex internal_mutex;
-      data_t current_value;
-      volatile size_t nb_updates;
-      const size_t data_dimension;
-
-      boost::condition_variable condition_;
-
+      typedef details::threading::initialisation_vector_specific_dimension<data_t> data_init_type;
+      typedef details::threading::merger_addition<data_t> merger_type;
+      typedef details::threading::asynchronous_results_merger<data_t, merger_type, data_init_type> parent_type;
+    
     public:
 
       /*!Constructor
        *
        * @param dimension_ the number of dimensions of the vector to accumulate
        */
-      asynchronous_results_merger(size_t data_dimension_) : data_dimension(data_dimension_)
+      asynchronous_results_merger(size_t data_dimension_) : parent_type(data_init_type(data_dimension_))
       {}
 
-      void init()
-      {
-        init_results();
-        init_notifications();
-      }
 
-      //! Initialises the internal state of the accumulator
-      void init_results()
-      {
-        current_value = boost::numeric::ublas::scalar_vector<typename data_t::value_type>(data_dimension, 0);
-      }
-
-      //! Initialises the internal state of the counter
-      void init_notifications()
-      {
-        nb_updates = 0;
-      }
-
-      /*! Function receiving the updated value of the vectors to accumulate
-       *  from different threads.
-       * 
-       *  @note The call is thread safe.
-       */
-      void update(data_t const& updated_value)
-      {
-        boost::lock_guard<boost::mutex> guard(internal_mutex);
-        current_value += updated_value;
-      }
-
-      /*! Function receiving the update notification.
-       * 
-       *  @note The call is thread safe.
-       */
-      void update()
-      {
-        boost::lock_guard<boost::mutex> guard(internal_mutex);
-        nb_updates ++;
-        condition_.notify_one();
-      }
-
-     
-      //! Returns once the number of updates reaches the number in argument.
-      //!
-      //!@warning if an inappropriate number is given, the method might never return.
-      bool wait_notifications(size_t nb_notifications)
-      {
-        boost::unique_lock<boost::mutex> lock(internal_mutex);
-        while (nb_updates < nb_notifications)
-        {
-          // when entering wait, the lock is unlocked and made available to other threads.
-          // when awakened, the lock is locked before wait returns. 
-          condition_.wait(lock);
-        }
-        
-        return true;
-        
-      }
-
-      //! Returns the current accumulated value.
-      data_t const& get_accumulated_data() const
-      {
-        return current_value;
-      }
     };
 
 
@@ -487,7 +427,7 @@ namespace robust_pca
           current_acc_object.connector_accumulator().connect(
             boost::bind(&asynchronous_results_merger::update, &async_merger, _1));
           current_acc_object.connector_counter().connect(
-            boost::bind(&asynchronous_results_merger::update, &async_merger));
+            boost::bind(&asynchronous_results_merger::notify, &async_merger));
 
           // updating the next 
           it_current_begin = it_current_end;
@@ -517,7 +457,7 @@ namespace robust_pca
         async_merger.wait_notifications(v_individual_accumulators.size());
 
         // gathering the first mu
-        mu = async_merger.get_accumulated_data();
+        mu = async_merger.get_merged_result();
         mu /= norm_op(mu);
 
 
@@ -539,7 +479,7 @@ namespace robust_pca
           async_merger.wait_notifications(v_individual_accumulators.size());
 
           // gathering the mus
-          mu = async_merger.get_accumulated_data();
+          mu = async_merger.get_merged_result();
           mu /= norm_op(mu);
         }
 
