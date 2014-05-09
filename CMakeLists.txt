@@ -212,7 +212,7 @@ if(NOT WITHOUT_MATLAB)
 
   macro(create_matlab_mex_wrapper library_name)
 
-    set(_matlab_wrapper_template ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.cpp)
+    set(_matlab_wrapper_template ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
     set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.c)
     set_target_properties(${library_name} 
       PROPERTIES 
@@ -220,7 +220,7 @@ if(NOT WITHOUT_MATLAB)
         SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") # to avoid the possibility to call it from matlab*
     
     # the template contains all the necessary code. The library to load is defined by a #define
-    configure_file("extensions/matlab_wrapper.cpp.template" ${_matlab_wrapper_template_output} COPYONLY)
+    configure_file(${_matlab_wrapper_template} ${_matlab_wrapper_template_output} COPYONLY)
     
 
     add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
