@@ -327,6 +327,8 @@ namespace robust_pca
       size_t data_dimension;              //!< The dimension of the data
       int nb_elements_to_keep;            //!< The number of elements to keep.
       
+      std::vector<bool> inner_products_results;
+      
       //! Upper and lower bounds on data computed by the main thread. These vectors
       //! will be read only and should not be modified during the time they are used.
       std::vector<double> const *v_min_threshold, *v_max_threshold;
@@ -366,6 +368,7 @@ namespace robust_pca
         end = e;
         nb_elements = std::distance(b, e);
         assert(nb_elements > 0);
+        inner_products_results.resize(nb_elements);
         return true;
       }
 
@@ -433,12 +436,13 @@ namespace robust_pca
           // we allocate the heaps only when needed
           bounds_op.set_dimension(data_dimension);
 
+          std::vector<bool>::iterator itb(inner_products_results.begin());
 
-          for(size_t s = 0; s < nb_elements; ++it_data, s++)
+          for(size_t s = 0; s < nb_elements; ++it_data, s++, ++itb)
           {
             typename container_iterator_t::reference current_data = *it_data;
             bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
-
+            *itb = sign;
             if(s < nb_elements_to_keep)
             { 
               bounds_op.push(current_data, sign);
@@ -466,27 +470,48 @@ namespace robust_pca
       //! Performs the accumulation, given the boundaries.
       void accumulation(data_t const &mu)
       {
-
         data_t accumulator(data_dimension, 0);
         count_vector_t accumulated_counts(data_dimension, 0);
-        
-        container_iterator_t it_data(begin);
 
-        for(size_t s = 0; s < nb_elements; ++it_data, s++)
+        if(nb_elements_to_keep == 0)
         {
-          typename container_iterator_t::reference current_data = *it_data;
-          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
-
-          selective_acc_to_vector(
-            *v_min_threshold, 
-            *v_max_threshold, 
-            current_data, 
-            sign, 
-            accumulator, 
-            accumulated_counts);
+          container_iterator_t it_data(begin);
+          
+          for(size_t s = 0; s < nb_elements; ++it_data, s++)
+          {
+            typename container_iterator_t::reference current_data = *it_data;
+            bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+            
+            selective_acc_to_vector(
+              *v_min_threshold, 
+              *v_max_threshold, 
+              current_data, 
+              sign, 
+              accumulator, 
+              accumulated_counts);            
+          }
 
         }
+        else
+        {
+          std::vector<bool>::const_iterator itb(inner_products_results.begin());
 
+          container_iterator_t it_data(begin);
+
+          for(size_t s = 0; s < nb_elements; ++it_data, s++, ++itb)
+          {
+            typename container_iterator_t::reference current_data = *it_data;
+            
+            selective_acc_to_vector(
+              *v_min_threshold, 
+              *v_max_threshold, 
+              current_data, 
+              *itb, 
+              accumulator, 
+              accumulated_counts);
+
+          }
+        }
 
         // posts the new value to the listeners
         signal_acc(accumulator, accumulated_counts);
