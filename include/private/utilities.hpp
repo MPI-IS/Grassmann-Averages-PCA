@@ -270,6 +270,7 @@ namespace robust_pca
         bool operator()(data_t & current_state) const
         {
           current_state = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
+          return true;
         }
       };
 
