@@ -225,7 +225,7 @@ if(NOT WITHOUT_MATLAB)
 
     add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
     target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"$<TARGET_FILE_NAME:${library_name}>\"") 
-    target_link_libraries(${library_name}_matlab_loader dl)# ${Matlab_MEX_LIBRARY})
+    target_link_libraries(${library_name}_matlab_loader dl)
     
     add_dependencies(${library_name}_matlab_loader ${library_name}) # do not change to target_link_library here
     set_target_properties(${library_name}_matlab_loader 
@@ -333,7 +333,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
             CONFIGURATIONS Release
             COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_2.log 
            -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(robustpca_matlabtest-2 PROPERTIES TIMEOUT 180)
+  set_tests_properties(robustpca_matlabtest-2 PROPERTIES TIMEOUT 240)
 
   
 endif()
