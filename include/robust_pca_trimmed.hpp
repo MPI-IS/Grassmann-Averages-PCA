@@ -14,19 +14,8 @@
  * This file contains the implementation of the trimmed version. 
  */
 
-// for the trimmed version
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-#include <boost/accumulators/statistics/p_square_quantile.hpp>
-#include <boost/accumulators/statistics/min.hpp>
-#include <boost/accumulators/statistics/max.hpp>
-#include <boost/accumulators/statistics/extended_p_square_quantile.hpp>
-
-
 // boost heaps
-#include <boost/heap/fibonacci_heap.hpp>
 #include <boost/heap/pairing_heap.hpp>
-
 
 // for the thread pools
 #include <boost/asio/io_service.hpp>
@@ -44,10 +33,221 @@ namespace robust_pca
 {
 
 
-    /*!@brief Robust PCA subspace algorithm, with trimming
+  namespace details
+  {
+    
+    /*!@internal
+     * @brief Helper structure for managing the double trimming. 
+     * It is supposed that the trimming is symmetrical: the first K are kept in the 
+     * upper and lower part of the distribution. However the K is not managed by this structure
+     * directly, but rather by the caller. This structure provides two functions for performing 
+     * that:
+     * - push that pushes the data unconditionnally into the heap. Each heap size grows by 1 after the call.
+     * - push_or_ignore that pushes the data if it is under the maximum and then pops the maximum. It ignores
+     *   the data otherwise. The size of each heap remains constant.
+     */ 
+    template <class scalar_t>
+    struct s_double_heap
+    {  
+      //!@name Heap types
+      //!@{
+      // apparently fibonacci heaps have a problem in the copy construction on Visual C++ 2013,
+      // so I am using pairing_heap here.
+      typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::less<scalar_t> > > low_heap_t;
+      typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::greater<scalar_t> > > high_heap_t;
+      //!@}
+      
+      
+      low_heap_t lowh;
+      high_heap_t highh;
+      
+      //! Uncontrolled push for populating the first K elements.
+      void push(scalar_t const& current)
+      {
+        lowh.push(current);
+        highh.push(current);
+      }
+      
+      //! Controlled push.
+      //! If the element given in parameter is under the top of the heap, given the
+      //! order relationship of the heap, then the element is added to the heap and 
+      //! one element is popped out. Otherwise the element is simply ignored.
+      void push_or_ignore(scalar_t const& current)
+      {
+        if(lowh.value_comp()(current, lowh.top()))
+        {
+          lowh.push(current);
+          lowh.pop();
+        }
+        
+        if(highh.value_comp()(current, highh.top()))
+        {
+          highh.push(current);
+          highh.pop();
+        }    
+      }
+      
+      //! Merges two double heaps together
+      void merge(s_double_heap const& right)
+      {
+        const typename low_heap_t::size_type max_elements = std::max(lowh.size(), right.lowh.size());
+        assert(std::max(highh.size(), right.highh.size()) == max_elements);
+        
+        for(typename low_heap_t::const_iterator it(right.lowh.begin()), ite(right.lowh.end());
+            it != ite;
+            ++it)
+        {
+          typename low_heap_t::const_iterator::reference v(*it);
+          if(lowh.size() < max_elements)
+          {
+            lowh.push(v);
+          }
+          else if(lowh.value_comp()(v, lowh.top()))
+          {
+            lowh.push(v);
+            lowh.pop();
+          }
+        }
+        
+        
+        for(typename high_heap_t::const_iterator it(right.highh.begin()), ite(right.highh.end());
+            it != ite;
+            ++it)
+        {
+          typename high_heap_t::const_iterator::reference v(*it);
+          if(highh.size() < max_elements)
+          {
+            highh.push(v);
+          }
+          else if(highh.value_comp()(v, highh.top()))
+          {
+            highh.push(v);
+            highh.pop();
+          }
+        }
+      }
+      
+      void extract_bounds(scalar_t &min_bound, scalar_t &max_bound) const
+      {
+        min_bound = lowh.size() == 0 ? boost::numeric::bounds<scalar_t>::lowest() : lowh.top();
+        max_bound = highh.size() == 0 ? boost::numeric::bounds<scalar_t>::highest() : highh.top();
+      }
+      
+      //! Clear the content of the heaps when these are not needed anymore
+      void clear()
+      {
+        lowh.clear();
+        highh.clear();
+      }
+    };
+  
+    
+      
+    //!@internal
+    //! Helper structure for having s_double_heap on vectors of data. 
+    template <class data_t, class scalar_t>
+    struct s_double_heap_vector
+    {
+      typedef std::vector< s_double_heap<scalar_t> > v_bounds_t;
+      v_bounds_t v_bounds;
+      
+      s_double_heap_vector()
+      {}
+      
+      /*! Sets the dimension of the bounds to be computed.
+       *  The dimension corresponds to the number of elements of each data vector.
+       *  @pre dimension >= 0
+       */
+      void set_dimension(size_t dimension)
+      {
+        assert(dimension >= 0);
+        v_bounds.resize(dimension);
+      }
+      
+      //! Updates the quantile for each dimension of the vector
+      void push(const data_t& current_data, bool sign)
+      {
+        typename v_bounds_t::iterator it_bounds(v_bounds.begin());
+        for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_bounds)
+        {
+          typename data_t::value_type v(sign ? *it : -(*it));
+          it_bounds->push(v);
+        }
+      }
+      
+      //! Updates the quantile for each dimension of the vector
+      void push_or_ignore(const data_t& current_data, bool sign)
+      {
+        typename v_bounds_t::iterator it_bounds(v_bounds.begin());
+        for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_bounds)
+        {
+          typename data_t::value_type v(sign ? *it : -(*it));
+          it_bounds->push_or_ignore(v);
+        }
+      }
+      
+      //! Merges two instances together. 
+      //!
+      //! The result goes into the current instance.
+      void merge(s_double_heap_vector const& right)
+      {
+        assert(right.v_bounds.size() == v_bounds.size());
+        typename v_bounds_t::iterator it(v_bounds.begin()), ite(v_bounds.end());
+        typename v_bounds_t::const_iterator it_input(right.v_bounds.begin());
+        
+        for(; it < ite; ++it, ++it_input)
+        {
+          it->merge(*it_input);
+        }
+        
+      }
+      
+      //!@todo add a function to extract bounds
+      void extract_bounds(
+        std::vector<double> &v_min_bound,
+        std::vector<double> &v_max_bound) const
+      {
+        v_min_bound.resize(v_bounds.size());
+        v_max_bound.resize(v_bounds.size());
+        
+        typename v_bounds_t::const_iterator it(v_bounds.begin()), ite(v_bounds.end());
+        
+        std::vector<double>::iterator it_min(v_min_bound.begin()), it_max(v_max_bound.begin());
+        
+        for(; it < ite; ++it, ++it_min, ++it_max)
+        {
+          it->extract_bounds(*it_min, *it_max);
+        }
+        
+      }
+      
+      //! Clear the content of the heaps when these are not needed anymore
+      //! @note the dimension of the vector is left unchanged. 
+      void clear()
+      {
+        typename v_bounds_t::iterator it(v_bounds.begin()), ite(v_bounds.end());
+        for(; it < ite; ++it)
+        {
+          it->clear();
+        }
+      }
+      
+      //! Empties the internal state and frees the associated memory.
+      void clear_all()
+      {
+        v_bounds_t empty_v;
+        v_bounds.swap(empty_v); // clear does not unallocate but resize to 0, hence the swap
+      }
+      
+    };
+
+    
+  }
+
+
+  /*!@brief Robust PCA subspace algorithm, with trimming
    *
-   * This class implements the robust PCA using the Grassmanian averaging. This is the naive implementation which is
-   * suitable for small datasets.
+   * This class implements the robust PCA using the Grassmanian averaging with trimming.
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */
@@ -81,208 +281,9 @@ namespace robust_pca
 
 
 
-    /*!@internal
-     * @brief Helper structure for managing the double trimming. 
-     * It is supposed that the trimming is symmetrical: the first K are kept in the 
-     * upper and lower part of the distribution. However the K is not managed by this structure
-     * directly, but rather by the caller. This structure provides two functions for performing 
-     * that:
-     * - push that pushes the data unconditionnally into the heap. Each heap size grows by 1 after the call.
-     * - push_or_ignore that pushes the data if it is under the maximum and then pops the maximum. It ignores
-     *   the data otherwise. The size of each heap remains constant.
-     */ 
-    struct s_double_heap
-    {  
-      //!@name Heap types
-      //!@{
-      // apparently fibonacci heaps have a problem in the copy construction on Visual C++ 2013,
-      // so I am using pairing_heap here.
-      typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::less<scalar_t> > > low_heap_t;
-      typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::greater<scalar_t> > > high_heap_t;
-      //!@}
-
-
-      low_heap_t lowh;
-      high_heap_t highh;
-
-      //! Uncontrolled push for populating the first K elements.
-      void push(scalar_t const& current)
-      {
-        lowh.push(current);
-        highh.push(current);
-      }
-
-      //! Controlled push.
-      //! If the element given in parameter is under the top of the heap, given the
-      //! order relationship of the heap, then the element is added to the heap and 
-      //! one element is popped out. Otherwise the element is simply ignored.
-      void push_or_ignore(scalar_t const& current)
-      {
-        if(lowh.value_comp()(current, lowh.top()))
-        {
-          lowh.push(current);
-          lowh.pop();
-        }
-      
-        if(highh.value_comp()(current, highh.top()))
-        {
-          highh.push(current);
-          highh.pop();
-        }    
-      }
-
-      //! Merges two double heaps together
-      void merge(s_double_heap const& right)
-      {
-        const typename low_heap_t::size_type max_elements = std::max(lowh.size(), right.lowh.size());
-        assert(std::max(highh.size(), right.highh.size()) == max_elements);
-
-        for(typename low_heap_t::const_iterator it(right.lowh.begin()), ite(right.lowh.end());
-            it != ite;
-            ++it)
-        {
-          typename low_heap_t::const_iterator::reference v(*it);
-          if(lowh.size() < max_elements)
-          {
-            lowh.push(v);
-          }
-          else if(lowh.value_comp()(v, lowh.top()))
-          {
-            lowh.push(v);
-            lowh.pop();
-          }
-        }
-
-
-        for(typename high_heap_t::const_iterator it(right.highh.begin()), ite(right.highh.end());
-            it != ite;
-            ++it)
-        {
-          typename high_heap_t::const_iterator::reference v(*it);
-          if(highh.size() < max_elements)
-          {
-            highh.push(v);
-          }
-          else if(highh.value_comp()(v, highh.top()))
-          {
-            highh.push(v);
-            highh.pop();
-          }
-        }
-      }
-
-      void extract_bounds(scalar_t &min_bound, scalar_t &max_bound) const
-      {
-        min_bound = lowh.size() == 0 ? boost::numeric::bounds<scalar_t>::lowest() : lowh.top();
-        max_bound = highh.size() == 0 ? boost::numeric::bounds<scalar_t>::highest() : highh.top();
-      }
-
-      //! Clear the content of the heaps when these are not needed anymore
-      void clear()
-      {
-        lowh.clear();
-        highh.clear();
-      }
-    };
 
 
 
-    //!@internal
-    //! Helper structure for having s_double_heap on vectors of data. 
-    struct s_double_heap_vector
-    {
-      typedef std::vector<s_double_heap> v_bounds_t;
-      v_bounds_t v_bounds;
-
-      s_double_heap_vector()
-      {}
-
-      /*! Sets the dimension of the bounds to be computed.
-       *  The dimension corresponds to the number of elements of each data vector.
-       *  @pre dimension >= 0
-       */
-      void set_dimension(size_t dimension)
-      {
-        assert(dimension >= 0);
-        v_bounds.resize(dimension);
-      }
-
-      //! Updates the quantile for each dimension of the vector
-      void push(const data_t& current_data, bool sign)
-      {
-        typename v_bounds_t::iterator it_bounds(v_bounds.begin());
-        for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_bounds)
-        {
-          typename data_t::value_type v(sign ? *it : -(*it));
-          it_bounds->push(v);
-        }
-      }
-
-      //! Updates the quantile for each dimension of the vector
-      void push_or_ignore(const data_t& current_data, bool sign)
-      {
-        typename v_bounds_t::iterator it_bounds(v_bounds.begin());
-        for(typename data_t::const_iterator it(current_data.begin()), ite(current_data.end()); it < ite; ++it, ++it_bounds)
-        {
-          typename data_t::value_type v(sign ? *it : -(*it));
-          it_bounds->push_or_ignore(v);
-        }
-      }
-
-      //! Merges two instances together. 
-      //!
-      //! The result goes into the current instance.
-      void merge(s_double_heap_vector const& right)
-      {
-        assert(right.v_bounds.size() == v_bounds.size());
-        typename v_bounds_t::iterator it(v_bounds.begin()), ite(v_bounds.end());
-        typename v_bounds_t::const_iterator it_input(right.v_bounds.begin());
-
-        for(; it < ite; ++it, ++it_input)
-        {
-          it->merge(*it_input);
-        }
-
-      }
-
-      //!@todo add a function to extract bounds
-      void extract_bounds(
-        std::vector<double> &v_min_bound,
-        std::vector<double> &v_max_bound) const
-      {
-        v_min_bound.resize(v_bounds.size());
-        v_max_bound.resize(v_bounds.size());
-
-        typename v_bounds_t::const_iterator it(v_bounds.begin()), ite(v_bounds.end());
-
-        std::vector<double>::iterator it_min(v_min_bound.begin()), it_max(v_max_bound.begin());
-
-        for(; it < ite; ++it, ++it_min, ++it_max)
-        {
-          it->extract_bounds(*it_min, *it_max);
-        }
-
-      }
-
-      //! Clear the content of the heaps when these are not needed anymore
-      //! @note the dimension of the vector is left unchanged. 
-      void clear()
-      {
-        typename v_bounds_t::iterator it(v_bounds.begin()), ite(v_bounds.end());
-        for(; it < ite; ++it)
-        {
-          it->clear();
-        }
-      }
-
-      //! Empties the internal state and frees the associated memory.
-      void clear_all()
-      {
-        v_bounds_t empty_v;
-        v_bounds.swap(empty_v); // clear does not unallocate but resize to 0, hence the swap
-      }
-
-    };
 
 
 
@@ -323,6 +324,8 @@ namespace robust_pca
       //! Iterators on the beginning and end of the current dataset
       container_iterator_t begin, end;
       
+      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_processor_t;
+      
       size_t nb_elements;                 //!< The size of the current dataset
       size_t data_dimension;              //!< The dimension of the data
       int nb_elements_to_keep;            //!< The number of elements to keep.
@@ -339,7 +342,7 @@ namespace robust_pca
       typedef boost::signals2::signal<void (data_t const&, count_vector_t const&)> 
         connector_accumulator_t;
       
-      typedef boost::signals2::signal<void (s_double_heap_vector const&)> 
+      typedef boost::signals2::signal<void (bounds_processor_t const&)> 
         connector_bounds_t;
       
       typedef boost::signals2::signal<void ()>
@@ -431,7 +434,7 @@ namespace robust_pca
 
           // The structure in charge of computing the bounds. The instance is local to
           // this call.
-          s_double_heap_vector bounds_op;
+          bounds_processor_t bounds_op;
 
           // we allocate the heaps only when needed
           bounds_op.set_dimension(data_dimension);
@@ -546,7 +549,7 @@ namespace robust_pca
     struct asynchronous_results_merger : boost::noncopyable
     {
     public:
-      typedef s_double_heap_vector bounds_processor_t;
+      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_processor_t;
 
     private:
       mutable boost::mutex internal_mutex;
@@ -1057,11 +1060,11 @@ namespace robust_pca
     
     template <class vector_bounds_t, class vector_number_elements_t>
     void selective_acc_to_vector(
-                                 const vector_bounds_t& lower_bounds, const vector_bounds_t& upper_bounds,
-                                 const data_t &initial_data,
-                                 bool sign,
-                                 data_t &v_selective_accumulator,
-                                 vector_number_elements_t& v_selective_acc_count) const
+       const vector_bounds_t& lower_bounds, const vector_bounds_t& upper_bounds,
+       const data_t &initial_data,
+       bool sign,
+       data_t &v_selective_accumulator,
+       vector_number_elements_t& v_selective_acc_count) const
     {
       for(int i = 0, j = initial_data.size(); i < j; i++)
       {
@@ -1087,10 +1090,10 @@ namespace robust_pca
     // the count does not change 
     template <class vector_quantile_t>
     void selective_update_acc_to_vector(
-                                        const vector_quantile_t& quantiles1, const vector_quantile_t& quantiles2,
-                                        const data_t &initial_data,
-                                        bool sign,
-                                        data_t &v_selective_accumulator) const
+      const vector_quantile_t& quantiles1, const vector_quantile_t& quantiles2,
+      const data_t &initial_data,
+      bool sign,
+      data_t &v_selective_accumulator) const
     {
       for(int i = 0, j = initial_data.size(); i < j; i++)
       {
