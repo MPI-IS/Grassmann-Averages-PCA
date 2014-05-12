@@ -125,12 +125,13 @@ include_directories(${Boost_INCLUDE_DIRS})
 # main library
 include_directories(${RobustPCA_SOURCE_DIR})
 set(RobustPCA_LIB
-     include/private/boost_ublas_matlab_helper.hpp
-     include/private/boost_ublas_matrix_helper.hpp
-
      include/robust_pca.hpp
      include/robust_pca_trimmed.hpp
+     include/robust_pca_stable_trimming.hpp
      include/private/utilities.hpp
+
+     include/private/boost_ublas_matlab_helper.hpp
+     include/private/boost_ublas_matrix_helper.hpp
 
      src/robust_pca.cpp)
 add_library(robustpca ${RobustPCA_LIB})
