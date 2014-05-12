@@ -150,7 +150,7 @@ bool robust_pca_dispatch(
     }
   }
 
-  if(algorithm_configuration.nb_processors > 0)
+  if(algorithm_configuration.max_chunk_size > 0)
   {
     if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
     {
@@ -232,7 +232,7 @@ bool robust_pca_trimming_dispatch(
     }
   }
 
-  if(algorithm_configuration.nb_processors > 0)
+  if(algorithm_configuration.max_chunk_size > 0)
   {
     if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
     {
