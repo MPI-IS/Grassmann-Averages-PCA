@@ -261,10 +261,10 @@ namespace robust_pca
       template <class data_t>
       struct initialisation_vector_specific_dimension
       {
-        const int data_dimension;
+        const size_t data_dimension;
         typedef typename data_t::value_type scalar_t;
 
-        initialisation_vector_specific_dimension(int dimension) : data_dimension(dimension)
+        initialisation_vector_specific_dimension(size_t dimension) : data_dimension(dimension)
         {}
 
         bool operator()(data_t & current_state) const
@@ -283,10 +283,13 @@ namespace robust_pca
        * which contains the sum of all accumulators. 
        *
        */
-      template <class result_type, class merger_type, class init_result_type>
+      template <class result_type_, class merger_type, class init_result_type>
       struct asynchronous_results_merger : boost::noncopyable
       {
-      private:
+      public:
+        typedef result_type_ result_type;
+
+      protected:
         mutable boost::mutex internal_mutex;
         result_type current_value;
         merger_type merger_instance;

@@ -241,6 +241,47 @@ namespace robust_pca
       
     };
 
+
+
+    //! Adaptation of merger_addition concept for accumulator and count at the same time.
+    //! 
+    //! The trimmed version of the robust pca algorithm may strip some element along each dimension. 
+    //! In order to compute the @f$\mu@f$ properly, the count should also be transfered.
+    template <class data_t, class count_t>
+    struct merger_addition_with_count
+    {
+      typedef std::pair<data_t, count_t> input_t;
+      bool operator()(input_t &current_state, input_t const& update_value) const
+      {
+        current_state.first += update_value.first;
+        current_state.second += update_value.second;
+        return true;
+      }
+    };
+
+
+    //! Adaptation of initialisation_vector_specific_dimension concept for accumulation and count.
+    //! 
+    //! See merger_addition_with_count.
+    template <class data_t, class count_t>
+    struct initialisation_vector_specific_dimension_with_count
+    {
+      size_t data_dimension;
+      typedef typename data_t::value_type scalar_t;
+      typedef typename count_t::value_type count_scalar_t;
+      typedef std::pair<data_t, count_t> input_t;
+
+      initialisation_vector_specific_dimension_with_count(size_t dimension) : data_dimension(dimension)
+      {}
+
+      bool operator()(input_t & current_state) const
+      {
+        current_state.first = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
+        current_state.second = boost::numeric::ublas::scalar_vector<count_scalar_t>(data_dimension, 0);
+        return true;
+      }
+    };
+
     
   }
 
@@ -324,12 +365,16 @@ namespace robust_pca
       //! Iterators on the beginning and end of the current dataset
       container_iterator_t begin, end;
       
-      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_processor_t;
+      typedef std::pair<data_t, count_vector_t> accumulator_t;
+      details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t> initialisation_object;
+
+      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_accumulator_t;
       
       size_t nb_elements;                 //!< The size of the current dataset
       size_t data_dimension;              //!< The dimension of the data
       int nb_elements_to_keep;            //!< The number of elements to keep.
       
+      //! The inner product is computed during the computation of the bounds.
       std::vector<bool> inner_products_results;
       
       //! Upper and lower bounds on data computed by the main thread. These vectors
@@ -339,23 +384,24 @@ namespace robust_pca
 
       // this is to send an update of the value of the accumulator to all listeners
       // the connexion should be managed externally
-      typedef boost::signals2::signal<void (data_t const&, count_vector_t const&)> 
+      typedef boost::signals2::signal<void (accumulator_t const&)> 
         connector_accumulator_t;
       
-      typedef boost::signals2::signal<void (bounds_processor_t const&)> 
+      typedef boost::signals2::signal<void (bounds_accumulator_t const&)> 
         connector_bounds_t;
       
       typedef boost::signals2::signal<void ()>
         connector_counter_t;
 
       connector_accumulator_t signal_acc;
-      connector_bounds_t signal_bounds;
-      connector_counter_t signal_counter;
+      connector_bounds_t      signal_bounds;
+      connector_counter_t     signal_counter;
       
 
 
     public:
       s_robust_pca_trimmed_processor() : 
+        initialisation_object(0),
         nb_elements(0), 
         data_dimension(0), 
         nb_elements_to_keep(0),
@@ -380,6 +426,7 @@ namespace robust_pca
       void set_data_dimensions(size_t data_dimensions_)
       {
         assert(data_dimensions_ > 0);
+        initialisation_object.data_dimension = data_dimensions_;
         data_dimension = data_dimensions_;
       }
 
@@ -434,7 +481,7 @@ namespace robust_pca
 
           // The structure in charge of computing the bounds. The instance is local to
           // this call.
-          bounds_processor_t bounds_op;
+          bounds_accumulator_t bounds_op;
 
           // we allocate the heaps only when needed
           bounds_op.set_dimension(data_dimension);
@@ -464,8 +511,8 @@ namespace robust_pca
           bounds_op.clear_all();
         }
 
+        // in any case, we signal that we went through this function
         signal_counter();
-
       }
 
 
@@ -473,11 +520,16 @@ namespace robust_pca
       //! Performs the accumulation, given the boundaries.
       void accumulation(data_t const &mu)
       {
-        data_t accumulator(data_dimension, 0);
-        count_vector_t accumulated_counts(data_dimension, 0);
+        accumulator_t acc;
+        initialisation_object(acc);
+        //acc.first.resize(data_dimension, 0);
+        //acc.second.resize(data_dimension, 0);
+        //data_t accumulator(data_dimension, 0);
+        //count_vector_t accumulated_counts(data_dimension, 0);
 
         if(nb_elements_to_keep == 0)
         {
+          // in this case, we recompute the inner products
           container_iterator_t it_data(begin);
           
           for(size_t s = 0; s < nb_elements; ++it_data, s++)
@@ -490,13 +542,14 @@ namespace robust_pca
               *v_max_threshold, 
               current_data, 
               sign, 
-              accumulator, 
-              accumulated_counts);            
+              acc.first, 
+              acc.second);            
           }
 
         }
         else
         {
+          // in this case, the inner products were already computed.
           std::vector<bool>::const_iterator itb(inner_products_results.begin());
 
           container_iterator_t it_data(begin);
@@ -510,14 +563,14 @@ namespace robust_pca
               *v_max_threshold, 
               current_data, 
               *itb, 
-              accumulator, 
-              accumulated_counts);
+              acc.first, 
+              acc.second);            
 
           }
         }
 
         // posts the new value to the listeners
-        signal_acc(accumulator, accumulated_counts);
+        signal_acc(acc);
         signal_counter();
       }
 
@@ -546,46 +599,45 @@ namespace robust_pca
      * which contains the sum of all accumulators. 
      *
      */
-    struct asynchronous_results_merger : boost::noncopyable
+    struct asynchronous_results_merger : 
+      details::threading::asynchronous_results_merger<
+        std::pair<data_t, count_vector_t>,
+        details::merger_addition_with_count<data_t, count_vector_t>,
+        details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t>
+      >
     {
     public:
-      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_processor_t;
+      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_accumulator_t;
+      typedef std::pair<data_t, count_vector_t> accumulator_t;
 
     private:
-      mutable boost::mutex internal_mutex;
-      data_t current_value;
-      count_vector_t current_count;
+      typedef details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t> data_init_type;
+      typedef details::merger_addition_with_count<data_t, count_vector_t> merger_type;
 
-      
-      bounds_processor_t bounds;
-      
-      volatile int nb_updates;
+
+      bounds_accumulator_t bounds;
       const size_t data_dimension;
-      
-      boost::condition_variable condition_;
 
     public:
+      typedef details::threading::asynchronous_results_merger<
+        accumulator_t,
+        merger_type, 
+        data_init_type> parent_type;
 
       /*!Constructor
        *
        * @param dimension_ the number of dimensions of the vector to accumulate
        */
-      asynchronous_results_merger(size_t data_dimension_) : data_dimension(data_dimension_)
+      asynchronous_results_merger(size_t data_dimension_) : 
+        parent_type(data_init_type(data_dimension_)),
+        data_dimension(data_dimension_)
       {}
 
       //! Initializes the internal states
       void init()
       {
-        init_results();
-        init_notifications();
+        parent_type::init();
         init_bounds();
-      }
-
-      //! Initialises the internal state of the accumulator
-      void init_results()
-      {
-        current_value = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
-        current_count = boost::numeric::ublas::scalar_vector<size_t>(data_dimension, 0);
       }
 
       //! Initialises the internal state of the bounds
@@ -601,76 +653,20 @@ namespace robust_pca
         bounds.clear_all();
       }
 
-      //! Initialises the internal state of the counter
-      void init_notifications()
-      {
-        nb_updates = 0;
-      }
-
-      /*! Receives the updated value of the vectors to accumulate from each worker.
-       * 
-       *  @note The call is thread safe.
-       */
-      void update(data_t const& updated_value, const count_vector_t& count_vector)
-      {
-        boost::lock_guard<boost::mutex> guard(internal_mutex);
-        current_value += updated_value;
-        current_count += count_vector;
-      }
 
 
       /*! Receives the updated value of the bounds from each worker.
        * 
        *  @note The call is thread safe.
        */
-      void update(bounds_processor_t const& new_bounds)
+      void update_bounds(bounds_accumulator_t const& new_bounds)
       {
         boost::lock_guard<boost::mutex> guard(internal_mutex);
         bounds.merge(new_bounds);
       }
 
-
-      /*! Function receiving the update notification.
-       * 
-       *  @note The call is thread safe.
-       */
-      void update()
-      {
-        boost::lock_guard<boost::mutex> guard(internal_mutex);
-        nb_updates ++;
-        condition_.notify_one();
-      }
-
-
-      bool wait_notifications(size_t nb_notifications)
-      {
-        boost::unique_lock<boost::mutex> lock(internal_mutex);
-        while (nb_updates < nb_notifications)
-        {
-          // when entering wait, the lock is unlocked and made available to other threads.
-          // when awakened, the lock is locked before wait returns. 
-          condition_.wait(lock);
-        }
-        
-        return true;
-        
-      }
-
-
-      //! Returns the current accumulated value.
-      data_t const& get_accumulated_data() const
-      {
-        return current_value;
-      }
-
-      //! Returns the current accumulated value.
-      count_vector_t const& get_accumulator_count() const
-      {
-        return current_count;
-      }
-
       //! Returns the bound merged from all workers.
-      bounds_processor_t const& get_computed_bounds() const
+      bounds_accumulator_t const& get_computed_bounds() const
       {
         return bounds;
       }
@@ -802,7 +798,6 @@ namespace robust_pca
 
       // the initialisation of mus
       {
-        
         it_o_eigenvalues_t it_eigen(it_output_eigen_vector_beginning);
         for(int i = 0; it_eigen != it_output_eigen_vector_end; ++it_eigen, ++i)
         {
@@ -856,6 +851,7 @@ namespace robust_pca
             it_current_end = it_current_begin + chunks_size;
           }
 
+          // the processor object for this new range
           async_processor_t &current_acc_object = v_individual_accumulators[i];
 
           b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
@@ -875,11 +871,17 @@ namespace robust_pca
 
           // attaching the update object callbacks
           current_acc_object.connector_accumulator().connect(
-            boost::bind(&asynchronous_results_merger::update, &async_merger, _1, _2));
+            boost::bind(
+              /*(void (asynchronous_results_merger::*)(asynchronous_results_merger::result_type const&))*/&asynchronous_results_merger::update, 
+              &async_merger, 
+              _1));
           current_acc_object.connector_bounds().connect(
-            boost::bind(&asynchronous_results_merger::update, &async_merger, _1));
+            boost::bind(
+              /*(void (asynchronous_results_merger::*)(asynchronous_results_merger::bounds_accumulator_t const&))*/&asynchronous_results_merger::update_bounds, 
+              &async_merger, 
+              _1));
           current_acc_object.connector_counter().connect(
-            boost::bind(&asynchronous_results_merger::update, &async_merger));
+            boost::bind(&asynchronous_results_merger::notify, &async_merger));
 
           // updating the next 
           it_current_begin = it_current_end;
@@ -924,8 +926,8 @@ namespace robust_pca
 
 
           // gathering the new bounds
-          typename asynchronous_results_merger::bounds_processor_t const& bounds = async_merger.get_computed_bounds();
-          bounds.extract_bounds(v_min_threshold, v_max_threshold);
+          typename asynchronous_results_merger::bounds_accumulator_t const& bounds_acc = async_merger.get_computed_bounds();
+          bounds_acc.extract_bounds(v_min_threshold, v_max_threshold);
 
           // clearing the bounds
           async_merger.clear_bounds();
@@ -947,8 +949,8 @@ namespace robust_pca
           
 
           // gathering the mus
-          mu = async_merger.get_accumulated_data();
-          count_vector_t const& count_vector = async_merger.get_accumulator_count();
+          mu = async_merger.get_merged_result().first;
+          count_vector_t const& count_vector = async_merger.get_merged_result().second;
           // divide each of the acc by acc_counts, and then take the norm
           for(int i = 0; i < number_of_dimensions; i++)
           {
