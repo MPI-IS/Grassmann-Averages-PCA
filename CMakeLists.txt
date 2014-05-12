@@ -126,7 +126,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${RobustPCA_SOURCE_DIR})
 set(RobustPCA_LIB
      include/robust_pca.hpp
-     include/robust_pca_trimmed.hpp
+     include/robust_pca_trimming.hpp
      include/robust_pca_stable_trimming.hpp
      include/private/utilities.hpp
 
@@ -163,7 +163,7 @@ if(NOT WITHOUT_TESTS)
       test/test_main.cpp
 
       test/test_robust_pca.cpp
-      test/test_robust_pca_trimmed.cpp
+      test/test_robust_pca_trimming.cpp
       test/test_row_proxy.cpp)
   add_executable(robustpca_test ${RobustPCA_tests})
   target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
