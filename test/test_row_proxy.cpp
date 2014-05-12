@@ -271,19 +271,6 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_external_storage)
 }
 
 
-#if 0
-namespace std
-{
-
-  template <class T>
-  struct iterator_traits< robust_pca::ublas_adaptor::row_iter<T> >
-  {
-    
-  };
-  
-}
-#endif
-
 // testing the row write access capability for the row proxy, vector access, external storage
 BOOST_AUTO_TEST_CASE(test_row_proxy_random_access_iterator)
 {

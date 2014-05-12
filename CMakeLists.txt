@@ -164,7 +164,8 @@ if(NOT WITHOUT_TESTS)
 
       test/test_robust_pca.cpp
       test/test_robust_pca_trimming.cpp
-      test/test_row_proxy.cpp)
+      test/test_row_proxy.cpp
+      test/test_k_first.cpp)
   add_executable(robustpca_test ${RobustPCA_tests})
   target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
 
