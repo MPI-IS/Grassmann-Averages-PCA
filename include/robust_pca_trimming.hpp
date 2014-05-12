@@ -657,7 +657,7 @@ namespace robust_pca
        */
       void update_bounds(bounds_accumulator_t const& new_bounds)
       {
-        boost::lock_guard<boost::mutex> guard(internal_mutex);
+        boost::lock_guard<boost::mutex> guard(parent_type::internal_mutex);
         bounds.merge(new_bounds);
       }
 
