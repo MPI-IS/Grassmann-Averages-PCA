@@ -211,6 +211,13 @@ if(NOT WITHOUT_MATLAB)
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
   set(Matlab_NEED_WRAPPER TRUE)
 
+  # just for convenience, does not produce any artifacts.
+  add_custom_target(
+    matlab_mex_dynamic_loader
+    SOURCES ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
+  set_target_properties(matlab_mex_dynamic_loader PROPERTIES FOLDER "Matlab")
+
+
 
   macro(create_matlab_mex_wrapper library_name)
 
@@ -229,7 +236,9 @@ if(NOT WITHOUT_MATLAB)
     target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"$<TARGET_FILE_NAME:${library_name}>\"") 
     target_link_libraries(${library_name}_matlab_loader dl)
     
-    add_dependencies(${library_name}_matlab_loader ${library_name}) # do not change to target_link_library here
+    # this order is to be kept: we construct the loader before the real mex, since there is not link dependency here, it should work.
+    # this also enables to honor the dependencies of the primary target mex file. 
+    add_dependencies(${library_name} ${library_name}_matlab_loader) # do not change to target_link_library here
     set_target_properties(${library_name}_matlab_loader 
       PROPERTIES 
         PREFIX ""
@@ -268,6 +277,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     robustpca_matlab_unittest_scripts 
     SOURCES test/robustpca_matlab_unit_tests.m)
   set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
+  add_dependencies(robustpca_matlab_unittest_scripts robustpca_m)
 
   set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
   if(WIN32)

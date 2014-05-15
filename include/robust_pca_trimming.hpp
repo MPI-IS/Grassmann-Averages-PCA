@@ -145,10 +145,10 @@ namespace robust_pca
       
     //!@internal
     //! Helper structure for having s_double_heap on vectors of data. 
-    template <class data_t, class scalar_t>
+    template <class data_t>
     struct s_double_heap_vector
     {
-      typedef std::vector< s_double_heap<scalar_t> > v_bounds_t;
+      typedef std::vector< s_double_heap<typename data_t::value_type> > v_bounds_t;
       v_bounds_t v_bounds;
       
       s_double_heap_vector()
@@ -368,7 +368,7 @@ namespace robust_pca
       typedef std::pair<data_t, count_vector_t> accumulator_t;
       details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t> initialisation_object;
 
-      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_accumulator_t;
+      typedef details::s_double_heap_vector<data_t> bounds_accumulator_t;
       
       size_t nb_elements;                 //!< The size of the current dataset
       size_t data_dimension;              //!< The dimension of the data
@@ -603,7 +603,7 @@ namespace robust_pca
       >
     {
     public:
-      typedef details::s_double_heap_vector<data_t, scalar_t> bounds_accumulator_t;
+      typedef details::s_double_heap_vector<data_t> bounds_accumulator_t;
       typedef std::pair<data_t, count_vector_t> accumulator_t;
 
     private:
