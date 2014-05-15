@@ -202,7 +202,9 @@ namespace robust_pca
         
       }
       
-      //!@todo add a function to extract bounds
+      //! Extracts the computed bounds
+      //!
+      //! Forwards the extraction to the s_double_heap object.
       void extract_bounds(
         std::vector<double> &v_min_bound,
         std::vector<double> &v_max_bound) const

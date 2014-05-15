@@ -6,6 +6,9 @@
 #ifndef BOOST_UBLAS_MATRIX_HELPER_ROBUST_PCA_HPP__
 #define BOOST_UBLAS_MATRIX_HELPER_ROBUST_PCA_HPP__
 
+/*!@file
+ * Contains utility classes around uBlas matrices(mainly an iterator on matrix rows).
+ */
 
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/iterator/iterator_adaptor.hpp>
@@ -36,18 +39,18 @@ namespace robust_pca
     private:
       typedef row_iter<matrix_t> this_type;
 
+      // this is a nice technic for SFNIAE, taken from the examples of boost.iterator.
       struct enabler {};
 
       size_t index;
       matrix_t *matrix;
 
       typedef boost::numeric::ublas::matrix_row<matrix_t> return_t;
-      static const size_t max_size;
 
     public:
 
       //! Default constructor
-      row_iter() : index(max_size), matrix(0)
+      row_iter() : index(std::numeric_limits<size_t>::max()), matrix(0)
       {}
 
       /*! Constructs an iterator on the nth rows of the given matrix
@@ -64,6 +67,12 @@ namespace robust_pca
       }
 
 
+      /*! Constructor from an iterator 
+       *
+       * This constructor is selected when the row_iter is instanciated from a row_iter on another type, and
+       * type are convertible from the other matrix type to the current type (example non-const to const). Otherwise
+       * the SFNIAE does reveal this constructor in the set of available constructor for this class.
+       */
       template <class other_matrix_t>
       row_iter(
         row_iter<other_matrix_t> const& other, 
@@ -76,6 +85,9 @@ namespace robust_pca
 
     private:
       friend class boost::iterator_core_access;
+
+      //!@name boost::iterator_facade interface
+      //!@{
 
       void increment()
       {
@@ -117,12 +129,9 @@ namespace robust_pca
         
       }
 
+      //!@}
 
     };
-
-
-    template <class matrix_t>
-    const size_t row_iter<matrix_t>::max_size = std::numeric_limits<size_t>::max();
 
   }
 
