@@ -387,7 +387,7 @@ std::vector<T>* readLines(std::istream& str)
   return result;
 }
 
-
+#if 0
 
 BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 {
@@ -491,4 +491,4 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 
 }
 
-
+#endif
