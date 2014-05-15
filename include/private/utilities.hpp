@@ -76,6 +76,22 @@ namespace robust_pca
         return std::sqrt(op(v));
       }
     };
+    
+    
+    template <class T>
+    double inner_prod(const T& v1, const T& v2)
+    {
+      double prod(0);
+      assert(v1.size() == v2.size());
+      double const *p1 = &v1(0);
+      double const *p2 = &v1(0) + v1.size();
+      double const *p3 = &v2(0);
+      for(; p1 < p2; ++p1, ++p3)
+      {
+        prod += (*p1) * (*p3);
+      }
+      return prod;
+    }
 
 
 
