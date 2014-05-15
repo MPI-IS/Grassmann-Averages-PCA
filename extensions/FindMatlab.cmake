@@ -738,6 +738,7 @@ if(_matlab_find_mex_compiler GREATER -1)
     set(Matlab_MEX_COMPILER_FOUND TRUE)
   endif()
 endif()  
+unset(_matlab_find_mex_compiler)
 
 # component Matlab program
 list(FIND Matlab_FIND_COMPONENTS MAIN_PROGRAM _matlab_find_matlab_program)
@@ -757,7 +758,7 @@ if(_matlab_find_matlab_program GREATER -1)
   endif()
 
 endif()  
-
+unset(_matlab_find_matlab_program)
 
 # Component MX library
 list(FIND Matlab_FIND_COMPONENTS MX_LIBRARY _matlab_find_mx)
@@ -773,6 +774,8 @@ if(_matlab_find_mx GREATER -1)
     set(Matlab_MX_LIBRARY_FOUND TRUE)
   endif()
 endif()
+unset(_matlab_find_mx)
+
 
 # Component ENG library
 list(FIND Matlab_FIND_COMPONENTS ENG_LIBRARY _matlab_find_eng)
@@ -787,12 +790,11 @@ if(_matlab_find_eng GREATER -1)
     set(Matlab_ENG_LIBRARY_FOUND TRUE)
   endif()
 endif()
-
-
-unset(_matlab_find_matlab_program)
-unset(_matlab_find_mex_compiler)
-unset(_matlab_find_mx)
 unset(_matlab_find_eng)
+
+
+
+
 
 unset(_matlab_lib_dir_for_search)
 
