@@ -364,3 +364,131 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 BOOST_AUTO_TEST_SUITE_END();
 
 
+
+template <class T>
+std::vector<T>* readLines(std::istream& str)
+{
+  std::vector<T>* result = new std::vector<T>();
+  std::string line;
+  std::getline(str,line);
+
+  std::stringstream lineStream(line);
+  std::string cell;
+
+  
+  while(std::getline(lineStream, cell, '\t'))
+  {
+    std::stringstream current_stream(cell);
+    T current_element;
+    current_stream >> current_element;
+    assert(!current_stream.fail());
+    result->push_back(current_element);
+  }
+  return result;
+}
+
+
+
+BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
+{
+
+  using namespace robust_pca;
+  using namespace robust_pca::ublas_adaptor;
+  namespace ub = boost::numeric::ublas;
+  typedef boost::chrono::steady_clock clock_type;
+  typedef boost::numeric::ublas::matrix<double> matrix_t;
+
+
+  typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
+  robust_pca_t instance(.1);
+  typedef row_iter<const matrix_t> const_row_iter_t;
+
+  typedef ub::vector<double> data_t;
+
+  std::string const filename_to_read = "D:/Code/mat_test.csv";
+  std::ifstream ff(filename_to_read.c_str());
+
+  std::vector< std::vector<double>* > read_vectors;
+
+  std::cout << "Reading data" << std::endl;
+  matrix_t mat_data;
+  while(!ff.eof())
+  {
+    std::vector<double>* v = readLines<double>(ff);
+    if(v->size())
+    {
+      read_vectors.push_back(v);
+      if((read_vectors.size() % 1000) == 0)
+      {
+        std::cout << ".";
+        std::cout.flush();
+      }
+    }
+  }
+  std::cout << std::endl << "copying" << std::endl;
+
+  mat_data.resize(read_vectors.size(), read_vectors[0]->size());
+  for(size_t i = 0; i < read_vectors.size(); i++)
+  {
+    std::copy(read_vectors[i]->begin(), read_vectors[i]->end(), ub::row(mat_data, i).begin());
+    delete read_vectors[i];
+  }
+  read_vectors.clear();
+
+  const size_t nb_elements = mat_data.size1();
+  const size_t dimensions = mat_data.size2();
+  std::cout << "Data ok : dimensions = " << dimensions << " #elements = " << nb_elements << std::endl;
+
+
+  const size_t max_dimensions = 5;
+
+  std::vector<data_t> temporary_data(nb_elements);
+  std::vector<data_t> eigen_vectors(max_dimensions);
+  const int max_iterations = 1000;
+
+  BOOST_CHECK(instance.set_nb_processors(7)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
+
+  clock_type::duration elapsed;
+
+  clock_type::time_point start = clock_type::now(); 
+  BOOST_CHECK(instance.batch_process(
+    max_iterations,
+    max_dimensions,
+    const_row_iter_t(mat_data, 0),
+    const_row_iter_t(mat_data, mat_data.size1()),
+    temporary_data.begin(),
+    eigen_vectors.begin()));
+  elapsed = clock_type::now() - start;
+  
+  std::cout << "processing " << nb_elements << " elements "
+    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
+
+
+  // testing the output sizes
+  BOOST_REQUIRE_EQUAL(eigen_vectors.size(), max_dimensions);
+  for(int i = 0; i < max_dimensions; i++)
+  {
+    BOOST_CHECKPOINT("testing eigenvector size for vector " << i);
+    BOOST_REQUIRE_EQUAL(eigen_vectors[i].size(), dimensions);
+  }
+
+  // testing orthogonality of all eigenvectors
+  for(int i = 0; i < max_dimensions - 1; i++)
+  {
+    for(int j = i + 1; j < max_dimensions; j++)
+    {
+      BOOST_CHECK_LE(ub::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6);
+    }
+  }
+
+
+  // testing unitarity
+  for(int i = 0; i < max_dimensions; i++)
+  {
+    BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
+  }
+
+
+}
+
+

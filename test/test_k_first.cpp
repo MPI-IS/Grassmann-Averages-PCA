@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE(test_double_heap_performances)
   const int nb_elements = 100000;
   const int dimensions = 500;
   const int nb_elements_to_keep = 50;
-  const int nb_chunks = 10;
+  const int nb_chunks = 100;
 
   matrix_t mat_data;
 
@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(test_double_heap_performances)
   }
 
   clock_type::duration elapsed_std_t = clock_type::now() - start_std_t;
-  std::cout << "\tstd " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed_std_t) << std::endl;
+  std::cout << "\tstd transposed " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed_std_t) << std::endl;
 
 
 }
