@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_CASE(test_double_heap_performances)
   typedef ub::vector<double> data_t;
   typedef data_t::value_type scalar_t;
 
-  robust_pca::details::s_double_heap_vector<data_t, scalar_t> double_heap_merged;
+  robust_pca::details::s_double_heap_vector<data_t> double_heap_merged;
   
 
   clock_type::duration elapsed;
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE(test_double_heap_performances)
   
   for(int i = 0; i < nb_chunks; i++)
   {
-    robust_pca::details::s_double_heap_vector<data_t, scalar_t> double_heap;
+    robust_pca::details::s_double_heap_vector<data_t> double_heap;
     double_heap.set_dimension(dimensions);
     row_iter_t it_data(it1 + i*nb_elements/nb_chunks);
     for(size_t s = 0; s < nb_elements/nb_chunks; ++it_data, s++)
