@@ -36,8 +36,7 @@ namespace robust_pca
   namespace details
   {
     
-    /*!@internal
-     * @brief Helper structure for managing the double trimming. 
+    /*!@brief Helper structure for managing the double trimming. 
      * It is supposed that the trimming is symmetrical: the first K are kept in the 
      * upper and lower part of the distribution. However the K is not managed by this structure
      * directly, but rather by the caller. This structure provides two functions for performing 
@@ -49,17 +48,24 @@ namespace robust_pca
     template <class scalar_t>
     struct s_double_heap
     {  
-      //!@name Heap types
+      //!@name Heaps
       //!@{
       // apparently fibonacci heaps have a problem in the copy construction on Visual C++ 2013,
       // so I am using pairing_heap here.
+      //! Type associated to the first K element (with natural increasing order).
       typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::less<scalar_t> > > low_heap_t;
+      //! Type associated to the last K element (with natural increasing order).
       typedef boost::heap::pairing_heap<scalar_t, boost::heap::compare< std::greater<scalar_t> > > high_heap_t;
+
+      //! First K elements heap
+      low_heap_t lowh;
+
+      //! Last K elements heap
+      high_heap_t highh;
+
       //!@}
       
       
-      low_heap_t lowh;
-      high_heap_t highh;
       
       //! Uncontrolled push for populating the first K elements.
       void push(scalar_t const& current)
@@ -93,40 +99,76 @@ namespace robust_pca
         const typename low_heap_t::size_type max_elements = std::max(lowh.size(), right.lowh.size());
         assert(std::max(highh.size(), right.highh.size()) == max_elements);
         
-        for(typename low_heap_t::const_iterator it(right.lowh.begin()), ite(right.lowh.end());
-            it != ite;
-            ++it)
         {
-          typename low_heap_t::const_iterator::reference v(*it);
+          typename low_heap_t::const_iterator it(right.lowh.begin()), ite(right.lowh.end());
           if(lowh.size() < max_elements)
           {
-            lowh.push(v);
+            for(size_t i = 0, nb_element_to_push(max_elements - lowh.size());
+              i < nb_element_to_push && it != ite;
+              ++it, ++i)
+            {
+              lowh.push(*it);
+            }
           }
-          else if(lowh.value_comp()(v, lowh.top()))
+
+          if(it != ite) // in case top does not exist (merging two empty heaps)
           {
-            lowh.push(v);
-            lowh.pop();
+            scalar_t current_top = lowh.top();
+            typename low_heap_t::value_compare comp_low(lowh.value_comp()); // assuming value_compare does not have a state
+            for(;it != ite;++it)
+            {
+              typename low_heap_t::const_iterator::reference v(*it);
+              if(comp_low(v, current_top))
+              {
+                lowh.push(v);
+                lowh.pop();
+                current_top = lowh.top();
+              }
+            }
           }
         }
         
-        
-        for(typename high_heap_t::const_iterator it(right.highh.begin()), ite(right.highh.end());
-            it != ite;
-            ++it)
+    
+
+
+
         {
-          typename high_heap_t::const_iterator::reference v(*it);
+          typename high_heap_t::const_iterator it(right.highh.begin()), ite(right.highh.end());
           if(highh.size() < max_elements)
           {
-            highh.push(v);
+            for(size_t i = 0, nb_element_to_push(max_elements - highh.size());
+              i < nb_element_to_push && it != ite;
+              ++it, ++i)
+            {
+              highh.push(*it);
+
+            }
           }
-          else if(highh.value_comp()(v, highh.top()))
+
+          if(it != ite)
           {
-            highh.push(v);
-            highh.pop();
+            scalar_t current_top = highh.top();
+            typename high_heap_t::value_compare comp_high(highh.value_comp()); // assuming value_compare does not have a state
+            for(;it != ite;++it)
+            {
+              typename high_heap_t::const_iterator::reference v(*it);
+              if(comp_high(v, current_top))
+              {
+                highh.push(v);
+                highh.pop();
+                current_top = highh.top();
+              }
+            }
           }
         }
+
       }
       
+      /*! Returns the bounds of the heap (the top for both heaps).
+       *
+       * @param min_bound highest value of the first K elements
+       * @param max_bound lowest value of the last K elements.
+       */
       void extract_bounds(scalar_t &min_bound, scalar_t &max_bound) const
       {
         min_bound = lowh.size() == 0 ? boost::numeric::bounds<scalar_t>::lowest() : lowh.top();
@@ -902,7 +944,8 @@ namespace robust_pca
 
         details::convergence_check<data_t> convergence_op(mu);
 
-        for(int iterations = 0; (!convergence_op(mu) && iterations < max_iterations) || iterations == 0; iterations++)
+        int iterations = 0;
+        for(; (!convergence_op(mu) && iterations < max_iterations) || iterations == 0; iterations++)
         {
 
           // reseting the merger object
@@ -960,6 +1003,8 @@ namespace robust_pca
           mu /= norm_op(mu);
 
         }
+
+        std::cout << "nb iterations dimension " << current_dimension << " is " << iterations << std::endl;
 
 
         // orthogonalisation against previous eigenvectors

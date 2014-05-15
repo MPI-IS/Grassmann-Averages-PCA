@@ -120,21 +120,23 @@ namespace robust_pca
      * @tparam norm_t: the norm used in order to compare the closeness of two successive results.
      *
      * The type of the data should meet the following requirements:
-     * - data_t should be default constructible 
-     * - data_t should be constructible with one parameter
-     * - operator- is defined between two instances of data_t and return a type compatible with the input of the norm operator.
+     * - data_t should be copy constructible and assignable.
+     * - operator- is defined between two instances of data_t and return a type compatible with the input of the norm operator (usually a data_t).
      *
      * The convergence is assumed as soon as the norm between two subsequent states is less than a certain @f$\epsilon@f$, that is
      * the functor returns true if:
      * @f[\left\|v_t - v_{t-1}\right\| < \epsilon@f]
      *
-     * @note When the convergense is reached, the states are not stored anymore (the calling algorithm is supposed to stop).
+     * @note When the convergence is reached, the previous states are not updated anymore (the calling algorithm is supposed to stop).
      */
     template <class data_t, class norm_t = norm_infinity>
     struct convergence_check
     {
       const double epsilon;
+
+      //! Holds an instance of the norm used for checking the convergence.
       norm_t norm_comparison;
+
       data_t previous_state;
 
       //! Initialise the instance with the initial state of the vector.
@@ -290,12 +292,23 @@ namespace robust_pca
         typedef result_type_ result_type;
 
       protected:
-        mutable boost::mutex internal_mutex;
-        result_type current_value;
+        mutable boost::mutex internal_mutex;        //!< mutex for thread safety
+        //! Holds the current value of the merge.
+        //! This variable is constantly updated as chunk processed finish. 
+        result_type current_value;                  
+
+        //! Holds the instance of the class responsible for merging new values (updates) to the
+        //! current instance (current_value).
         merger_type merger_instance;
+
+        //! Holds the instance of the class responsible for initialising the current value to
+        //! an initial state (before any merge arrives).
         init_result_type initialisation_instance;
 
+        //! Number of updates after the initialisation
         volatile int nb_updates;
+
+        //! Thread synchronisation (event sent after an update, for counting).
         boost::condition_variable condition_;
 
       public:
@@ -322,7 +335,8 @@ namespace robust_pca
         }
 
 
-        //! Initialises the internal state of the counter
+        //! Initialises the number of notifications.
+        //! Also called by init.
         void init_notifications()
         {
           nb_updates = 0;
