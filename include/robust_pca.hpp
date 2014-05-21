@@ -29,10 +29,13 @@
 // utilities
 #include <include/private/utilities.hpp>
 
+#include <sstream>
+
 
 namespace robust_pca
 {
 
+  namespace ub = boost::numeric::ublas;
 
 
 
@@ -83,11 +86,14 @@ namespace robust_pca
     struct asynchronous_chunks_processor
     {
     private:
-      container_iterator_t begin, end;
+      //container_iterator_t begin, end;
       size_t nb_elements;
       data_t accumulator;
       std::vector<bool> v_signs;
       size_t data_dimension;
+      
+      int nb_sign_change;
+      int nb_calls;
 
       // this is to send an update of the value of mu to all listeners
       // the connexion should be managed externally
@@ -99,20 +105,54 @@ namespace robust_pca
       connector_counter_t signal_counter;
 
 
+      
+      typedef typename data_t::value_type scalar_t;
+      //! The matrix containing a copy of the data
+      scalar_t *p_c_matrix;
+      
+      std::vector<double> inner_prod_results;
     public:
-      asynchronous_chunks_processor() : nb_elements(0), data_dimension(0)
+      std::string name;
+      asynchronous_chunks_processor() : nb_elements(0), data_dimension(0), p_c_matrix(0)
       {
+        nb_sign_change = 0;
+        nb_calls = 0;
+      }
+      
+      ~asynchronous_chunks_processor()
+      {
+        std::cout << name;
+        std::cout << "\tnb calls " << nb_calls << std::endl;
+        std::cout << "\tnb sign change " << nb_sign_change << std::endl;
+        delete [] p_c_matrix;
       }
 
 
       //! Sets the data range
       bool set_data_range(container_iterator_t const &b, container_iterator_t const& e)
       {
-        begin = b;
-        end = e;
+        //begin = b;
+        //end = e;
         nb_elements = std::distance(b, e);
         assert(nb_elements > 0);
         v_signs.resize(nb_elements);
+        inner_prod_results.resize(nb_elements);
+        
+        delete [] p_c_matrix;
+        p_c_matrix = new scalar_t[nb_elements*data_dimension];
+        
+        container_iterator_t bb(b);
+
+        for(int column = 0; column < nb_elements; column++, ++bb)
+        {
+          double* current_line = p_c_matrix + column;
+          for(int line = 0; line < data_dimension; line ++, current_line += nb_elements)
+          {         
+            *current_line = (*bb)(line);
+          }
+          
+        }
+        
         return true;
       }
 
@@ -136,6 +176,28 @@ namespace robust_pca
         return signal_counter;
       }
       
+      void compute_inner_products(data_t const &mu)
+      {
+        double *out = &inner_prod_results[0];
+        double mu_element = mu(0);
+        double *current_line = p_c_matrix;
+        
+        for(int column = 0; column < nb_elements; column++)
+        {
+          out[column] = mu_element * current_line[column];
+        }
+        current_line += nb_elements;
+        
+        for(int line = 1; line < data_dimension; line ++, current_line += nb_elements)
+        {
+          mu_element = mu(line);    
+          for(int column = 0; column < nb_elements; column++)
+          {
+            out[column] += mu_element * current_line[column];
+          }               
+        }
+        
+      }
 
       //! Initialises the accumulator and the signs vector from the first mu
       void initial_accumulation(data_t const &mu)
@@ -143,22 +205,34 @@ namespace robust_pca
         accumulator = data_t(data_dimension, 0);
         std::vector<bool>::iterator itb(v_signs.begin());
         
-        container_iterator_t it_data(begin);
+        //container_iterator_t it_data(begin);
 
         // first iteration, we store the signs
-        for(size_t s = 0; s < nb_elements; ++it_data, ++itb, s++)
+        compute_inner_products(mu);
+        for(size_t s = 0; s < nb_elements; /*++it_data, */++itb, s++)
         {
-          typename container_iterator_t::reference current_data = *it_data;
-          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
-          *itb = sign;
+          nb_calls++;
+          nb_sign_change++;
+          //typename container_iterator_t::reference current_data = *it_data;
+          //bool sign = details::inner_prod(current_data, mu) >= 0;
+          //bool sign = ub::inner_prod(current_data, mu) >= 0;
+          bool sign = inner_prod_results[s] >= 0;
 
+          *itb = sign;
+          double* current_line = p_c_matrix + s;
           if(sign)
           {
-            accumulator += current_data;
+            for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+            {
+              accumulator(i) += *current_line;              
+            }
           }
           else 
           {
-            accumulator -= current_data;
+            for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+            {
+              accumulator(i) -= *current_line;              
+            }
           }
         }
 
@@ -174,26 +248,37 @@ namespace robust_pca
       {
         std::vector<bool>::iterator itb(v_signs.begin());
         
-        container_iterator_t it_data(begin);
+        //container_iterator_t it_data(begin);
 
-        // first iteration, we store the signs
-        for(size_t s = 0; s < nb_elements; ++it_data, ++itb, s++)
+        compute_inner_products(mu);
+
+        for(size_t s = 0; s < nb_elements; /*++it_data, */++itb, s++)
         {
-          typename container_iterator_t::reference current_data = *it_data;
+          nb_calls++;
+          
 
-          bool sign = boost::numeric::ublas::inner_prod(current_data, mu) >= 0;
+          bool sign = inner_prod_results[s] >= 0;//ub::inner_prod(current_data, mu) >= 0;
           if(sign != *itb)
           {
+            //typename container_iterator_t::reference current_data = *it_data;
+            nb_sign_change++;
             // update the value of the accumulator according to sign change
             *itb = sign;
-
+            double* current_line = p_c_matrix + s;
             if(sign)
             {
-              accumulator += 2 * current_data;
+
+              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+              {
+                accumulator(i) += 2* (*current_line);              
+              }
             }
-            else
+            else 
             {
-              accumulator -= 2 * current_data;
+              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+              {
+                accumulator(i) -= 2* (*current_line);              
+              }
             }
           }
         }
@@ -206,15 +291,22 @@ namespace robust_pca
       //! Project the data onto the orthogonal subspace of the provided vector
       void project_onto_orthogonal_subspace(data_t const &mu)
       {
-        container_iterator_t it_data(begin);
+//        container_iterator_t it_data(begin);
 
         // update of vectors in the orthogonal space, and update of the norms at the same time. 
-        for(size_t s = 0; s < nb_elements; ++it_data, s++)
-        {
-          typename container_iterator_t::reference current_vector = *it_data;
-          current_vector -= boost::numeric::ublas::inner_prod(mu, current_vector) * mu;
-        }
+        compute_inner_products(mu);
+        double *current_line = p_c_matrix;
 
+        for(int line = 0; line < data_dimension; line ++, current_line += nb_elements)
+        {
+          double mu_element = mu(line);    
+          for(int column = 0; column < nb_elements; column++)
+          {
+            current_line[column] -= mu_element * inner_prod_results[column];
+          }               
+        }
+        
+  
         signal_counter();
       }
 
@@ -413,6 +505,14 @@ namespace robust_pca
           }
 
           async_processor_t &current_acc_object = v_individual_accumulators[i];
+          {
+            std::ostringstream os;
+            os << "chunk " << i << " containing " << std::distance(it_current_begin, it_current_end) << " elements";
+            current_acc_object.name = os.str();
+          }
+
+          // updating the dimension of the problem
+          current_acc_object.set_data_dimensions(number_of_dimensions);
 
           b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
           if(!b_result)
@@ -420,8 +520,6 @@ namespace robust_pca
             return b_result;
           }
 
-          // updating the dimension of the problem
-          current_acc_object.set_data_dimensions(number_of_dimensions);
 
           // attaching the update object callbacks
           current_acc_object.connector_accumulator().connect(
@@ -482,6 +580,8 @@ namespace robust_pca
           mu = async_merger.get_merged_result();
           mu /= norm_op(mu);
         }
+        
+        std::cout << "dim " << current_dimension << " iter " << iterations << std::endl;
 
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
