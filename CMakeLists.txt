@@ -16,7 +16,7 @@ if(NOT WITHOUT_TESTS)
   enable_testing()
 endif()
 
-
+#set(CMAKE_MACOSX_RPATH 1)
 
 # thirdparties
 
@@ -94,9 +94,12 @@ else()
   if(NOT APPLE)
     set(CMAKE_INSTALL_RPATH "$ORIGIN")
   elseif(UNIX) # APPLE is Unix
-    set(CMAKE_INSTALL_RPATH "@loader_path") # to be tested on osx
+    message("tototototot loader path")
+    
+    #set(CMAKE_INSTALL_RPATH "@loader_path") # to be tested on osx
+    set(CMAKE_INSTALL_NAME_DIR "@loader_path") # to be tested on osx
   endif()
-  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  #set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
 
@@ -136,6 +139,7 @@ set(RobustPCA_LIB
      src/robust_pca.cpp)
 add_library(robustpca ${RobustPCA_LIB})
 target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY})
+set_target_properties(robustpca PROPERTIES INSTALL_RPATH "@loader_path/.")
 
 
 
@@ -209,6 +213,7 @@ if(NOT WITHOUT_MATLAB)
   target_link_libraries(robustpca_m robustpca ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
 
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
+  #set_target_properties(robustpca_m PROPERTIES INSTALL_RPATH "@loader_path/../lib")
   set(Matlab_NEED_WRAPPER TRUE)
 
   # just for convenience, does not produce any artifacts.
@@ -233,7 +238,7 @@ if(NOT WITHOUT_MATLAB)
     
 
     add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
-    target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"$<TARGET_FILE_NAME:${library_name}>\"") 
+    target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"./$<TARGET_FILE_NAME:${library_name}>\"") 
     target_link_libraries(${library_name}_matlab_loader dl)
     
     # this order is to be kept: we construct the loader before the real mex, since there is not link dependency here, it should work.
@@ -252,7 +257,7 @@ if(NOT WITHOUT_MATLAB)
   endmacro(create_matlab_mex_wrapper)
 
 
-  if(UNIX AND NOT APPLE AND Matlab_NEED_WRAPPER)
+  if(UNIX AND Matlab_NEED_WRAPPER)
     create_matlab_mex_wrapper(robustpca_m)
   else()
     set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
