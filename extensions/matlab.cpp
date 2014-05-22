@@ -86,6 +86,8 @@ struct s_algorithm_configuration
   size_t max_chunk_size;
   size_t nb_processors;
   double trimming_percentage;
+  
+  mxArray *initial_vectors;
 
   // we should also add the initial value of the eigen vectors
 };
@@ -110,15 +112,15 @@ bool robust_pca_dispatch(
   typedef external_storage_adaptor<double> output_storage_t;
   typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t;
 
-  const size_t &columns = algorithm_configuration.columns;
-  const size_t &rows = algorithm_configuration.rows;
+  const size_t &dimension = algorithm_configuration.columns;
+  const size_t &nb_elements = algorithm_configuration.rows;
   const size_t &max_dimension = algorithm_configuration.max_dimension;
   const size_t &max_iterations = algorithm_configuration.max_iterations;
-  const size_t dimension = columns;
+
 
   // input data matrix, external storage.
-  input_storage_t input_storage(rows*columns, mxGetPr(X));
-  input_matrix_t input_data(rows, columns, input_storage);
+  input_storage_t input_storage(nb_elements * dimension, mxGetPr(X));
+  input_matrix_t input_data(nb_elements, dimension, input_storage);
 
   // output data matrix, also external storage for uBlas
   output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
@@ -135,7 +137,7 @@ bool robust_pca_dispatch(
   typedef row_iter<output_matrix_t> output_row_iter_t;
 
   // should be matlab style
-  std::vector<data_t> temporary_data(rows);
+  std::vector<data_t> temporary_data(nb_elements);
 
 
   // main instance
@@ -158,6 +160,23 @@ bool robust_pca_dispatch(
       return false;
     }
   }
+  
+  // initialisation vector if given
+  std::vector<data_t> init_vectors;
+  if(algorithm_configuration.initial_vectors != 0)
+  { 
+    init_vectors.resize(max_dimension);
+    input_storage_t input_init_vector_storage(max_dimension*dimension, mxGetPr(algorithm_configuration.initial_vectors ));
+    input_matrix_t input_init_vector_data(max_dimension, dimension, input_init_vector_storage);
+    size_t index = 0;
+    for(const_input_row_iter_t it(input_init_vector_data, 0), ite(input_init_vector_data, max_dimension);
+        it != ite;
+        ++it)
+    {
+      init_vectors[index++] = *it;
+    }
+    
+  }
 
   return instance.batch_process(
     max_iterations,
@@ -165,7 +184,8 @@ bool robust_pca_dispatch(
     const_input_row_iter_t(input_data, 0),
     const_input_row_iter_t(input_data, input_data.size1()),
     temporary_data.begin(),
-    output_row_iter_t(output_eigen_vectors, 0));
+    output_row_iter_t(output_eigen_vectors, 0),
+    algorithm_configuration.initial_vectors ? &init_vectors: 0);
 
 
 }
@@ -241,7 +261,22 @@ bool robust_pca_trimming_dispatch(
     }
   }
 
-
+  // initialisation vector if given
+  std::vector<data_t> init_vectors;
+  if(algorithm_configuration.initial_vectors != 0)
+  { 
+    init_vectors.resize(max_dimension);
+    input_storage_t input_init_vector_storage(max_dimension*dimension, mxGetPr(algorithm_configuration.initial_vectors ));
+    input_matrix_t input_init_vector_data(max_dimension, dimension, input_init_vector_storage);
+    size_t index = 0;
+    for(const_input_row_iter_t it(input_init_vector_data, 0), ite(input_init_vector_data, max_dimension);
+        it != ite;
+        ++it)
+    {
+      init_vectors[index++] = *it;
+    }
+    
+  }
 
 
   return instance.batch_process(
@@ -250,7 +285,8 @@ bool robust_pca_trimming_dispatch(
     const_input_row_iter_t(input_data, 0),
     const_input_row_iter_t(input_data, input_data.size1()),
     temporary_data.begin(),
-    output_row_iter_t(output_eigen_vectors, 0));
+    output_row_iter_t(output_eigen_vectors, 0),
+    algorithm_configuration.initial_vectors ? &init_vectors: 0);
 
 
 }
@@ -301,8 +337,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   size_t &max_chunk_size = config.max_chunk_size;
   size_t &nb_iterations_max = config.max_iterations;
   size_t &nb_processing_threads = config.nb_processors;
+  mxArray*& init_directions = config.initial_vectors;
 
   size_t dimension = columns;
+  init_directions  = 0;
 
 
   // third argument is the optional trimming percentage
@@ -381,6 +419,33 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
       max_dimension = static_cast<size_t>(mxGetScalar(nb_max_dimensions) + 0.5);
     }
+
+    init_directions = mxGetField(algorithmConfiguration, 0, "init");
+    if(init_directions != 0)
+    {
+      if (!mxIsDouble(init_directions) && !mxIsSingle(init_directions))
+      {
+        mexErrMsgTxt("Unsupported input format for initial directions (floating point required)");
+      }
+      if(mxIsComplex(init_directions))
+      {
+        mexErrMsgTxt("Unsupported format for initial directions (scalar data required)");
+      }
+      
+      if(mxGetM(init_directions) != dimension)
+      {
+        mexErrMsgTxt("Error in the dimension of the initial values");
+      }
+
+      if(mxGetN(init_directions) != max_dimension)
+      {
+        mexErrMsgTxt("Error in the number of the initial values provided. Should be equal to \"max_dimensions\"");
+      }
+      
+    }
+
+    
+    
   }
 
 
