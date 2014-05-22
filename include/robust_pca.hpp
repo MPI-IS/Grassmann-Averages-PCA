@@ -32,6 +32,9 @@
 #include <sstream>
 
 
+#define RPCA_INFO_DEBUG(k) k
+//#define RPCA_INFO_DEBUG(k) 
+
 namespace robust_pca
 {
 
@@ -121,9 +124,9 @@ namespace robust_pca
       
       ~asynchronous_chunks_processor()
       {
-        std::cout << name;
-        std::cout << "\tnb calls " << nb_calls << std::endl;
-        std::cout << "\tnb sign change " << nb_sign_change << std::endl;
+        RPCA_INFO_DEBUG(std::cout << name);
+        RPCA_INFO_DEBUG(std::cout << "\tnb calls " << nb_calls << std::endl);
+        RPCA_INFO_DEBUG(std::cout << "\tnb sign change " << nb_sign_change << std::endl);
         delete [] p_c_matrix;
       }
 
@@ -581,7 +584,7 @@ namespace robust_pca
           mu /= norm_op(mu);
         }
         
-        std::cout << "dim " << current_dimension << " iter " << iterations << std::endl;
+        RPCA_INFO_DEBUG(std::cout << "dim " << current_dimension << " iter " << iterations << std::endl);
 
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
