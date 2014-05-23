@@ -865,10 +865,12 @@ namespace robust_pca
       //! Initialises the internal state of the bounds
       void init_bounds()
       {
+        lower_kfirst.resize(data_dimension);
+        upper_kfirst.resize(data_dimension);
         for(size_t d = 0; d < data_dimension; d++)
         {
-          lower_kfirst.reserve(nb_elements_to_keep);
-          upper_kfirst.reserve(nb_elements_to_keep);
+          lower_kfirst[d].reserve(nb_elements_to_keep);
+          upper_kfirst[d].reserve(nb_elements_to_keep);
         }
         temporary_for_merge.reserve(nb_elements_to_keep);
       }
@@ -1007,13 +1009,32 @@ namespace robust_pca
         {
           assert(upper_bound.empty());
           lower_bound.assign(begin, kth_element);
-          upper_bound.assign(std::reverse_iterator<scalar_t const *>(kth_element), std::reverse_iterator<scalar_t const *>(begin));
+          //upper_bound.assign(std::reverse_iterator<scalar_t const *>(kth_element), std::reverse_iterator<scalar_t const *>(begin));
           //scalar_t *current = &upper_bound[0];
           //for(scalar_t const *kk(kth_element - 1)); kk >= begin; kk--, current++)
           //{
           //  *current = *kk;
           //}
           
+        }
+        else if(upper_bound.empty())
+        {
+          assert(lower_bound.size() < 2*nb_elements_to_keep);
+          temporary_for_merge.resize(std::distance(begin, kth_element) + lower_bound.size());
+          std::merge(lower_bound.begin(), lower_bound.end(), begin, kth_element, temporary_for_merge.begin());
+          if(temporary_for_merge.size() >= 2 * nb_elements_to_keep)
+          {
+            // we can now partition the space
+            lower_bound.assign(temporary_for_merge.begin(), temporary_for_merge.begin() + nb_elements_to_keep);
+            upper_bound.assign(
+              temporary_for_merge.rbegin(),
+              temporary_for_merge.rbegin() + nb_elements_to_keep);
+          }
+          else
+          {
+            // the other one is kept empty on purpose
+            lower_bound.swap(temporary_for_merge);
+          }
         }
         else
         {
@@ -1034,8 +1055,9 @@ namespace robust_pca
       void get_current_bounds(size_t current_dimension, scalar_t &lower_bound, scalar_t &upper_bound)
       {
         lock_t guard(parent_type::internal_mutex);
-        lower_bound = lower_kfirst[current_dimension].empty() ? boost::numeric::bounds<scalar_t>::lowest() : lower_kfirst[current_dimension].back();
-        upper_bound = upper_kfirst[current_dimension].empty() ? boost::numeric::bounds<scalar_t>::highest() : upper_kfirst[current_dimension].back();
+        bool one_empty = lower_kfirst[current_dimension].empty() || upper_kfirst[current_dimension].empty();
+        lower_bound = one_empty ? boost::numeric::bounds<scalar_t>::lowest()  : lower_kfirst[current_dimension].back();
+        upper_bound = one_empty ? boost::numeric::bounds<scalar_t>::highest() : upper_kfirst[current_dimension].back();
       }
 
       
