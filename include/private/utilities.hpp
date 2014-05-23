@@ -19,6 +19,7 @@
 
 #include <boost/asio/io_service.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 
 
 #include <boost/random/uniform_real_distribution.hpp>
@@ -308,7 +309,9 @@ namespace robust_pca
         typedef result_type_ result_type;
 
       protected:
-        mutable boost::mutex internal_mutex;        //!< mutex for thread safety
+        typedef boost::recursive_mutex mutex_t;
+        typedef boost::lock_guard<mutex_t> lock_t;
+        mutable mutex_t internal_mutex;        //!< mutex for thread safety
         //! Holds the current value of the merge.
         //! This variable is constantly updated as chunk processed finish. 
         result_type current_value;                  
@@ -325,7 +328,7 @@ namespace robust_pca
         volatile int nb_updates;
 
         //! Thread synchronisation (event sent after an update, for counting).
-        boost::condition_variable condition_;
+        boost::condition_variable_any condition_;
 
       public:
 
@@ -364,7 +367,7 @@ namespace robust_pca
          */
         void update(result_type const& updated_value)
         {
-          boost::lock_guard<boost::mutex> guard(internal_mutex);
+          lock_t guard(internal_mutex);
           merger_instance(current_value, updated_value);
         }
 
@@ -376,7 +379,7 @@ namespace robust_pca
          */
         void notify()
         {
-          boost::lock_guard<boost::mutex> guard(internal_mutex);
+          lock_t guard(internal_mutex);
           nb_updates ++;
           condition_.notify_one();
         }
@@ -386,7 +389,7 @@ namespace robust_pca
         //!@warning if an inappropriate number is given, the method might never return.
         bool wait_notifications(size_t nb_notifications)
         {
-          boost::unique_lock<boost::mutex> lock(internal_mutex);
+          boost::unique_lock<mutex_t> lock(internal_mutex);
           while (nb_updates < nb_notifications)
           {
             // when entering wait, the lock is unlocked and made available to other threads.

@@ -453,6 +453,7 @@ namespace robust_pca
       connector_bounds_init_t signal_bounds_init;
       connector_bounds_update_t signal_lower_bounds;
       connector_bounds_update_t signal_upper_bounds;
+      connector_bounds_update_t signal_sorted_bounds;
 
  
       //! The matrix containing a copy of the data
@@ -600,6 +601,10 @@ namespace robust_pca
         return signal_upper_bounds;
       }
       
+      connector_bounds_update_t& connector_sorted_bound()
+      {
+        return signal_sorted_bounds;
+      }
 
       //! Computes the bounds of the current subset
       void compute_bounds(data_t const &mu)
@@ -632,30 +637,56 @@ namespace robust_pca
 
             signal_bounds_init(current_dimension, current_min, current_max);
            
-            current_dimension_sort.clear(); // the reserved size remains 
-            
-            for(size_t s = 0; s < nb_elements; s++)
+            if(current_min == boost::numeric::bounds<scalar_t>::lowest() || current_max == boost::numeric::bounds<scalar_t>::highest())
             {
-              bool sign = out[s] >= 0;
-              scalar_t v(sign ? current_line[s]: -current_line[s]);
-              if(v < current_min || v > current_max)
-                continue;
-              current_dimension_sort.push_back(v);
+              // bounds do not exist already, we take everything, we do not forget to take into account the sign
+              current_dimension_sort.resize(nb_elements);
+              for(size_t s = 0; s < nb_elements; s++)
+              {
+                bool sign = out[s] >= 0;
+                scalar_t v(sign ? current_line[s]: -current_line[s]);
+                current_dimension_sort[s] = v;
+              }
+            }
+            else
+            {
+              current_dimension_sort.clear(); // the reserved size remains 
+            
+              for(size_t s = 0; s < nb_elements; s++)
+              {
+                bool sign = out[s] >= 0;
+                scalar_t v(sign ? current_line[s]: -current_line[s]);
+                if(v < current_min || v > current_max)
+                  continue;
+                current_dimension_sort.push_back(v);
+              }
             }
             
-            
+
+            if(current_dimension_sort.empty())
+            {
+              continue;
+            }
+
             scalar_t *begin(&*current_dimension_sort.begin());
             scalar_t *end(begin + current_dimension_sort.size());
-            scalar_t *k_first(std::min(begin + nb_elements_to_keep, end));
+            if(nb_elements_to_keep >= current_dimension_sort.size())
+            {
+              std::sort(current_dimension_sort.begin(), current_dimension_sort.end());
+              signal_sorted_bounds(current_dimension, begin, end);
+            }
+            else
+            {
+              scalar_t *k_first(std::min(begin + nb_elements_to_keep, end));
 
-            std::partial_sort(begin, k_first, end); // nth element would be faster but the merge would be longer.
-            signal_lower_bounds(current_dimension, begin, k_first);
+              std::partial_sort(begin, k_first, end); // nth element would be faster but the merge would be longer.
+              signal_lower_bounds(current_dimension, begin, k_first);
             
-            begin = k_first;
-            k_first = std::min(begin + nb_elements_to_keep, end); 
-            std::partial_sort(begin, k_first, end, std::greater<scalar_t>());
-            signal_upper_bounds(current_dimension, begin, k_first);
-            
+              begin = k_first;
+              k_first = std::min(begin + nb_elements_to_keep, end); 
+              std::partial_sort(begin, k_first, end, std::greater<scalar_t>());
+              signal_upper_bounds(current_dimension, begin, k_first);
+            }
           }
         }
 
@@ -782,7 +813,6 @@ namespace robust_pca
       >
     {
     public:
-      typedef details::s_double_heap_vector<data_t> bounds_accumulator_t;
       typedef std::pair<data_t, count_vector_t> accumulator_t;
 
     private:
@@ -790,7 +820,6 @@ namespace robust_pca
       typedef details::merger_addition_with_count<data_t, count_vector_t> merger_type;
 
 
-      bounds_accumulator_t bounds;
       const size_t data_dimension;
       
       typedef std::vector<scalar_t> v_kfirst_bound_t;
@@ -820,6 +849,12 @@ namespace robust_pca
         nb_elements_to_keep(0)
       {}
 
+      void set_nb_elements_to_keep(size_t nb_elements_to_keep_)
+      {
+        nb_elements_to_keep = nb_elements_to_keep_;
+      }
+
+
       //! Initializes the internal states
       void init()
       {
@@ -830,9 +865,6 @@ namespace robust_pca
       //! Initialises the internal state of the bounds
       void init_bounds()
       {
-        bounds.set_dimension(data_dimension);
-        bounds.clear();
-        
         for(size_t d = 0; d < data_dimension; d++)
         {
           lower_kfirst.reserve(nb_elements_to_keep);
@@ -844,7 +876,15 @@ namespace robust_pca
       //! Empties the structures related to the computation of the bounds.
       void clear_bounds()
       {
-        bounds.clear_all();
+        {
+          v_kfirst_bound_collection_t dummy;
+          lower_kfirst.swap(dummy);
+        }
+
+        {
+          v_kfirst_bound_collection_t dummy;
+          upper_kfirst.swap(dummy);
+        }
       }
 
 
@@ -857,35 +897,35 @@ namespace robust_pca
        */
       void update_bounds(bounds_accumulator_t const& new_bounds)
       {
-        boost::lock_guard<boost::mutex> guard(parent_type::internal_mutex);
+        lock_t guard(parent_type::internal_mutex);
         bounds.merge(new_bounds);
       }
 #endif 
       
-      template <class order_t>
-      void update_bounds_with_ordered_container(v_kfirst_bound_t& container, scalar_t const *begin, scalar_t const *kth_element)
+      template <class order_t, class random_it_t>
+      void update_bounds_with_ordered_container(v_kfirst_bound_t& container, random_it_t begin, random_it_t kth_element)
       {
-        boost::lock_guard<boost::mutex> guard(parent_type::internal_mutex);
         
         if(begin == kth_element)
         {
           return;
         }
-        
+
+        lock_t guard(parent_type::internal_mutex);
         assert(begin < kth_element);
-        
+
         if(container.empty())
         {
           container.assign(begin, kth_element);
         }
-        else if(begin != kth_element)
+        else
         {
           order_t order_op;
           if(order_op(container.back(), *begin))
           {
             // do nothing
           }
-          else if(order_op(*(kth_element-1), container.front()))
+          else if(order_op(*(kth_element - 1), container.front()))
           {
             // swap
             container.assign(begin, kth_element);
@@ -896,10 +936,10 @@ namespace robust_pca
             // this one is custom because we want to keep only the kfirst
             typename v_kfirst_bound_t::iterator it(container.begin());
             typename v_kfirst_bound_t::iterator ite(container.end());
-            temporary_for_merge.resize(std::max<size_t>(container.size(), kth_element - begin));
+            temporary_for_merge.resize(std::min<size_t>(container.size() + (kth_element - begin), nb_elements_to_keep));
             typename v_kfirst_bound_t::iterator ito(temporary_for_merge.begin());
             size_t c = 0;
-            
+
             for(; c < nb_elements_to_keep && it < ite && begin < kth_element; c++)
             {
               if(order_op(*begin, *it))
@@ -911,8 +951,8 @@ namespace robust_pca
                 *ito++ = *it++;
               }
             }
-            
-            
+
+
             if(c < nb_elements_to_keep)
             {
               if(it == ite)
@@ -921,7 +961,7 @@ namespace robust_pca
                 {
                   *ito = *begin;
                 }
-                
+
               }
               else
               {
@@ -931,11 +971,11 @@ namespace robust_pca
                 }
               }
             }
-            
+
             temporary_for_merge.swap(container);
           }
         }
-        
+
       }
 
       void update_lower_bounds(size_t current_dimension, scalar_t const *begin, scalar_t const *kth_element)
@@ -948,22 +988,71 @@ namespace robust_pca
         update_bounds_with_ordered_container< std::greater<scalar_t> >(upper_kfirst[current_dimension], begin, kth_element);
       }
 
+      // sorted ascending order
+      void update_sorted_bounds(size_t current_dimension, scalar_t const *begin, scalar_t const *kth_element)
+      {
+
+        if(begin == kth_element)
+        {
+          return;
+        }
+
+        lock_t guard(parent_type::internal_mutex);
+        assert(begin < kth_element);
+
+        v_kfirst_bound_t& upper_bound = upper_kfirst[current_dimension];
+        v_kfirst_bound_t& lower_bound = lower_kfirst[current_dimension];
+
+        if(lower_bound.empty())
+        {
+          assert(upper_bound.empty());
+          lower_bound.assign(begin, kth_element);
+          upper_bound.assign(std::reverse_iterator<scalar_t const *>(kth_element), std::reverse_iterator<scalar_t const *>(begin));
+          //scalar_t *current = &upper_bound[0];
+          //for(scalar_t const *kk(kth_element - 1)); kk >= begin; kk--, current++)
+          //{
+          //  *current = *kk;
+          //}
+          
+        }
+        else
+        {
+          update_bounds_with_ordered_container< std::less<scalar_t> >(
+            lower_bound, 
+            begin, 
+            kth_element);
+          update_bounds_with_ordered_container< std::greater<scalar_t> >(
+            upper_bound, 
+            std::reverse_iterator<scalar_t const *>(kth_element), 
+            std::reverse_iterator<scalar_t const *>(begin));
+        }
+        
+      }
+
+
 
       void get_current_bounds(size_t current_dimension, scalar_t &lower_bound, scalar_t &upper_bound)
       {
-        boost::lock_guard<boost::mutex> guard(parent_type::internal_mutex);
-        lower_bound = lower_kfirst[current_dimension].empty() ? boost::numeric::bounds<scalar_t>::highest() : lower_kfirst[current_dimension].back();
-        upper_bound = upper_kfirst[current_dimension].empty() ? boost::numeric::bounds<scalar_t>::lowest() : upper_kfirst[current_dimension].back();
-
+        lock_t guard(parent_type::internal_mutex);
+        lower_bound = lower_kfirst[current_dimension].empty() ? boost::numeric::bounds<scalar_t>::lowest() : lower_kfirst[current_dimension].back();
+        upper_bound = upper_kfirst[current_dimension].empty() ? boost::numeric::bounds<scalar_t>::highest() : upper_kfirst[current_dimension].back();
       }
 
       
 
 
       //! Returns the bound merged from all workers.
-      bounds_accumulator_t const& get_computed_bounds() const
+      void get_computed_bounds(std::vector<scalar_t>& lower_bound, std::vector<scalar_t>& upper_bound) const
       {
-        return bounds;
+        lower_bound.resize(data_dimension);
+        upper_bound.resize(data_dimension);
+        for(size_t s = 0;
+            s < data_dimension;
+            s++)
+        {
+          lower_bound[s] = lower_kfirst[s].back();
+          upper_bound[s] = upper_kfirst[s].back();
+        }
       }
     };
 
@@ -1127,6 +1216,7 @@ namespace robust_pca
       std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_results_merger async_merger(number_of_dimensions);
+      async_merger.set_nb_elements_to_keep(K_elements);
 
       {
         bool b_result;
@@ -1200,6 +1290,16 @@ namespace robust_pca
               _1, _2, _3
             )
           );
+
+          current_acc_object.connector_sorted_bound().connect(
+            boost::bind(
+              &asynchronous_results_merger::update_sorted_bounds,
+              &async_merger, 
+              _1, _2, _3
+            )
+          );
+
+
           current_acc_object.connector_counter().connect(
             boost::bind(&asynchronous_results_merger::notify, &async_merger));
 
@@ -1247,8 +1347,8 @@ namespace robust_pca
 
 
           // gathering the new bounds
-          typename asynchronous_results_merger::bounds_accumulator_t const& bounds_acc = async_merger.get_computed_bounds();
-          bounds_acc.extract_bounds(v_min_threshold, v_max_threshold);
+          async_merger.get_computed_bounds(v_min_threshold, v_max_threshold);
+          
 
           // clearing the bounds
           async_merger.clear_bounds();
