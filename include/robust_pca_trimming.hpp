@@ -836,6 +836,7 @@ namespace robust_pca
         accumulator_t,
         merger_type, 
         data_init_type> parent_type;
+      typedef typename parent_type::lock_t lock_t;
 
       /*!Constructor
        *
