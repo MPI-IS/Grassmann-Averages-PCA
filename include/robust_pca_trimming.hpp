@@ -426,7 +426,6 @@ namespace robust_pca
 
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
-    template <class container_iterator_t>
     struct s_robust_pca_trimmed_processor_inner_products
     {
     private:
@@ -507,6 +506,7 @@ namespace robust_pca
       }
       
       //! Sets the data range
+      template <class container_iterator_t>
       bool set_data_range(container_iterator_t const &b, container_iterator_t const& e)
       {
         if(data_dimension <= 0)
@@ -591,9 +591,9 @@ namespace robust_pca
       
       void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, typename data_t::value_type* p_data)
       {
+
+#if 0
         std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-        //std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - 2*nb_elements_to_keep-1, p_data + nb_total_elements - nb_elements_to_keep-1);
-        
         const typename data_t::value_type min_value = p_data[nb_elements_to_keep];
         std::nth_element (p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements, std::greater<typename data_t::value_type>());
         const typename data_t::value_type max_value = p_data[nb_elements_to_keep];
@@ -607,12 +607,16 @@ namespace robust_pca
           if(p_data[i] >= min_value && p_data[i] <= max_value)
             acc += p_data[i];
         }
-        //double acc2 = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - 2*nb_elements_to_keep, 0.);
+#endif
+
+        std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
+        std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
+        double acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, 0.);
         
         accumulator_element_t result;
         result.dimension = dimension;
         result.value = acc;
-        result.nb_elements = nb_elements_acc;
+        result.nb_elements = nb_total_elements - 2*nb_elements_to_keep;
         // signals the update
         signal_acc_dimension(result);
         // signals the main merger
@@ -744,13 +748,12 @@ namespace robust_pca
      * - @c !(it >= ite)
      * - all the vectors given by the iterators pair should be of the same size (no check is performed).
      */
-    template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
+    template <class it_t, class it_o_eigenvalues_t>
     bool batch_process(
       const size_t max_iterations,
       size_t max_dimension_to_compute,
       it_t const it,
       it_t const ite,
-      it_o_projected_vectors const it_projected,
       it_o_eigenvalues_t it_eigenvectors,
       std::vector<data_t> const * initial_guess = 0)
     {
@@ -781,17 +784,7 @@ namespace robust_pca
 
       // contains the number of elements. In case the iterator is random access, could be deduced simply 
       // by a call to distance.
-      size_t size_data(0);
-
-      // copy of the vectors. This should be avoided if the containers are of the same type and for the first iteration. 
-      // The vectors are copied into the temporary container. During the copy, the percentiles are computed.
-      it_o_projected_vectors it_tmp_projected(it_projected);
-      for(it_t it_copy(it); it_copy != ite; ++it_copy , ++it_tmp_projected, size_data++)
-      {
-        *it_tmp_projected = *it_copy;
-      }
-
-      assert(size_data == std::distance(it, ite)); // the iterators have to be random access anyway
+      const size_t size_data(std::distance(it, ite));
 
       // size of the chunks.
       const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(size_data/nb_processors));
@@ -836,7 +829,7 @@ namespace robust_pca
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
-      typedef s_robust_pca_trimmed_processor_inner_products<it_o_projected_vectors> async_processor_t;
+      typedef s_robust_pca_trimmed_processor_inner_products async_processor_t;
       std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_results_merger async_merger(number_of_dimensions);
@@ -844,11 +837,11 @@ namespace robust_pca
 
       {
         bool b_result;
-        it_o_projected_vectors it_current_begin(it_projected);
+        it_t it_current_begin(it);
         for(int i = 0; i < nb_chunks; i++)
         {
           // setting the range
-          it_o_projected_vectors it_current_end;
+          it_t it_current_end;
           if(i == nb_chunks - 1)
           {
             // just in case the division giving the chunk has some rounding (the parenthesis are important

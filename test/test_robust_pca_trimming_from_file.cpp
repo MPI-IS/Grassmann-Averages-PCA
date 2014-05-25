@@ -29,10 +29,10 @@ std::string filename_eigen_vectors;
 std::string filename_expected_result;
 
 
-struct MyConfig
+struct ConfigurationFiles
 {
 
-  MyConfig()
+  ConfigurationFiles()
   {
     int argc  = boost::unit_test::framework::master_test_suite().argc;
     char**argv= boost::unit_test::framework::master_test_suite().argv;
@@ -66,13 +66,9 @@ struct MyConfig
       }
     }
   }
-  ~MyConfig()
-  {
-    std::cout << "global teardown\n";
-  }
 };
 
-BOOST_GLOBAL_FIXTURE( MyConfig );
+BOOST_GLOBAL_FIXTURE( ConfigurationFiles );
 
 
 
@@ -168,6 +164,16 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
     v_eigenvectors_init.push_back(ub::column(mat_vectors, i));
   }
 
+  std::cout << std::endl << "Reading expected result" << std::endl;
+  std::vector<data_t> v_known_result;
+  matrix_t mat_result;
+  BOOST_REQUIRE(read_matrix(filename_expected_result, mat_result));
+  for(int i = 0; i < mat_vectors.size2(); i++)
+  {
+    v_known_result.push_back(ub::column(mat_result, i));
+  }
+
+
   const size_t nb_elements = mat_data.size1();
   const size_t dimensions = mat_data.size2();
   std::cout << std::endl << "Data: dimensions = " << dimensions << " #elements = " << nb_elements << std::endl;
@@ -175,7 +181,6 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 
   const size_t max_dimensions = mat_vectors.size2();
 
-  std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(max_dimensions);
   const int max_iterations = 1000;
 
@@ -190,13 +195,12 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
     max_dimensions,
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
-    temporary_data.begin(),
     eigen_vectors.begin(),
     &v_eigenvectors_init));
   elapsed = clock_type::now() - start;
   
   std::cout << "processing " << nb_elements << " elements "
-    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
+    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << std::endl;
 
 
   // testing the output sizes
@@ -223,5 +227,11 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
     BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
   }
 
+  // testing for coherence with matlab
+  for(int i = 0; i < max_dimensions; i++)
+  {
+    details::norm_infinity norm;
+    BOOST_CHECK_LE(norm(eigen_vectors[i] - v_known_result[i]), 1E-2);
+  }
 
 }
