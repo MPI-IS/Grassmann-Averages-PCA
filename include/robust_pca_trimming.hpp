@@ -592,10 +592,22 @@ namespace robust_pca
       void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, typename data_t::value_type* p_data)
       {
         std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-        std::nth_element(p_data + nb_elements_to_keep, p_data + nb_total_elements - 2*nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep);
+        //std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - 2*nb_elements_to_keep-1, p_data + nb_total_elements - nb_elements_to_keep-1);
         
+        const typename data_t::value_type min_value = p_data[nb_elements_to_keep];
+        std::nth_element (p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements, std::greater<typename data_t::value_type>());
+        const typename data_t::value_type max_value = p_data[nb_elements_to_keep];
+
+
         size_t nb_elements_acc = nb_total_elements - 2*nb_elements_to_keep;
-        double acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, 0.);
+
+        double acc = 0;
+        for(int i = 0; i < nb_total_elements; i++)
+        {
+          if(p_data[i] >= min_value && p_data[i] <= max_value)
+            acc += p_data[i];
+        }
+        //double acc2 = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - 2*nb_elements_to_keep, 0.);
         
         accumulator_element_t result;
         result.dimension = dimension;
