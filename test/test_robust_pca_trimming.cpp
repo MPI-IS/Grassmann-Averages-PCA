@@ -387,7 +387,7 @@ std::vector<T>* readLines(std::istream& str)
   return result;
 }
 
-#if 0
+#if 1
 
 BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 {
@@ -405,7 +405,7 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 
   typedef ub::vector<double> data_t;
 
-  std::string const filename_to_read = "D:/Code/mat_test.csv";
+  std::string const filename_to_read = "/Users/raffi/Code/robust_pca/test/mat_test.csv";
   std::ifstream ff(filename_to_read.c_str());
 
   std::vector< std::vector<double>* > read_vectors;

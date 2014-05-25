@@ -22,8 +22,9 @@
 #include <boost/bind.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/signals2.hpp>
+#include <numeric>
 
-
+#include <boost/scoped_array.hpp>
 
 // utilities
 #include <include/private/utilities.hpp>
@@ -303,6 +304,29 @@ namespace robust_pca
       }
     };
 
+    struct s_dimension_update
+    {
+      size_t dimension;
+      double value;
+      size_t nb_elements;
+    };
+
+    //! Adaptation of merger_addition concept for accumulator and count at the same time.
+    //! 
+    //! The trimmed version of the robust pca algorithm may strip some element along each dimension. 
+    //! In order to compute the @f$\mu@f$ properly, the count should also be transfered.
+    template <class data_t, class count_t>
+    struct merger_addition_specific_dimension
+    {
+      typedef std::pair<data_t, count_t> input_t;
+      bool operator()(input_t &current_state, s_dimension_update const& update_value) const
+      {
+        current_state.first(update_value.dimension) += update_value.value;
+        current_state.second(update_value.dimension) += update_value.nb_elements;
+        return true;
+      }
+    };
+
 
     //! Adaptation of initialisation_vector_specific_dimension concept for accumulation and count.
     //! 
@@ -403,57 +427,26 @@ namespace robust_pca
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
     template <class container_iterator_t>
-    struct s_robust_pca_trimmed_processor
+    struct s_robust_pca_trimmed_processor_inner_products
     {
     private:
-      //! Iterators on the beginning and end of the current dataset
-      //container_iterator_t begin, end;
-
       //! Scalar type of the data
       typedef typename data_t::value_type scalar_t;
       
-      
-      typedef std::pair<data_t, count_vector_t> accumulator_t;
-      details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t> initialisation_object;
+      typedef details::s_dimension_update accumulator_element_t;
 
-      //typedef details::s_double_heap_vector<data_t> bounds_accumulator_t;
       
       size_t nb_elements;                 //!< The size of the current dataset
       size_t data_dimension;              //!< The dimension of the data
-      int nb_elements_to_keep;            //!< The number of elements to keep.
-      
-      //! The inner product is computed during the computation of the bounds.
-      std::vector<bool> inner_products_results;
-      
-      //! Upper and lower bounds on data computed by the main thread. These vectors
-      //! will be read only and should not be modified during the time they are used.
-      std::vector<double> const *v_min_threshold, *v_max_threshold;
-
-
-      // this is to send an update of the value of the accumulator to all listeners
-      // the connexion should be managed externally
-      typedef boost::signals2::signal<void (accumulator_t const&)> 
-        connector_accumulator_t;
-      
-      //typedef boost::signals2::signal<void (bounds_accumulator_t const&)> 
-      //  connector_bounds_t;
-
-      typedef boost::signals2::signal<void (size_t, scalar_t &, scalar_t &)> 
-        connector_bounds_init_t;
-      
-      typedef boost::signals2::signal<void (size_t, scalar_t const *, scalar_t const *)> 
-        connector_bounds_update_t;
+      size_t nb_elements_to_keep;         //!< The number of elements to keep.
       
       typedef boost::signals2::signal<void ()>
         connector_counter_t;
+      connector_counter_t signal_counter;
 
-      connector_accumulator_t signal_acc;
-      //connector_bounds_t      signal_bounds;
-      connector_counter_t     signal_counter;
-      connector_bounds_init_t signal_bounds_init;
-      connector_bounds_update_t signal_lower_bounds;
-      connector_bounds_update_t signal_upper_bounds;
-      connector_bounds_update_t signal_sorted_bounds;
+      typedef boost::signals2::signal<void (accumulator_element_t const&)> 
+        connector_accumulator_dimension_t;
+      connector_accumulator_dimension_t signal_acc_dimension;
 
  
       //! The matrix containing a copy of the data
@@ -488,27 +481,34 @@ namespace robust_pca
 
 
     public:
-      s_robust_pca_trimmed_processor() : 
-        initialisation_object(0),
+      s_robust_pca_trimmed_processor_inner_products() : 
         nb_elements(0), 
         data_dimension(0), 
         nb_elements_to_keep(0),
-        v_min_threshold(0), 
-        v_max_threshold(0),
         p_c_matrix(0)
       {
       }
 
-      ~s_robust_pca_trimmed_processor()
+      ~s_robust_pca_trimmed_processor_inner_products()
       {
         delete [] p_c_matrix;
+      }
+      
+      
+      //! Returns the connected object that will receive the notification of the end of the current process.
+      connector_counter_t& connector_counter()
+      {
+        return signal_counter;
+      }     
+      
+      connector_accumulator_dimension_t& connector_accumulator()
+      {
+        return signal_acc_dimension;
       }
       
       //! Sets the data range
       bool set_data_range(container_iterator_t const &b, container_iterator_t const& e)
       {
-        //begin = b;
-        //end = e;
         if(data_dimension <= 0)
         {
           return false;
@@ -534,7 +534,6 @@ namespace robust_pca
           
         }
         
-        //inner_products_results.resize(nb_elements);
         inner_prod_results.resize(nb_elements);
         current_dimension_sort.reserve(nb_elements);
         return true;
@@ -545,7 +544,6 @@ namespace robust_pca
       void set_data_dimensions(size_t data_dimensions_)
       {
         assert(data_dimensions_ > 0);
-        initialisation_object.data_dimension = data_dimensions_;
         data_dimension = data_dimensions_;
       }
 
@@ -556,227 +554,54 @@ namespace robust_pca
         nb_elements_to_keep = nb_elements_to_keep_;
       }
 
-      //! Sets the bounds vectors.
-      void set_bounds(
-        std::vector<double> const *min_bounds, 
-        std::vector<double> const *max_bounds)
-      {
-        v_min_threshold = min_bounds;
-        v_max_threshold = max_bounds;
-      }
 
-
-      //! Returns the connected object that will receive the notification of the updated accumulator.
-      connector_accumulator_t& connector_accumulator()
-      {
-        return signal_acc;
-      }
-
-      //! Returns the connected object that will receive the notification of the end of the current process.
-      connector_counter_t& connector_counter()
-      {
-        return signal_counter;
-      }
-
-#if 0
-      //! Returns the connected object that will receive the notification of the updated bounds.
-      connector_bounds_t& connector_bounds()
-      {
-        return signal_bounds;
-      }
-#endif 
-
-      connector_bounds_init_t& connector_bounds_init()
-      {
-        return signal_bounds_init;
-      }
       
-      connector_bounds_update_t& connector_lower_bound()
-      {
-        return signal_lower_bounds;
-      }
-
-      connector_bounds_update_t& connector_upper_bound()
-      {
-        return signal_upper_bounds;
-      }
       
-      connector_bounds_update_t& connector_sorted_bound()
+      void compute_data_matrix(data_t const &mu, typename data_t::value_type* p_out, size_t padding)
       {
-        return signal_sorted_bounds;
-      }
-
-      //! Computes the bounds of the current subset
-      void compute_bounds(data_t const &mu)
-      {
-        if(nb_elements_to_keep == 0)
-        {
-          // in this special case, we do nothing
-          // the bounds should be able to cope with this special case also.
-        }
-        else
-        {
+        // updates the internal inner products
+        compute_inner_products(mu);
         
-          // update of all inner products
-          compute_inner_products(mu);
+        // the current line is spans a particular dimension
+        double *current_line = p_c_matrix;        
 
-          // the current line is spans a particular dimension
-          double *current_line = p_c_matrix;
-          
-          // this spans the inner product results for all dimensions
-          double const * const out = &inner_prod_results[0];
-          
-          
-          // get the current bounds
-          for(size_t current_dimension = 0; 
-              current_dimension < data_dimension; 
-              current_dimension++, current_line += nb_elements)
+        // this spans the inner product results for all dimensions
+        double const * const out = &inner_prod_results[0];
+
+        for(size_t current_dimension = 0; 
+            current_dimension < data_dimension; 
+            current_dimension++, current_line += nb_elements, p_out+= padding)
+        {
+          for(size_t element(0); element < nb_elements; element++)
           {
-            scalar_t current_min = boost::numeric::bounds<scalar_t>::lowest();
-            scalar_t current_max = boost::numeric::bounds<scalar_t>::highest();
-
-            signal_bounds_init(current_dimension, current_min, current_max);
-           
-            if(current_min == boost::numeric::bounds<scalar_t>::lowest() || current_max == boost::numeric::bounds<scalar_t>::highest())
-            {
-              // bounds do not exist already, we take everything, we do not forget to take into account the sign
-              current_dimension_sort.resize(nb_elements);
-              for(size_t s = 0; s < nb_elements; s++)
-              {
-                bool sign = out[s] >= 0;
-                scalar_t v(sign ? current_line[s]: -current_line[s]);
-                current_dimension_sort[s] = v;
-              }
-            }
-            else
-            {
-              current_dimension_sort.clear(); // the reserved size remains 
-            
-              for(size_t s = 0; s < nb_elements; s++)
-              {
-                bool sign = out[s] >= 0;
-                scalar_t v(sign ? current_line[s]: -current_line[s]);
-                if(v < current_min || v > current_max)
-                  continue;
-                current_dimension_sort.push_back(v);
-              }
-            }
-            
-
-            if(current_dimension_sort.empty())
-            {
-              continue;
-            }
-
-            scalar_t *begin(&*current_dimension_sort.begin());
-            scalar_t *end(begin + current_dimension_sort.size());
-            if(nb_elements_to_keep >= current_dimension_sort.size())
-            {
-              std::sort(current_dimension_sort.begin(), current_dimension_sort.end());
-              signal_sorted_bounds(current_dimension, begin, end);
-            }
-            else
-            {
-              scalar_t *k_first(std::min(begin + nb_elements_to_keep, end));
-
-              std::partial_sort(begin, k_first, end); // nth element would be faster but the merge would be longer.
-              signal_lower_bounds(current_dimension, begin, k_first);
-            
-              begin = k_first;
-              k_first = std::min(begin + nb_elements_to_keep, end); 
-              std::partial_sort(begin, k_first, end, std::greater<scalar_t>());
-              signal_upper_bounds(current_dimension, begin, k_first);
-            }
+            p_out[element] = out[element] >= 0 ? current_line[element] : -current_line[element];
           }
+          //memcpy(p_out, current_line, nb_elements * sizeof(typename data_t::value_type));
         }
-
-        // in any case, we signal that we went through this function
+        
+        // signals the main merger
         signal_counter();
       }
-
-
-
-      //! Performs the accumulation, given the boundaries.
-      void accumulation(data_t const &mu)
+      
+      
+      void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, typename data_t::value_type* p_data)
       {
-        accumulator_t accumulator;
-        initialisation_object(accumulator);
-
-        if(nb_elements_to_keep == 0)
-        {
-          // in this case, we recompute the inner products
-          compute_inner_products(mu);
-          
-          for(size_t s = 0; s < nb_elements; s++)
-          {
-            bool sign = inner_prod_results[s] >= 0;
-            
-            double* current_line = p_c_matrix + s;
-            if(sign)
-            {
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
-              {
-                accumulator.first(i) += *current_line;           
-              }
-            }
-            else 
-            {
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
-              {
-                accumulator.first(i) -= *current_line;
-              }
-            }        
-          }
-          
-          
-          for(int i = 0; i < data_dimension; i++)
-          {
-            accumulator.second(i) = nb_elements;
-          }
-          
-
-        }
-        else
-        {
-          // in this case, the inner products were already computed.
-          
-          for(size_t s = 0; s < nb_elements; s++)
-          {
-            bool sign = inner_prod_results[s] >= 0;
-            
-            double* current_line = p_c_matrix + s;
-            if(sign)
-            {
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
-              {
-                scalar_t v = *current_line;
-                if(v >= (*v_min_threshold)[i] && v <= (*v_max_threshold)[i])
-                {
-                  accumulator.first(i) += v;
-                  accumulator.second(i) ++;
-                }                
-              }
-            }
-            else 
-            {
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
-              {
-                scalar_t v = -(*current_line);
-                if(v >= (*v_min_threshold)[i] && v <= (*v_max_threshold)[i])
-                {
-                  accumulator.first(i) += v;
-                  accumulator.second(i) ++;
-                }                
-              }
-            }        
-          }        
-        }
-
-        // posts the new value to the listeners
-        signal_acc(accumulator);
+        std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
+        std::nth_element(p_data + nb_elements_to_keep, p_data + nb_total_elements - 2*nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep);
+        
+        size_t nb_elements_acc = nb_total_elements - 2*nb_elements_to_keep;
+        double acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, 0.);
+        
+        accumulator_element_t result;
+        result.dimension = dimension;
+        result.value = acc;
+        result.nb_elements = nb_elements_acc;
+        // signals the update
+        signal_acc_dimension(result);
+        // signals the main merger
         signal_counter();
       }
-
+      
       //! Project the data onto the orthogonal subspace of the provided vector
       void project_onto_orthogonal_subspace(data_t const &mu)
       {
@@ -808,34 +633,27 @@ namespace robust_pca
     struct asynchronous_results_merger : 
       details::threading::asynchronous_results_merger<
         std::pair<data_t, count_vector_t>,
-        details::merger_addition_with_count<data_t, count_vector_t>,
-        details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t>
+        details::merger_addition_specific_dimension<data_t, count_vector_t>,
+        details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t>,
+        details::s_dimension_update
       >
     {
     public:
-      typedef std::pair<data_t, count_vector_t> accumulator_t;
+      typedef std::pair<data_t, count_vector_t> result_t;
 
     private:
       typedef details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t> data_init_type;
-      typedef details::merger_addition_with_count<data_t, count_vector_t> merger_type;
+      typedef details::merger_addition_specific_dimension<data_t, count_vector_t> merger_type;
 
 
       const size_t data_dimension;
       
-      typedef std::vector<scalar_t> v_kfirst_bound_t;
-      typedef std::vector<v_kfirst_bound_t> v_kfirst_bound_collection_t;
-      
-      v_kfirst_bound_collection_t lower_kfirst;
-      v_kfirst_bound_collection_t upper_kfirst;
-      v_kfirst_bound_t            temporary_for_merge;
-      
-      size_t nb_elements_to_keep;
-
     public:
       typedef details::threading::asynchronous_results_merger<
-        accumulator_t,
+        result_t,
         merger_type, 
-        data_init_type> parent_type;
+        data_init_type,
+        details::s_dimension_update> parent_type;
       typedef typename parent_type::lock_t lock_t;
 
       /*!Constructor
@@ -844,239 +662,9 @@ namespace robust_pca
        */
       asynchronous_results_merger(size_t data_dimension_) : 
         parent_type(data_init_type(data_dimension_)),
-        data_dimension(data_dimension_),
-        lower_kfirst(data_dimension_),
-        upper_kfirst(data_dimension_),
-        nb_elements_to_keep(0)
+        data_dimension(data_dimension_)
       {}
 
-      void set_nb_elements_to_keep(size_t nb_elements_to_keep_)
-      {
-        nb_elements_to_keep = nb_elements_to_keep_;
-      }
-
-
-      //! Initializes the internal states
-      void init()
-      {
-        parent_type::init();
-        init_bounds();
-      }
-
-      //! Initialises the internal state of the bounds
-      void init_bounds()
-      {
-        lower_kfirst.resize(data_dimension);
-        upper_kfirst.resize(data_dimension);
-        for(size_t d = 0; d < data_dimension; d++)
-        {
-          lower_kfirst[d].reserve(nb_elements_to_keep);
-          upper_kfirst[d].reserve(nb_elements_to_keep);
-        }
-        temporary_for_merge.reserve(nb_elements_to_keep);
-      }
-
-      //! Empties the structures related to the computation of the bounds.
-      void clear_bounds()
-      {
-        {
-          v_kfirst_bound_collection_t dummy;
-          lower_kfirst.swap(dummy);
-        }
-
-        {
-          v_kfirst_bound_collection_t dummy;
-          upper_kfirst.swap(dummy);
-        }
-      }
-
-
-
-#if 0
-
-      /*! Receives the updated value of the bounds from each worker.
-       * 
-       *  @note The call is thread safe.
-       */
-      void update_bounds(bounds_accumulator_t const& new_bounds)
-      {
-        lock_t guard(parent_type::internal_mutex);
-        bounds.merge(new_bounds);
-      }
-#endif 
-      
-      template <class order_t, class random_it_t>
-      void update_bounds_with_ordered_container(v_kfirst_bound_t& container, random_it_t begin, random_it_t kth_element)
-      {
-        
-        if(begin == kth_element)
-        {
-          return;
-        }
-
-        lock_t guard(parent_type::internal_mutex);
-        assert(begin < kth_element);
-
-        if(container.empty())
-        {
-          container.assign(begin, kth_element);
-        }
-        else
-        {
-          order_t order_op;
-          if(order_op(container.back(), *begin))
-          {
-            // do nothing
-          }
-          else if(order_op(*(kth_element - 1), container.front()))
-          {
-            // swap
-            container.assign(begin, kth_element);
-          }
-          else
-          {
-            // merge
-            // this one is custom because we want to keep only the kfirst
-            typename v_kfirst_bound_t::iterator it(container.begin());
-            typename v_kfirst_bound_t::iterator ite(container.end());
-            temporary_for_merge.resize(std::min<size_t>(container.size() + (kth_element - begin), nb_elements_to_keep));
-            typename v_kfirst_bound_t::iterator ito(temporary_for_merge.begin());
-            size_t c = 0;
-
-            for(; c < nb_elements_to_keep && it < ite && begin < kth_element; c++)
-            {
-              if(order_op(*begin, *it))
-              {
-                *ito++ = *begin++;
-              }
-              else
-              {
-                *ito++ = *it++;
-              }
-            }
-
-
-            if(c < nb_elements_to_keep)
-            {
-              if(it == ite)
-              {
-                for(; c < nb_elements_to_keep && begin < kth_element; c++, ++begin, ++ito)
-                {
-                  *ito = *begin;
-                }
-
-              }
-              else
-              {
-                for(; c < nb_elements_to_keep && it < ite; c++, ++it, ++ito)
-                {
-                  *ito = *it;
-                }
-              }
-            }
-
-            temporary_for_merge.swap(container);
-          }
-        }
-
-      }
-
-      void update_lower_bounds(size_t current_dimension, scalar_t const *begin, scalar_t const *kth_element)
-      {
-        update_bounds_with_ordered_container< std::less<scalar_t> >(lower_kfirst[current_dimension], begin, kth_element);
-      }
-
-      void update_upper_bounds(size_t current_dimension, scalar_t const *begin, scalar_t const *kth_element)
-      {
-        update_bounds_with_ordered_container< std::greater<scalar_t> >(upper_kfirst[current_dimension], begin, kth_element);
-      }
-
-      // sorted ascending order
-      void update_sorted_bounds(size_t current_dimension, scalar_t const *begin, scalar_t const *kth_element)
-      {
-
-        if(begin == kth_element)
-        {
-          return;
-        }
-
-        lock_t guard(parent_type::internal_mutex);
-        assert(begin < kth_element);
-
-        v_kfirst_bound_t& upper_bound = upper_kfirst[current_dimension];
-        v_kfirst_bound_t& lower_bound = lower_kfirst[current_dimension];
-
-        if(lower_bound.empty())
-        {
-          assert(upper_bound.empty());
-          lower_bound.assign(begin, kth_element);
-          //upper_bound.assign(std::reverse_iterator<scalar_t const *>(kth_element), std::reverse_iterator<scalar_t const *>(begin));
-          //scalar_t *current = &upper_bound[0];
-          //for(scalar_t const *kk(kth_element - 1)); kk >= begin; kk--, current++)
-          //{
-          //  *current = *kk;
-          //}
-          
-        }
-        else if(upper_bound.empty())
-        {
-          assert(lower_bound.size() < 2*nb_elements_to_keep);
-          temporary_for_merge.resize(std::distance(begin, kth_element) + lower_bound.size());
-          std::merge(lower_bound.begin(), lower_bound.end(), begin, kth_element, temporary_for_merge.begin());
-          if(temporary_for_merge.size() >= 2 * nb_elements_to_keep)
-          {
-            // we can now partition the space
-            lower_bound.assign(temporary_for_merge.begin(), temporary_for_merge.begin() + nb_elements_to_keep);
-            upper_bound.assign(
-              temporary_for_merge.rbegin(),
-              temporary_for_merge.rbegin() + nb_elements_to_keep);
-          }
-          else
-          {
-            // the other one is kept empty on purpose
-            lower_bound.swap(temporary_for_merge);
-          }
-        }
-        else
-        {
-          update_bounds_with_ordered_container< std::less<scalar_t> >(
-            lower_bound, 
-            begin, 
-            kth_element);
-          update_bounds_with_ordered_container< std::greater<scalar_t> >(
-            upper_bound, 
-            std::reverse_iterator<scalar_t const *>(kth_element), 
-            std::reverse_iterator<scalar_t const *>(begin));
-        }
-        
-      }
-
-
-
-      void get_current_bounds(size_t current_dimension, scalar_t &lower_bound, scalar_t &upper_bound)
-      {
-        lock_t guard(parent_type::internal_mutex);
-        bool one_empty = lower_kfirst[current_dimension].empty() || upper_kfirst[current_dimension].empty();
-        lower_bound = one_empty ? boost::numeric::bounds<scalar_t>::lowest()  : lower_kfirst[current_dimension].back();
-        upper_bound = one_empty ? boost::numeric::bounds<scalar_t>::highest() : upper_kfirst[current_dimension].back();
-      }
-
-      
-
-
-      //! Returns the bound merged from all workers.
-      void get_computed_bounds(std::vector<scalar_t>& lower_bound, std::vector<scalar_t>& upper_bound) const
-      {
-        lower_bound.resize(data_dimension);
-        upper_bound.resize(data_dimension);
-        for(size_t s = 0;
-            s < data_dimension;
-            s++)
-        {
-          lower_bound[s] = lower_kfirst[s].back();
-          upper_bound[s] = upper_kfirst[s].back();
-        }
-      }
     };
 
 
@@ -1222,10 +810,6 @@ namespace robust_pca
       assert(mu.size() == number_of_dimensions);
       
 
-      // vector of valid bounds. These bounds will be shared among every workers. 
-      std::vector<double> v_min_threshold(number_of_dimensions);
-      std::vector<double> v_max_threshold(number_of_dimensions);
-
 
       // number of elements to keep
       const int K_elements = static_cast<int>(std::ceil(trimming_percentage*size_data/2));
@@ -1235,11 +819,11 @@ namespace robust_pca
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
-      typedef s_robust_pca_trimmed_processor<it_o_projected_vectors> async_processor_t;
+      typedef s_robust_pca_trimmed_processor_inner_products<it_o_projected_vectors> async_processor_t;
       std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_results_merger async_merger(number_of_dimensions);
-      async_merger.set_nb_elements_to_keep(K_elements);
+
 
       {
         bool b_result;
@@ -1268,9 +852,6 @@ namespace robust_pca
           // setting the number of elements to keep
           current_acc_object.set_nb_elements_to_keep(K_elements);
 
-          // setting the bounds to the globally shared objects
-          current_acc_object.set_bounds(&v_min_threshold, &v_max_threshold);
-
           b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
           if(!b_result)
           {
@@ -1280,48 +861,9 @@ namespace robust_pca
           // attaching the update object callbacks
           current_acc_object.connector_accumulator().connect(
             boost::bind(
-              /*(void (asynchronous_results_merger::*)(asynchronous_results_merger::result_type const&))*/&asynchronous_results_merger::update, 
+              &asynchronous_results_merger::update, 
               &async_merger, 
               _1));
-#if 0
-          current_acc_object.connector_bounds().connect(
-            boost::bind(
-              /*(void (asynchronous_results_merger::*)(asynchronous_results_merger::bounds_accumulator_t const&))*/&asynchronous_results_merger::update_bounds, 
-              &async_merger, 
-              _1));
-#endif
-          current_acc_object.connector_bounds_init().connect(
-            boost::bind(
-              &asynchronous_results_merger::get_current_bounds,
-              &async_merger, 
-              _1, _2, _3
-            )
-          );
-
-          current_acc_object.connector_lower_bound().connect(
-            boost::bind(
-              &asynchronous_results_merger::update_lower_bounds,
-              &async_merger, 
-              _1, _2, _3
-            )
-          );
-          
-          current_acc_object.connector_upper_bound().connect(
-            boost::bind(
-              &asynchronous_results_merger::update_upper_bounds,
-              &async_merger, 
-              _1, _2, _3
-            )
-          );
-
-          current_acc_object.connector_sorted_bound().connect(
-            boost::bind(
-              &asynchronous_results_merger::update_sorted_bounds,
-              &async_merger, 
-              _1, _2, _3
-            )
-          );
-
 
           current_acc_object.connector_counter().connect(
             boost::bind(&asynchronous_results_merger::notify, &async_merger));
@@ -1335,6 +877,7 @@ namespace robust_pca
 
 
 
+      boost::scoped_array<double> matrix_temp(new double[number_of_dimensions*size_data]);
 
 
 
@@ -1359,37 +902,35 @@ namespace robust_pca
           {
             ioService.post(
               boost::bind(
-                &async_processor_t::compute_bounds, 
+                &async_processor_t::compute_data_matrix, 
                 boost::ref(v_individual_accumulators[i]), 
-                boost::cref(mu)));
+                boost::cref(mu),
+                matrix_temp.get() + i*chunks_size,
+                size_data));
           }
 
 
           // waiting for completion (barrier)
           async_merger.wait_notifications(v_individual_accumulators.size());
 
-
-          // gathering the new bounds
-          async_merger.get_computed_bounds(v_min_threshold, v_max_threshold);
-          
-
-          // clearing the bounds
-          async_merger.clear_bounds();
+          // clearing the notifications
           async_merger.init_notifications();
 
-          // pushing the computation of the updated mu
-          for(int i = 0; i < v_individual_accumulators.size(); i++)
+          // pushing the computation of the trimmed accumulation on each dimension
+          for(int dim_to_compute = 0; dim_to_compute < number_of_dimensions; dim_to_compute++)
           {
             ioService.post(
               boost::bind(
-                &async_processor_t::accumulation, 
-                boost::ref(v_individual_accumulators[i]), 
-                boost::cref(mu)));
+                &async_processor_t::compute_bounded_accumulation, 
+                boost::ref(v_individual_accumulators[0]), 
+                dim_to_compute,
+                size_data,
+                matrix_temp.get() + dim_to_compute*size_data));
           }
 
 
           // waiting for completion (barrier)
-          async_merger.wait_notifications(v_individual_accumulators.size());
+          async_merger.wait_notifications(number_of_dimensions);
           
 
           // gathering the mus
