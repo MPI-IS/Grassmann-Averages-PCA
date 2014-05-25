@@ -110,6 +110,7 @@ namespace robust_pca
 
       
       typedef typename data_t::value_type scalar_t;
+      
       //! The matrix containing a copy of the data
       scalar_t *p_c_matrix;
       
@@ -225,16 +226,18 @@ namespace robust_pca
           double* current_line = p_c_matrix + s;
           if(sign)
           {
-            for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+            typename data_t::iterator it(accumulator.begin());
+            for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
             {
-              accumulator(i) += *current_line;              
+              *it += *current_line;              
             }
           }
           else 
           {
-            for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+            typename data_t::iterator it(accumulator.begin());
+            for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
             {
-              accumulator(i) -= *current_line;              
+              *it -= *current_line;              
             }
           }
         }
@@ -270,17 +273,18 @@ namespace robust_pca
             double* current_line = p_c_matrix + s;
             if(sign)
             {
-
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+              typename data_t::iterator it(accumulator.begin());
+              for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
               {
-                accumulator(i) += 2* (*current_line);              
+                *it += 2* (*current_line);              
               }
             }
             else 
             {
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements)
+              typename data_t::iterator it(accumulator.begin());
+              for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
               {
-                accumulator(i) -= 2* (*current_line);              
+                *it -= 2* (*current_line);              
               }
             }
           }
