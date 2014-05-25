@@ -302,11 +302,12 @@ namespace robust_pca
        * which contains the sum of all accumulators. 
        *
        */
-      template <class result_type_, class merger_type, class init_result_type>
+      template <class result_type_, class merger_type, class init_result_type, class update_element_ = result_type_>
       struct asynchronous_results_merger : boost::noncopyable
       {
       public:
         typedef result_type_ result_type;
+        typedef update_element_ update_element;
 
       protected:
         typedef boost::recursive_mutex mutex_t;
@@ -365,7 +366,7 @@ namespace robust_pca
          * 
          *  @note The call is thread safe.
          */
-        void update(result_type const& updated_value)
+        void update(update_element const& updated_value)
         {
           lock_t guard(internal_mutex);
           merger_instance(current_value, updated_value);
