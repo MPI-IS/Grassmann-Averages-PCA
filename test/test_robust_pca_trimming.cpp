@@ -47,7 +47,6 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
   typedef row_iter<const matrix_t> const_row_iter_t;
   typedef ub::vector<double> data_t;
 
-  std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
@@ -56,7 +55,6 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     dimensions,
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
-    temporary_data.begin(),
     eigen_vectors.begin()));
 
   BOOST_CHECK(!instance.batch_process(
@@ -64,7 +62,6 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     dimensions,
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
-    temporary_data.begin(),
     eigen_vectors.begin()));
 }
 
@@ -86,7 +83,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   BOOST_CHECK(instance.set_nb_processors(1));
 
 
-  std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
@@ -122,7 +118,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin(),
       &vec_initial_point));
     elapsed = clock_type::now() - start;
@@ -135,7 +130,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin()));
     elapsed = clock_type::now() - start;
   }
@@ -232,7 +226,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   typedef ub::vector<double> data_t;
 
 
-  std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(DATA_DIMENSION == 5 ? dimensions : 5);
   const int max_iterations = 1000;
 
@@ -270,7 +263,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin(),
       &vec_initial_point));
     elapsed = clock_type::now() - start;
@@ -283,7 +275,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       5,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin()));
     elapsed = clock_type::now() - start;
   }

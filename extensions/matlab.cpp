@@ -19,26 +19,6 @@
 #include <include/private/boost_ublas_matrix_helper.hpp>
 
 
-//! Implements allocate and free.
-template <class T>
-struct matlab_matrix_allocation;
-
-
-template <>
-struct matlab_matrix_allocation<double>
-{
-  static mxArray * allocate(size_t s)
-  {
-    return mxCreateDoubleMatrix(s, 1, mxREAL);
-  }
-
-  static void free(mxArray *mat)
-  {
-    mxDestroyArray(mat);
-  }
-};
-
-
 
 
 
@@ -236,8 +216,6 @@ bool robust_pca_trimming_dispatch(
   typedef row_iter<const input_matrix_t> const_input_row_iter_t;
   typedef row_iter<output_matrix_t> output_row_iter_t;
 
-  // should be matlab style
-  std::vector<data_t> temporary_data(rows);
 
   // main instance
   robust_pca_t instance(algorithm_configuration.trimming_percentage / 100);
@@ -284,7 +262,6 @@ bool robust_pca_trimming_dispatch(
     max_dimension,
     const_input_row_iter_t(input_data, 0),
     const_input_row_iter_t(input_data, input_data.size1()),
-    temporary_data.begin(),
     output_row_iter_t(output_eigen_vectors, 0),
     algorithm_configuration.initial_vectors ? &init_vectors: 0);
 
