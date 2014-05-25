@@ -563,10 +563,16 @@ namespace robust_pca
         compute_inner_products(mu);
         
         // the current line is spans a particular dimension
-        double *current_line = p_c_matrix;        
+        double *current_line = p_c_matrix;
 
         // this spans the inner product results for all dimensions
-        double const * const out = &inner_prod_results[0];
+
+        std::vector<double> v_mult(nb_elements);
+        for(size_t element(0); element < nb_elements; element++)
+        {
+          v_mult[element] = inner_prod_results[element] >= 0 ? 1 : -1;
+        }
+        double const * const out = &v_mult[0];
 
         for(size_t current_dimension = 0; 
             current_dimension < data_dimension; 
@@ -574,9 +580,8 @@ namespace robust_pca
         {
           for(size_t element(0); element < nb_elements; element++)
           {
-            p_out[element] = out[element] >= 0 ? current_line[element] : -current_line[element];
+            p_out[element] = out[element] * current_line[element];
           }
-          //memcpy(p_out, current_line, nb_elements * sizeof(typename data_t::value_type));
         }
         
         // signals the main merger

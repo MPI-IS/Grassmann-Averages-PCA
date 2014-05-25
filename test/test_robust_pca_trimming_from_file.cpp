@@ -102,33 +102,11 @@ std::vector<T>* readLines(std::istream& str)
   return result;
 }
 
-
-BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
+template <class matrix_t>
+bool read_matrix(const std::string &filename, matrix_t &mat_data)
 {
-
-  using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
-  namespace ub = boost::numeric::ublas;
-  typedef boost::chrono::steady_clock clock_type;
-  typedef boost::numeric::ublas::matrix<double> matrix_t;
-
-
-  BOOST_REQUIRE(!filename_data.empty());
-
-
-  typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
-  robust_pca_t instance(.1);
-  typedef row_iter<const matrix_t> const_row_iter_t;
-
-  typedef ub::vector<double> data_t;
-
-  std::string const filename_to_read = filename_data;
-  std::ifstream ff(filename_to_read.c_str());
-
   std::vector< std::vector<double>* > read_vectors;
-
-  std::cout << "Reading data" << std::endl;
-  matrix_t mat_data;
+  std::ifstream ff(filename.c_str());
   while(!ff.eof())
   {
     std::vector<double>* v = readLines<double>(ff);
@@ -142,22 +120,60 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
       }
     }
   }
-  std::cout << std::endl << "copying" << std::endl;
 
   mat_data.resize(read_vectors.size(), read_vectors[0]->size());
   for(size_t i = 0; i < read_vectors.size(); i++)
   {
-    std::copy(read_vectors[i]->begin(), read_vectors[i]->end(), ub::row(mat_data, i).begin());
+    std::copy(read_vectors[i]->begin(), read_vectors[i]->end(), boost::numeric::ublas::row(mat_data, i).begin());
     delete read_vectors[i];
   }
   read_vectors.clear();
 
+  return true;
+}
+
+BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
+{
+
+  using namespace robust_pca;
+  using namespace robust_pca::ublas_adaptor;
+  namespace ub = boost::numeric::ublas;
+  typedef boost::chrono::steady_clock clock_type;
+  typedef boost::numeric::ublas::matrix<double> matrix_t;
+
+
+  BOOST_REQUIRE(!filename_data.empty());
+
+  typedef ub::vector<double> data_t;
+  typedef robust_pca_with_trimming_impl< data_t > robust_pca_t;
+  robust_pca_t instance(.1);
+  typedef row_iter<const matrix_t> const_row_iter_t;
+
+  
+
+  // reading the data, one vector per line
+  std::cout << "Reading data" << std::endl;
+  matrix_t mat_data;
+  BOOST_REQUIRE(read_matrix(filename_data, mat_data));
+
+
+
+  std::cout << std::endl << "Reading init eigenvectors" << std::endl;
+  // reading the init vectors, one vector per column
+  std::vector<data_t> v_eigenvectors_init;
+  matrix_t mat_vectors;
+  BOOST_REQUIRE(read_matrix(filename_eigen_vectors, mat_vectors));
+  for(int i = 0; i < mat_vectors.size2(); i++)
+  {
+    v_eigenvectors_init.push_back(ub::column(mat_vectors, i));
+  }
+
   const size_t nb_elements = mat_data.size1();
   const size_t dimensions = mat_data.size2();
-  std::cout << "Data ok : dimensions = " << dimensions << " #elements = " << nb_elements << std::endl;
+  std::cout << std::endl << "Data: dimensions = " << dimensions << " #elements = " << nb_elements << std::endl;
 
 
-  const size_t max_dimensions = 5;
+  const size_t max_dimensions = mat_vectors.size2();
 
   std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(max_dimensions);
@@ -175,7 +191,8 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
     temporary_data.begin(),
-    eigen_vectors.begin()));
+    eigen_vectors.begin(),
+    &v_eigenvectors_init));
   elapsed = clock_type::now() - start;
   
   std::cout << "processing " << nb_elements << " elements "
