@@ -168,6 +168,14 @@ if(NOT WITHOUT_TESTS)
     set(TEST_DYNAMIC_LIBRARY_PATH_CMD "LD_LIBRARY_PATH")
   endif()
 
+  # basically, we cannot concatenate PATH with something else. I tried different configuration, and the spaces and ; in PATH do
+  # not play well with the command itself. Even the PATH=%PATH%;blablabla with space does not seem to work.
+  list(LENGTH Boost_LIBRARY_DIRS _boost_lib_length)
+  if(${_boost_lib_length} GREATER 1)
+    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
+  else()
+    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
+  endif()
 
 
   set(RobustPCA_tests
@@ -188,22 +196,27 @@ if(NOT WITHOUT_TESTS)
   set_target_properties(robustpca_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
   set_target_properties(robustpca_test PROPERTIES FOLDER "UnitTests")
 
-
   add_test(
     NAME robustpca_test-1
     COMMAND robustpca_test)
-
-  # basically, we cannot concatenate PATH with something else. I tried different configuration, and the spaces and ; in PATH do
-  # not play well with the command itself. Even the PATH=%PATH%;blablabla with space does not seem to work.
-  list(LENGTH Boost_LIBRARY_DIRS _boost_lib_length)
-  if(${_boost_lib_length} GREATER 1)
-    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
-  else()
-    list(GET Boost_LIBRARY_DIRS 0 _boost_lib_env)
-  endif()
   set_tests_properties(
     robustpca_test-1 
     PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
+
+  # second test based on files
+  add_executable(robustpca_test_with_files test/test_robust_pca_trimming_from_file.cpp)
+  set_source_files_properties(test/test_robust_pca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
+  target_link_libraries(robustpca_test_with_files robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
+  set_target_properties(robustpca_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+  set_target_properties(robustpca_test_with_files PROPERTIES FOLDER "UnitTests")
+
+  add_test(
+    NAME robustpca_test-2
+    COMMAND robustpca_test_with_files --data ${CMAKE_SOURCE_DIR}/test/mat_test.csv --eigen_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv --expected_result ${CMAKE_SOURCE_DIR}/test/mat_test_desired_output.csv)
+  set_tests_properties(
+    robustpca_test-2 
+    PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
+
 endif()
 
 
