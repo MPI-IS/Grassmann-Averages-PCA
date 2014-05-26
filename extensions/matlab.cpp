@@ -392,7 +392,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       max_dimension = static_cast<size_t>(mxGetScalar(nb_max_dimensions) + 0.5);
     }
 
-    init_directions = mxGetField(algorithmConfiguration, 0, "init");
+    init_directions = mxGetField(algorithmConfiguration, 0, "initial_vectors");
     if(init_directions != 0)
     {
       if (!mxIsDouble(init_directions) && !mxIsSingle(init_directions))
