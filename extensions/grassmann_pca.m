@@ -27,11 +27,11 @@ function [vectors, output] = grassmann_pca (X, K)
       
       %% Initialize using a few EM iterations
       % {
-      %for iter = 1:3
-      %  dots = X * mu; % Nx1
-      %  mu = dots.' * X; % 1xD
-      %  mu = mu(:) / norm(mu); % Dx1
-      %end % for
+      for iter = 1:3
+        dots = X * mu; % Nx1
+        mu = dots.' * X; % 1xD
+        mu = mu(:) / norm(mu); % Dx1
+      end % for
       % }
       %print 'new mu starting the iterations is' mu
       
