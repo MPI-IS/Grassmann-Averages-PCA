@@ -36,23 +36,9 @@ namespace robust_pca
 
   namespace details
   {
-    
-    //! Adaptation of merger_addition concept for accumulator and count at the same time.
-    //! 
-    //! The trimmed version of the robust pca algorithm may strip some element along each dimension. 
-    //! In order to compute the @f$\mu@f$ properly, the count should also be transfered.
-    template <class data_t, class count_t>
-    struct merger_addition_with_count
-    {
-      typedef std::pair<data_t, count_t> input_t;
-      bool operator()(input_t &current_state, input_t const& update_value) const
-      {
-        current_state.first += update_value.first;
-        current_state.second += update_value.second;
-        return true;
-      }
-    };
 
+    //!@internal
+    //! Helper object for the updates
     struct s_dimension_update
     {
       size_t dimension;
@@ -79,7 +65,7 @@ namespace robust_pca
 
     //! Adaptation of initialisation_vector_specific_dimension concept for accumulation and count.
     //! 
-    //! See merger_addition_with_count.
+    //! See merger_addition_specific_dimension.
     template <class data_t, class count_t>
     struct initialisation_vector_specific_dimension_with_count
     {
@@ -136,40 +122,6 @@ namespace robust_pca
 
     //! Type of the vector used for counting the element falling into the non-trimmed range.
     typedef boost::numeric::ublas::vector<size_t> count_vector_t;
-
-
-
-
-
-
-
-
-
-    //! Performs a selective update of the accumulator, given the bounds computed previously
-    template <class vector_bounds_t, class vector_number_elements_t>
-    static void selective_acc_to_vector(
-      const vector_bounds_t& lower_bounds, const vector_bounds_t& upper_bounds,
-      const data_t &initial_data,
-      bool sign,
-      data_t &v_selective_accumulator,
-      vector_number_elements_t& v_selective_acc_count)
-    {
-      for(size_t i = 0, j = initial_data.size(); i < j; i++)
-      {
-        typename data_t::value_type const v(sign ? initial_data[i] : -initial_data[i]);
-        if(v < lower_bounds[i])
-          continue;
-        if(v > upper_bounds[i])
-          continue;
-        
-
-        v_selective_accumulator[i] += v;
-        v_selective_acc_count[i]++;
-      }
-    }
-
-
-
 
 
 
@@ -480,7 +432,6 @@ namespace robust_pca
     /*! Performs the computation of the current subspace on the elements given by the two iterators.
      *  @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
      *   should provide a vector point.
-     *  @tparam it_o_projected_vectors output forward iterator pointing on a container of vector points.
      *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
      * @param[in] max_iterations the maximum number of iterations at each dimension.
@@ -488,7 +439,6 @@ namespace robust_pca
      *            computed).
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
-     * @param[in, out] it_projected
      * @param[in] initial_guess if provided, the initial vector will be initialized to this value.
      * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
      *

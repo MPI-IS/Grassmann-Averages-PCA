@@ -29,11 +29,6 @@
 // utilities
 #include <include/private/utilities.hpp>
 
-#include <sstream>
-
-
-#define RPCA_INFO_DEBUG(k) k
-//#define RPCA_INFO_DEBUG(k) 
 
 namespace robust_pca
 {
@@ -85,26 +80,22 @@ namespace robust_pca
 
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
-    template <class container_iterator_t>
     struct asynchronous_chunks_processor
     {
     private:
-      //container_iterator_t begin, end;
       size_t nb_elements;
       data_t accumulator;
       std::vector<bool> v_signs;
       size_t data_dimension;
       
-      int nb_sign_change;
-      int nb_calls;
-
       // this is to send an update of the value of mu to all listeners
       // the connexion should be managed externally
       typedef boost::signals2::signal<void (data_t const&)>
         connector_accumulator_t;
+      connector_accumulator_t signal_acc;
+
       typedef boost::signals2::signal<void ()>
         connector_counter_t;
-      connector_accumulator_t signal_acc;
       connector_counter_t signal_counter;
 
 
@@ -116,23 +107,18 @@ namespace robust_pca
       
       std::vector<double> inner_prod_results;
     public:
-      std::string name;
       asynchronous_chunks_processor() : nb_elements(0), data_dimension(0), p_c_matrix(0)
       {
-        nb_sign_change = 0;
-        nb_calls = 0;
       }
       
       ~asynchronous_chunks_processor()
       {
-        RPCA_INFO_DEBUG(std::cout << name);
-        RPCA_INFO_DEBUG(std::cout << "\tnb calls " << nb_calls << std::endl);
-        RPCA_INFO_DEBUG(std::cout << "\tnb sign change " << nb_sign_change << std::endl);
         delete [] p_c_matrix;
       }
 
 
       //! Sets the data range
+      template <class container_iterator_t>
       bool set_data_range(container_iterator_t const &b, container_iterator_t const& e)
       {
         //begin = b;
@@ -208,18 +194,11 @@ namespace robust_pca
       {
         accumulator = data_t(data_dimension, 0);
         std::vector<bool>::iterator itb(v_signs.begin());
-        
-        //container_iterator_t it_data(begin);
 
         // first iteration, we store the signs
         compute_inner_products(mu);
-        for(size_t s = 0; s < nb_elements; /*++it_data, */++itb, s++)
+        for(size_t s = 0; s < nb_elements; ++itb, s++)
         {
-          nb_calls++;
-          nb_sign_change++;
-          //typename container_iterator_t::reference current_data = *it_data;
-          //bool sign = details::inner_prod(current_data, mu) >= 0;
-          //bool sign = ub::inner_prod(current_data, mu) >= 0;
           bool sign = inner_prod_results[s] >= 0;
 
           *itb = sign;
@@ -254,20 +233,13 @@ namespace robust_pca
       {
         std::vector<bool>::iterator itb(v_signs.begin());
         
-        //container_iterator_t it_data(begin);
-
         compute_inner_products(mu);
 
-        for(size_t s = 0; s < nb_elements; /*++it_data, */++itb, s++)
+        for(size_t s = 0; s < nb_elements; ++itb, s++)
         {
-          nb_calls++;
-          
-
-          bool sign = inner_prod_results[s] >= 0;//ub::inner_prod(current_data, mu) >= 0;
+          bool sign = inner_prod_results[s] >= 0;
           if(sign != *itb)
           {
-            //typename container_iterator_t::reference current_data = *it_data;
-            nb_sign_change++;
             // update the value of the accumulator according to sign change
             *itb = sign;
             double* current_line = p_c_matrix + s;
@@ -298,8 +270,6 @@ namespace robust_pca
       //! Project the data onto the orthogonal subspace of the provided vector
       void project_onto_orthogonal_subspace(data_t const &mu)
       {
-//        container_iterator_t it_data(begin);
-
         // update of vectors in the orthogonal space, and update of the norms at the same time. 
         compute_inner_products(mu);
         double *current_line = p_c_matrix;
@@ -312,7 +282,6 @@ namespace robust_pca
             current_line[column] -= mu_element * inner_prod_results[column];
           }               
         }
-        
   
         signal_counter();
       }
@@ -398,7 +367,6 @@ namespace robust_pca
      *
      * @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
      *  should provide a vector point.
-     * @tparam it_o_projected_vectors output random access iterator pointing on a container of vector points. 
      * @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
      * @param[in] max_iterations the maximum number of iterations at each dimension. 
@@ -406,7 +374,6 @@ namespace robust_pca
      *            computed).
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
-     * @param[in, out] it_projected
      * @param[in] initial_guess if provided, the initial vectors will be initialized to this value. The size of the pointed container should be at least @c max_dimension_to_compute.
      * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least @c max_dimension_to_compute.
      *
@@ -417,13 +384,12 @@ namespace robust_pca
      *
      * @note the iterator it_o_projected_vectors should implement random access to the elements.
      */
-    template <class it_t, class it_o_projected_vectors, class it_o_eigenvalues_t>
+    template <class it_t, class it_o_eigenvalues_t>
     bool batch_process(
       const size_t max_iterations,
       size_t max_dimension_to_compute,
       it_t const it, 
       it_t const ite, 
-      it_o_projected_vectors const it_projected,
       it_o_eigenvalues_t it_eigenvectors,
       std::vector<data_t> const * initial_guess = 0)
     {
@@ -452,18 +418,7 @@ namespace robust_pca
 
       // contains the number of elements. In case the iterator is random access, could be deduced simply 
       // by a call to distance.
-      size_t size_data(0);
-
-
-      // The vectors are copied into the temporary container. 
-      // TODO this is not necessary in case if the it_o_projected_vectors and it_t return both the same type.
-      it_o_projected_vectors it_tmp_projected(it_projected);
-      for(it_t it_copy(it); it_copy != ite; ++it_copy, ++it_tmp_projected, size_data++)
-      {
-        *it_tmp_projected = *it_copy;
-      }
-
-      assert(size_data == std::distance(it, ite));
+      size_t size_data(std::distance(it, ite));
 
       // size of the chunks.
       const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(size_data/nb_processors));
@@ -488,18 +443,18 @@ namespace robust_pca
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
-      typedef asynchronous_chunks_processor<it_o_projected_vectors> async_processor_t;
+      typedef asynchronous_chunks_processor async_processor_t;
       std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_results_merger async_merger(number_of_dimensions);
 
       {
         bool b_result;
-        it_o_projected_vectors it_current_begin(it_projected);
+        it_t it_current_begin(it);
         for(int i = 0; i < nb_chunks; i++)
         {
           // setting the range
-          it_o_projected_vectors it_current_end;
+          it_t it_current_end;
           if(i == nb_chunks - 1)
           {
             // just in case the division giving the chunk has some rounding (the parenthesis are important
@@ -512,11 +467,6 @@ namespace robust_pca
           }
 
           async_processor_t &current_acc_object = v_individual_accumulators[i];
-          {
-            std::ostringstream os;
-            os << "chunk " << i << " containing " << std::distance(it_current_begin, it_current_end) << " elements";
-            current_acc_object.name = os.str();
-          }
 
           // updating the dimension of the problem
           current_acc_object.set_data_dimensions(number_of_dimensions);
@@ -588,8 +538,6 @@ namespace robust_pca
           mu /= norm_op(mu);
         }
         
-        RPCA_INFO_DEBUG(std::cout << "dim " << current_dimension << " iter " << iterations << std::endl);
-
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
         *it_eigenvectors = mu;

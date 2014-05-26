@@ -212,6 +212,7 @@ if(NOT WITHOUT_TESTS)
 
   add_test(
     NAME robustpca_test-2
+    CONFIGURATIONS Release
     COMMAND robustpca_test_with_files --data ${CMAKE_SOURCE_DIR}/test/mat_test.csv --eigen_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv --expected_result ${CMAKE_SOURCE_DIR}/test/mat_test_desired_output.csv)
   set_tests_properties(
     robustpca_test-2 

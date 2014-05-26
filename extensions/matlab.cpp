@@ -116,10 +116,6 @@ bool robust_pca_dispatch(
   typedef row_iter<const input_matrix_t> const_input_row_iter_t;
   typedef row_iter<output_matrix_t> output_row_iter_t;
 
-  // should be matlab style
-  std::vector<data_t> temporary_data(nb_elements);
-
-
   // main instance
   robust_pca_t instance;
 
@@ -163,7 +159,6 @@ bool robust_pca_dispatch(
     max_dimension,
     const_input_row_iter_t(input_data, 0),
     const_input_row_iter_t(input_data, input_data.size1()),
-    temporary_data.begin(),
     output_row_iter_t(output_eigen_vectors, 0),
     algorithm_configuration.initial_vectors ? &init_vectors: 0);
 
