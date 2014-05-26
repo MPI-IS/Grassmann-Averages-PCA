@@ -186,6 +186,7 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 
 
   BOOST_CHECK(instance.set_nb_processors(7));
+  BOOST_CHECK(instance.set_nb_steps_pca(0));
 
   clock_type::duration elapsed;
 

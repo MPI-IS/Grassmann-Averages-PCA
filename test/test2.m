@@ -17,7 +17,7 @@ size(output.initial_vectors)
 X = dlmread('D:\Code\robust_pca\test\mat_test.csv');
 initial_vectors = dlmread('d:\Code\robust_pca\test\mat_test_init_vectors.csv');
 
-addpath('D:\Code\robust_pca\build\Debug\')
+addpath('D:\Code\robust_pca\build\Release\')
 robustpca_m
 % breakpoint can be set
 
@@ -31,3 +31,6 @@ tic, u = robustpca_m(X', 10, algorithm_config); toc
 
 
 
+
+% trimmed grassmqn PCA
+tic, u0 = trimmed_grassmann_pca(X, 10, 5, 'init', initial_vectors); toc

@@ -301,6 +301,11 @@ namespace robust_pca
        * The purpose of this class is to add the computed accumulator of each thread to the final result
        * which contains the sum of all accumulators. 
        *
+       * @tparam result_type_ the type of the final result.
+       * @tparam merger_type the type of the merger. The merger should be a callable with two arguments: result_type_ and update_element_
+       * @tparam init_result_type the type of the initialiser. The initialiser should be a callable with one argument of type result_type_.
+       * @tparam update_element_ the type of the update. These updates are provided by the several workers to this merger. 
+       *
        */
       template <class result_type_, class merger_type, class init_result_type, class update_element_ = result_type_>
       struct asynchronous_results_merger : boost::noncopyable
@@ -312,7 +317,11 @@ namespace robust_pca
       protected:
         typedef boost::recursive_mutex mutex_t;
         typedef boost::lock_guard<mutex_t> lock_t;
-        mutable mutex_t internal_mutex;        //!< mutex for thread safety
+
+        //! Mutex for critical sections. 
+        //!@note This mutex is reentrant.
+        mutable mutex_t internal_mutex;
+
         //! Holds the current value of the merge.
         //! This variable is constantly updated as chunk processed finish. 
         result_type current_value;                  
@@ -362,8 +371,9 @@ namespace robust_pca
           nb_updates = 0;
         }
 
-        /*! Receives the updated value of the vectors to accumulate from each worker.
+        /*! Receives the update element from each worker.
          * 
+         * The update element is passed to the merger in order to create an updated value of the internal result.
          *  @note The call is thread safe.
          */
         void update(update_element const& updated_value)
@@ -399,12 +409,12 @@ namespace robust_pca
           }
         
           return true;
-        
         }
 
 
         //! Returns the current merged results.
-        //! @warning the call is not thread safe.
+        //! @warning the call is not thread safe (intended to be called once the wait_notifications returned and no
+        //! other thread is working). 
         result_type const& get_merged_result() const
         {
           return current_value;
