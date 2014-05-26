@@ -78,6 +78,9 @@ namespace robust_pca
     //! Maximal size of a chunk (infinity by default).
     size_t max_chunk_size;
 
+    //! Number of steps for the initial PCA like algorithm (default to 3).
+    size_t nb_steps_pca;
+
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
     struct asynchronous_chunks_processor
@@ -166,6 +169,7 @@ namespace robust_pca
         return signal_counter;
       }
       
+      //! Inner product computation
       void compute_inner_products(data_t const &mu)
       {
         double *out = &inner_prod_results[0];
@@ -186,8 +190,36 @@ namespace robust_pca
             out[column] += mu_element * current_line[column];
           }               
         }
-        
       }
+
+      //! PCA steps
+      void pca_accumulation(data_t const &mu)
+      {
+        accumulator = data_t(data_dimension, 0);
+        compute_inner_products(mu);
+               
+        double const * const p_inner_product = &inner_prod_results[0];
+
+        typename data_t::iterator it(accumulator.begin());
+        for(size_t i = 0; i < data_dimension; i++, ++it)
+        {
+          double const * const current_line = p_c_matrix + i*nb_elements;
+          double acc = 0;
+          for(size_t s = 0; s < nb_elements; s++)
+          {
+            acc += p_inner_product[s] * current_line[s];
+          }
+          *it = acc;
+        }
+
+
+        // posts the new value to the listeners
+        signal_acc(accumulator);
+        signal_counter();
+      }
+
+
+
 
       //! Initialises the accumulator and the signs vector from the first mu
       void initial_accumulation(data_t const &mu)
@@ -335,7 +367,8 @@ namespace robust_pca
     robust_pca_impl() : 
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable), 
       nb_processors(1),
-      max_chunk_size(std::numeric_limits<size_t>::max())
+      max_chunk_size(std::numeric_limits<size_t>::max()),
+      nb_steps_pca(3)
     {}
 
 
@@ -358,6 +391,13 @@ namespace robust_pca
         return false;
       }
       max_chunk_size = chunk_size;
+      return true;
+    }
+
+    //! Sets the number of iterations for the initial PCA like algorithm. 
+    bool set_nb_steps_pca(size_t nb_steps)
+    {
+      nb_steps_pca = nb_steps;
       return true;
     }
 
@@ -495,9 +535,38 @@ namespace robust_pca
       for(size_t current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
       {
 
-        details::convergence_check<data_t> convergence_op(mu);
+
+        // PCA like initial steps
+        if(nb_steps_pca)
+        {
+          for(size_t pca_it = 0; pca_it < nb_steps_pca; pca_it++)
+          {
+            // reseting the final accumulator
+            async_merger.init();
+
+            // pushing the initialisation of the mu and sign vectors to the pool
+            for(int i = 0; i < v_individual_accumulators.size(); i++)
+            {
+              ioService.post(
+                boost::bind(
+                  &async_processor_t::pca_accumulation, 
+                  boost::ref(v_individual_accumulators[i]), 
+                  boost::cref(mu)));
+            }
+
+            // waiting for completion (barrier)
+            async_merger.wait_notifications(v_individual_accumulators.size());
+
+            // gathering the first mu
+            mu = async_merger.get_merged_result();
+            mu /= norm_op(mu);
+          }
+        }
+
+
 
         data_t previous_mu(mu);
+        details::convergence_check<data_t> convergence_op(mu);
 
         // reseting the final accumulator
         async_merger.init();
@@ -505,7 +574,11 @@ namespace robust_pca
         // pushing the initialisation of the mu and sign vectors to the pool
         for(int i = 0; i < v_individual_accumulators.size(); i++)
         {
-          ioService.post(boost::bind(&async_processor_t::initial_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
+          ioService.post(
+            boost::bind(
+              &async_processor_t::initial_accumulation, 
+              boost::ref(v_individual_accumulators[i]), 
+              boost::cref(previous_mu)));
         }
 
         // waiting for completion (barrier)

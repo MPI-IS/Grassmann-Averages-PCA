@@ -43,48 +43,22 @@ namespace robust_pca
     {
       size_t dimension;
       double value;
-      size_t nb_elements;
     };
 
     //! Adaptation of merger_addition concept for accumulator and count at the same time.
     //! 
     //! The trimmed version of the robust pca algorithm may strip some element along each dimension. 
     //! In order to compute the @f$\mu@f$ properly, the count should also be transfered.
-    template <class data_t, class count_t>
-    struct merger_addition_specific_dimension
+    template <class data_t>
+    struct merger_update_specific_dimension
     {
-      typedef std::pair<data_t, count_t> input_t;
+      typedef data_t input_t;
       bool operator()(input_t &current_state, s_dimension_update const& update_value) const
       {
-        current_state.first(update_value.dimension) += update_value.value;
-        current_state.second(update_value.dimension) += update_value.nb_elements;
+        current_state(update_value.dimension) += update_value.value;
         return true;
       }
     };
-
-
-    //! Adaptation of initialisation_vector_specific_dimension concept for accumulation and count.
-    //! 
-    //! See merger_addition_specific_dimension.
-    template <class data_t, class count_t>
-    struct initialisation_vector_specific_dimension_with_count
-    {
-      size_t data_dimension;
-      typedef typename data_t::value_type scalar_t;
-      typedef typename count_t::value_type count_scalar_t;
-      typedef std::pair<data_t, count_t> input_t;
-
-      initialisation_vector_specific_dimension_with_count(size_t dimension) : data_dimension(dimension)
-      {}
-
-      bool operator()(input_t & current_state) const
-      {
-        current_state.first = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
-        current_state.second = boost::numeric::ublas::scalar_vector<count_scalar_t>(data_dimension, 0);
-        return true;
-      }
-    };
-
     
   }
 
@@ -115,7 +89,10 @@ namespace robust_pca
     size_t nb_processors;
 
     //! Maximal size of a chunk (infinity by default).
-    size_t max_chunk_size;    
+    size_t max_chunk_size;
+
+    //! Number of steps for the initial PCA like algorithm (defaults to 3).
+    size_t nb_steps_pca;
 
     //! Type of the element of data_t. 
     typedef typename data_t::value_type scalar_t;
@@ -256,7 +233,32 @@ namespace robust_pca
       }
 
 
-      
+
+      //! PCA steps
+      void pca_accumulation(data_t const &mu)
+      {
+        compute_inner_products(mu);
+               
+        double const * const p_inner_product = &inner_prod_results[0];
+
+        for(size_t dimension = 0; dimension < data_dimension; dimension++)
+        {
+          double const * const current_line = p_c_matrix + dimension*nb_elements;
+          double acc = 0;
+          for(size_t s = 0; s < nb_elements; s++)
+          {
+            acc += p_inner_product[s] * current_line[s];
+          }
+
+          // posts the new value to the listeners for the current dimension
+          accumulator_element_t result;
+          result.dimension = dimension;
+          result.value = acc;
+        }
+
+        signal_counter();
+      }
+
       
       void compute_data_matrix(data_t const &mu, typename data_t::value_type* p_out, size_t padding)
       {
@@ -316,8 +318,8 @@ namespace robust_pca
         
         accumulator_element_t result;
         result.dimension = dimension;
-        result.value = acc;
-        result.nb_elements = nb_total_elements - 2*nb_elements_to_keep;
+        //result.nb_elements = nb_total_elements - 2*nb_elements_to_keep;
+        result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
         // signals the update
         signal_acc_dimension(result);
         // signals the main merger
@@ -354,18 +356,18 @@ namespace robust_pca
      */
     struct asynchronous_results_merger : 
       details::threading::asynchronous_results_merger<
-        std::pair<data_t, count_vector_t>,
-        details::merger_addition_specific_dimension<data_t, count_vector_t>,
-        details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t>,
+        data_t,
+        details::merger_update_specific_dimension<data_t>,
+        details::threading::initialisation_vector_specific_dimension<data_t>,
         details::s_dimension_update
       >
     {
     public:
-      typedef std::pair<data_t, count_vector_t> result_t;
+      typedef data_t result_t;
 
     private:
-      typedef details::initialisation_vector_specific_dimension_with_count<data_t, count_vector_t> data_init_type;
-      typedef details::merger_addition_specific_dimension<data_t, count_vector_t> merger_type;
+      typedef details::threading::initialisation_vector_specific_dimension<data_t> data_init_type;
+      typedef details::merger_update_specific_dimension<data_t> merger_type;
 
 
       const size_t data_dimension;
@@ -398,7 +400,8 @@ namespace robust_pca
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable),
       trimming_percentage(trimming_percentage_),
       nb_processors(1),
-      max_chunk_size(std::numeric_limits<size_t>::max())
+      max_chunk_size(std::numeric_limits<size_t>::max()),
+      nb_steps_pca(3)
     {
       assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }
@@ -425,6 +428,16 @@ namespace robust_pca
       max_chunk_size = chunk_size;
       return true;
     }
+
+    //! Sets the number of iterations for the initial PCA like algorithm. 
+    bool set_nb_steps_pca(size_t nb_steps)
+    {
+      nb_steps_pca = nb_steps;
+      return true;
+    }
+
+
+
     
     
 
@@ -600,6 +613,37 @@ namespace robust_pca
       for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
       {
 
+
+        // PCA like initial steps
+        if(nb_steps_pca)
+        {
+          for(size_t pca_it = 0; pca_it < nb_steps_pca; pca_it++)
+          {
+            // reseting the final accumulator
+            async_merger.init();
+
+            // pushing the initialisation of the mu and sign vectors to the pool
+            for(int i = 0; i < v_individual_accumulators.size(); i++)
+            {
+              ioService.post(
+                boost::bind(
+                  &async_processor_t::pca_accumulation, 
+                  boost::ref(v_individual_accumulators[i]), 
+                  boost::cref(mu)));
+            }
+
+            // waiting for completion (barrier)
+            async_merger.wait_notifications(v_individual_accumulators.size());
+
+            // gathering the first mu
+            mu = async_merger.get_merged_result();
+            mu /= norm_op(mu);
+          }
+        }
+
+
+
+
         details::convergence_check<data_t> convergence_op(mu);
 
         int iterations = 0;
@@ -646,15 +690,8 @@ namespace robust_pca
           
 
           // gathering the mus
-          mu = async_merger.get_merged_result().first;
-          count_vector_t const& count_vector = async_merger.get_merged_result().second;
-          // divide each of the acc by acc_counts, and then take the norm
-          for(int i = 0; i < number_of_dimensions; i++)
-          {
-            assert(count_vector[i]);
-            mu[i] /= count_vector[i];
-          }
-
+          mu = async_merger.get_merged_result();
+          
           // normalize mu on the sphere
           mu /= norm_op(mu);
 
