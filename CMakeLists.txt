@@ -372,7 +372,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
             CONFIGURATIONS Release
             COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/robustpca_matlabtest_2.log 
            -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(robustpca_matlabtest-2 PROPERTIES TIMEOUT 240)
+  set_tests_properties(robustpca_matlabtest-2 PROPERTIES TIMEOUT 600)
 
   
 endif()
