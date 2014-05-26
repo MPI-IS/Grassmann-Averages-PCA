@@ -37,8 +37,8 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
       mean_matlab(j) = mean(time_matlab);
       var_matlab(j) = var(time_matlab);
     end % for
-    display(mean_matlab)
-    display(var_matlab)
+    display(mean_matlab')
+    display(var_matlab')
   end;
   
   time_mex = zeros(nb_trials, 1);
@@ -59,7 +59,7 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
     mean_mex(j) = mean(time_mex);
     var_mex(j) = var(time_mex);    
   end % for
-  display(mean_mex)
-  display(var_mex)
+  display(mean_mex')
+  display(var_mex')
     
 end % function
