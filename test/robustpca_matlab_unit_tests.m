@@ -58,7 +58,27 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
       testCase.verifyEqual(size(ret, 2), 2);
     end
     
-    
+    function testInitWithWrongDimensionIsCaught(testCase)
+      % tests the max dimension stuff
+      mat = rand(3,3);
+      
+      algorithm_config = {};
+      algorithm_config.max_dimensions = 3;
+      algorithm_config.initial_vectors = rand(2, 3);
+      
+      ret = robustpca_m(mat', 0, algorithm_config);
+    end    
+
+    function testInitWithWrongNbElementsIsCaught(testCase)
+      % tests the max dimension stuff
+      mat = rand(3,3);
+      
+      algorithm_config = {};
+      algorithm_config.max_dimensions = 1;
+      algorithm_config.initial_vectors = rand(3, 2); % two initial vectors, only one requested
+      
+      ret = robustpca_m(mat', 0, algorithm_config);
+    end    
 
     
     
@@ -67,7 +87,8 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
 
       algorithm_config = {};
       algorithm_config.max_dimensions = 2; % max dimension
-
+      algorithm_config.nb_processing_threads = 4;
+      
       ret = robustpca_m(mat', 5, algorithm_config); % 5 percent
       
       testCase.verifyEqual(size(ret, 1), size(mat, 2));

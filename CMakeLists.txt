@@ -361,7 +361,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
 
 
   add_test(NAME robustpca_matlabtest-1
-            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_1.log 
+            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/robustpca_matlabtest_1.log 
            -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
   set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 180)
   # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
@@ -370,7 +370,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   
   add_test(NAME robustpca_matlabtest-2
             CONFIGURATIONS Release
-            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/robustpca_matlabtest_2.log 
+            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/robustpca_matlabtest_2.log 
            -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
   set_tests_properties(robustpca_matlabtest-2 PROPERTIES TIMEOUT 240)
 
