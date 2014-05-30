@@ -33,6 +33,8 @@ endif()
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
+# link against dynamic libraries
+add_definitions(-DBOOST_ALL_DYN_LINK)
 set(Boost_REALPATH ON)
 if(NOT WITHOUT_TESTS)
   set(Boost_USE_MULTITHREADED ON)
@@ -46,9 +48,9 @@ if(NOT WITHOUT_TESTS)
   endif()
   set(Boost_NO_BOOST_CMAKE ON)
 
-  find_package(Boost COMPONENTS unit_test_framework system thread chrono)
+  find_package(Boost COMPONENTS unit_test_framework system thread chrono date_time)
 else()
-  find_package(Boost COMPONENTS system thread chrono)
+  find_package(Boost COMPONENTS system thread chrono date_time)
 endif()
 
 if(NOT ${Boost_FOUND})
@@ -146,7 +148,7 @@ set(RobustPCA_LIB
 
      src/robust_pca.cpp)
 add_library(robustpca ${RobustPCA_LIB})
-target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY})
+target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
 set_target_properties(robustpca PROPERTIES INSTALL_RPATH "@loader_path/.")
 
 
@@ -356,6 +358,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
     copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
     copy_dependency_with_config(robustpca_m Boost_CHRONO_LIBRARY)
+    copy_dependency_with_config(robustpca_m Boost_DATE_TIME_LIBRARY)
   endif()
 
 
