@@ -5,7 +5,7 @@ redo_all = true;
 
 N = 100000;
 NBSteps= 10;
-DIM = 10;
+DIM = 100;
 
 max_threads = 8;
 
@@ -22,23 +22,30 @@ if redo_all
     end %if 
   end % for
 
-  save('benches.mat');
+  save(sprintf('benches_%d.mat', DIM));
 else
-  S = load('benches.mat');
+  S = load(sprintf('benches_%d.mat', DIM));
   mean_mex_output = S.mean_mex_output; 
 end; %
-  
+
+hold off
 XX = (1:NBSteps)*N/NBSteps;
 XX = repmat(XX, max_threads+1, 1);
-h = plot(XX(1,:), mean_mex_output(1, :));
+h = plot(XX(1,:), mean_mex_output(1, :), 'bd-');
 hold on
 
-bar(XX(2:end, :), mean_mex_output(2:end, :))
+%for i=1:(max_threads)
+%  XX(i+1, :) = XX(i+1, :) + (i - max_threads/2)*N/(10*NBSteps);
+%end
+%plot(XX(2:end, :)', mean_mex_output(2:end, :)')
+bar(XX(2:end, :)', mean_mex_output(2:end, :)')
 colormap('Hot')
 
+uistack(h,'top')
 set(h(1), 'LineWidth', 2);
-set(h(1), 'Color', [0 0 0]);
+%set(h(1), 'Color', [0 0 0]);
 
 title(sprintf('C++ vs MEX - dimension %d', DIM))
 xlabel('data size')
 ylabel('time (s)')
+

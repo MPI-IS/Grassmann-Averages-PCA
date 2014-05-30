@@ -4,7 +4,7 @@
 % matlab implementation against the mex file.
 
 
-function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D, K, nb_trials, nb_threads, do_matlab)
+function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_trimmed_benches (D, K, percent, nb_trials, nb_threads, do_matlab)
 
   N = 100000;
   NB_steps = 10;
@@ -30,7 +30,7 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
       display(sprintf('\tStep %d - #elements = %d', j, (N*j/NB_steps)))
       for i = 1:nb_trials
         tic
-          out = grassmann_pca(X(1:(N*j/NB_steps), :), K);
+          out = trimmed_grassmann_pca(X(1:(N*j/NB_steps), :), percent, K);
         u = toc;
         time_matlab(i) = u;
 
@@ -52,7 +52,7 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
     xt = (X(1:(N*j/NB_steps), :))';
     for i = 1:nb_trials
       tic
-        out = robustpca_m(xt, 0, algorithm_config);
+        out = robustpca_m(xt, percent, algorithm_config);
       u = toc;
       time_mex(i) = u;
 
