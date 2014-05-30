@@ -185,17 +185,14 @@ bool robust_pca_trimming_dispatch(
   typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t;
 
 
-  const size_t &columns = algorithm_configuration.columns;
-  const size_t &rows = algorithm_configuration.rows;
+  const size_t &dimension = algorithm_configuration.columns;
+  const size_t &nb_elements = algorithm_configuration.rows;
   const size_t &max_dimension = algorithm_configuration.max_dimension;
   const size_t &max_iterations = algorithm_configuration.max_iterations;
 
-
-  const size_t dimension = columns;
-
   // input data matrix, external storage.
-  input_storage_t input_storage(rows*columns, mxGetPr(X));
-  input_matrix_t input_data(rows, columns, input_storage);
+  input_storage_t input_storage(nb_elements*dimension, mxGetPr(X));
+  input_matrix_t input_data(nb_elements, dimension, input_storage);
 
   // output data matrix, also external storage for uBlas
   output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
@@ -271,7 +268,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // arguments checking
   if (nrhs < 1 || nrhs > 4)
   {
-	  mexErrMsgTxt("Incorrect number of arguments. Please consult the documentation.");
+	  mexErrMsgIdAndTxt("RobustPCA:configuration", "Incorrect number of arguments. Please consult the documentation.");
   }
 
   const mxArray* const X = prhs[0];
@@ -280,12 +277,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // checking the format of the data
   if (!mxIsDouble(X) && !mxIsSingle(X))
   {
-	  mexErrMsgTxt("Unsupported input format (floating point required)");
+	  mexErrMsgIdAndTxt("RobustPCA:configuration", "Unsupported input format (floating point required)");
   }
 
   if(mxIsComplex(X))
   {
-    mexErrMsgTxt("Unsupported format (scalar data required)");
+    mexErrMsgIdAndTxt("RobustPCA:configuration", "Unsupported format (scalar data required)");
   }
 
 
@@ -299,41 +296,32 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   
 
   // Check the dimensions of inputs
-  config.rows = mxGetN(X);
-  config.columns = mxGetM(X);
+  config.rows = mxGetM(X);
+  config.columns = mxGetN(X);
   
-   
-  const size_t &columns = config.columns;
-  size_t &max_dimension = config.max_dimension;
-  double &trimming_percentage = config.trimming_percentage;
-  size_t &max_chunk_size = config.max_chunk_size;
-  size_t &nb_iterations_max = config.max_iterations;
-  size_t &nb_processing_threads = config.nb_processors;
-  mxArray*& init_directions = config.initial_vectors;
-
-  size_t dimension = columns;
-  init_directions  = 0;
+  size_t dimension = config.columns;
+  config.initial_vectors  = 0;
 
 
   // third argument is the optional trimming percentage
   bool b_trimming = false;
-  trimming_percentage = -1;
+  config.trimming_percentage = -1;
   if(nrhs >= 2)
   {
     const mxArray* const trimmingArray = prhs[1];
     if(!mxIsNumeric(trimmingArray))
     {
-      mexErrMsgTxt("Erroneous argument for the trimming percentage (non numeric argument)");
+      mexErrMsgIdAndTxt("RobustPCA:configuration", "Erroneous argument for the trimming percentage (non numeric argument)");
     }
 
     if(mxIsEmpty(trimmingArray))
     {
-      mexErrMsgTxt("Erroneous argument for the trimming percentage (empty value)");
+      mexErrMsgIdAndTxt("RobustPCA:configuration", "Erroneous argument for the trimming percentage (empty value)");
     }
 
     if(mxGetNumberOfElements(trimmingArray) > 1)
     {
-      mexErrMsgTxt("Erroneous argument for the trimming percentage (non scalar)");
+      mexErrMsgIdAndTxt("RobustPCA:configuration", "Erroneous argument for the trimming percentage (non scalar)");
     }
 
     mxClassID classId = mxGetClassID(trimmingArray);
@@ -343,21 +331,21 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
 
     b_trimming = true;
-    trimming_percentage = mxGetScalar(trimmingArray);
+    config.trimming_percentage = mxGetScalar(trimmingArray);
 
-    if(trimming_percentage < 0 || trimming_percentage > 100)
+    if(config.trimming_percentage < 0 || config.trimming_percentage > 100)
     {
-      mexErrMsgTxt("Erroneous argument for the trimming percentage (not within the range [0, 100])");
+      mexErrMsgIdAndTxt("RobustPCA:configuration", "Erroneous argument for the trimming percentage (not within the range [0, 100])");
     }
 
-    b_trimming = trimming_percentage > 0 && trimming_percentage < 100;
+    b_trimming = config.trimming_percentage > 0 && config.trimming_percentage < 100;
   }
 
 
-  nb_iterations_max = 1000;
-  max_chunk_size = std::numeric_limits<size_t>::max();
-  nb_processing_threads = 1;
-  max_dimension = dimension;
+  config.max_iterations = 1000;
+  config.max_chunk_size = std::numeric_limits<size_t>::max();
+  config.nb_processors = 1;
+  config.max_dimension = dimension;
 
   if(nrhs == 3)
   {
@@ -365,53 +353,53 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if(!mxIsStruct(algorithmConfiguration))
     {
-      mexErrMsgTxt("Erroneous argument for the algorithm configuration (not a structure)");
+      mexErrMsgIdAndTxt("RobustPCA:configuration", "Erroneous argument for the algorithm configuration (not a structure)");
     }
     
     mxArray *nb_iteration_array = mxGetField(algorithmConfiguration, 0, "nb_iterations_max");
     if(nb_iteration_array != 0)
     {
-      nb_iterations_max = static_cast<int>(mxGetScalar(nb_iteration_array) + 0.5);
+      config.max_iterations = static_cast<int>(mxGetScalar(nb_iteration_array) + 0.5);
     }
 
     mxArray *max_chunk_size_array = mxGetField(algorithmConfiguration, 0, "max_chunk_size");
     if(max_chunk_size_array != 0)
     {
-      max_chunk_size = static_cast<size_t>(mxGetScalar(max_chunk_size_array) + 0.5);
+      config.max_chunk_size = static_cast<size_t>(mxGetScalar(max_chunk_size_array) + 0.5);
     }
 
     mxArray *nb_processing_threads_array = mxGetField(algorithmConfiguration, 0, "nb_processing_threads");
     if(nb_processing_threads_array != 0)
     {
-      nb_processing_threads = static_cast<size_t>(mxGetScalar(nb_processing_threads_array) + 0.5);
+      config.nb_processors = static_cast<size_t>(mxGetScalar(nb_processing_threads_array) + 0.5);
     }
 
     mxArray *nb_max_dimensions = mxGetField(algorithmConfiguration, 0, "max_dimensions");
     if(nb_max_dimensions != 0)
     {
-      max_dimension = static_cast<size_t>(mxGetScalar(nb_max_dimensions) + 0.5);
+      config.max_dimension = static_cast<size_t>(mxGetScalar(nb_max_dimensions) + 0.5);
     }
-
-    init_directions = mxGetField(algorithmConfiguration, 0, "initial_vectors");
-    if(init_directions != 0)
+    
+    config.initial_vectors = mxGetField(algorithmConfiguration, 0, "initial_vectors");
+    if(config.initial_vectors != 0)
     {
-      if (!mxIsDouble(init_directions) && !mxIsSingle(init_directions))
+      if (!mxIsDouble(config.initial_vectors) && !mxIsSingle(config.initial_vectors))
       {
-        mexErrMsgTxt("Unsupported input format for initial directions (floating point required)");
+        mexErrMsgIdAndTxt("RobustPCA:configuration", "Unsupported input format for initial directions (floating point required)");
       }
-      if(mxIsComplex(init_directions))
+      if(mxIsComplex(config.initial_vectors))
       {
-        mexErrMsgTxt("Unsupported format for initial directions (scalar data required)");
+        mexErrMsgIdAndTxt("RobustPCA:configuration", "Unsupported format for initial directions (scalar data required)");
       }
       
-      if(mxGetM(init_directions) != dimension)
+      if(mxGetN(config.initial_vectors) != dimension)
       {
-        mexErrMsgTxt("Error in the dimension of the initial values");
+        mexErrMsgIdAndTxt("RobustPCA:configuration", "Error in the dimension of the initial values");
       }
 
-      if(mxGetN(init_directions) != max_dimension)
+      if(mxGetM(config.initial_vectors) != config.max_dimension)
       {
-        mexErrMsgTxt("Error in the number of the initial values provided. Should be equal to \"max_dimensions\"");
+        mexErrMsgIdAndTxt("RobustPCA:configuration", "Error in the number of the initial values provided. Should be equal to \"max_dimensions\"");
       }
       
     }
@@ -424,7 +412,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // TODO put the dimension
   // for the library to work, we need to allocate some temporary storage
   // we also allocate the output if given
-  plhs[0] = mxCreateDoubleMatrix(dimension, max_dimension, mxREAL);
+  plhs[0] = mxCreateDoubleMatrix(dimension, config.max_dimension, mxREAL);
   mxArray *outputMatrix = plhs[0];
   assert(outputMatrix);
 
