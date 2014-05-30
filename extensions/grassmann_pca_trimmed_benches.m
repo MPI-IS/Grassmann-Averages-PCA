@@ -17,6 +17,7 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_trimmed_be
   algorithm_config = {};
   algorithm_config.max_dimensions = K;
   algorithm_config.nb_processing_threads = nb_threads;
+  algorithm_config.max_chunk_size = 1000;
 
   
   mean_matlab = zeros(NB_steps, 1);
