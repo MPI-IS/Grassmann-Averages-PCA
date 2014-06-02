@@ -3,11 +3,12 @@ addpath('D:\Code\robust_pca\build\Release\')
 addpath('D:\Code\gr_pca\')
 
 redo_all = true;
+avoid_recomputing_cpp = false;
 trimmed = true;
 
 N = 100000;
 NBSteps= 10;
-DIM = 10;
+DIM = 100;
 
 max_threads = 8;
 
@@ -24,20 +25,25 @@ if redo_all
     else
       [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches(DIM, 5, 10, nb_threads, do_matlab);
     end %
-    mean_mex_output(nb_threads+1, :) = mean_mex;
     if do_matlab
       mean_mex_output(1, :) = mean_matlab;
     end %if 
+    if ~avoid_recomputing_cpp
+      mean_mex_output(nb_threads+1, :) = mean_mex;
+    else
+      break
+    end
+
   end % for
 
   if trimmed
-    save(sprintf('benches_trimmed_%d.mat', DIM));
+    save(sprintf('benches_trimmed3_%d.mat', DIM));
   else
     save(sprintf('benches_%d.mat', DIM));
   end
 else
   if trimmed
-    S = load(sprintf('benches_trimmed_%d.mat', DIM));
+    S = load(sprintf('benches_trimmed3_%d.mat', DIM));
   else
     S = load(sprintf('benches_%d.mat', DIM));
   end

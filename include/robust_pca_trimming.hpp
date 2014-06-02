@@ -254,6 +254,7 @@ namespace robust_pca
           accumulator_element_t result;
           result.dimension = dimension;
           result.value = acc;
+          signal_acc_dimension(result);
         }
 
         signal_counter();

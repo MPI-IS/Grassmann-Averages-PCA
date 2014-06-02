@@ -65,6 +65,7 @@ struct s_algorithm_configuration
   size_t max_iterations;
   size_t max_chunk_size;
   size_t nb_processors;
+  size_t nb_pca_steps;
   double trimming_percentage;
   
   mxArray *initial_vectors;
@@ -87,10 +88,11 @@ bool robust_pca_dispatch(
 
 
   typedef external_storage_adaptor<input_array_type> input_storage_t;
-  typedef ub::matrix<input_array_type, ub::row_major, input_storage_t> input_matrix_t;
+  typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
 
   typedef external_storage_adaptor<double> output_storage_t;
-  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t;
+  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
+                                                                               // dimension of the matrix output_eigen_vectors (we take the transpose of it)
 
   const size_t &dimension = algorithm_configuration.columns;
   const size_t &nb_elements = algorithm_configuration.rows;
@@ -106,6 +108,7 @@ bool robust_pca_dispatch(
   output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
   output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
 
+  size_t nb_pca_steps = algorithm_configuration.nb_pca_steps;
 
 
 
@@ -123,7 +126,7 @@ bool robust_pca_dispatch(
   {
     if(!instance.set_nb_processors(algorithm_configuration.nb_processors))
     {
-      mexWarnMsgTxt("Incorrect number of processors. Please consult the documentation.");
+      mexWarnMsgIdAndTxt("RobustPCA:configuration", "Incorrect number of processors. Please consult the documentation.");
       return false;
     }
   }
@@ -132,7 +135,7 @@ bool robust_pca_dispatch(
   {
     if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
     {
-	    mexWarnMsgTxt("Incorrect chunk size. Please consult the documentation.");
+	    mexWarnMsgIdAndTxt("RobustPCA:configuration", "Incorrect chunk size. Please consult the documentation.");
       return false;
     }
   }
@@ -143,15 +146,22 @@ bool robust_pca_dispatch(
   { 
     init_vectors.resize(max_dimension);
     input_storage_t input_init_vector_storage(max_dimension*dimension, mxGetPr(algorithm_configuration.initial_vectors ));
-    input_matrix_t input_init_vector_data(max_dimension, dimension, input_init_vector_storage);
-    size_t index = 0;
-    for(const_input_row_iter_t it(input_init_vector_data, 0), ite(input_init_vector_data, max_dimension);
-        it != ite;
-        ++it)
+    input_matrix_t input_init_vector_data(dimension, max_dimension, input_init_vector_storage);
+    for(size_t index = 0;
+        index < max_dimension;
+        index++)
     {
-      init_vectors[index++] = *it;
+      init_vectors[index] = ub::column(input_init_vector_data, index);
     }
     
+    // if the initial vectors are set, we avoid the computation of the regular PCA.
+    nb_pca_steps = 0;
+  }
+
+  if(!instance.set_nb_steps_pca(nb_pca_steps))
+  {
+    mexWarnMsgIdAndTxt("RobustPCA:configuration", "Incorrect number of regular PCA steps (%d). Please consult the documentation.", nb_pca_steps);
+    return false;
   }
 
   return instance.batch_process(
@@ -179,10 +189,11 @@ bool robust_pca_trimming_dispatch(
 
 
   typedef external_storage_adaptor<input_array_type> input_storage_t;
-  typedef ub::matrix<input_array_type, ub::row_major, input_storage_t> input_matrix_t;
+  typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
 
   typedef external_storage_adaptor<double> output_storage_t;
-  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t;
+  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
+                                                                               // dimension of the matrix output_eigen_vectors (we take the transpose of it)
 
 
   const size_t &dimension = algorithm_configuration.columns;
@@ -198,6 +209,8 @@ bool robust_pca_trimming_dispatch(
   output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
   output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
 
+
+  size_t nb_pca_steps = algorithm_configuration.nb_pca_steps;
 
 
 
@@ -217,7 +230,7 @@ bool robust_pca_trimming_dispatch(
   {
     if(!instance.set_nb_processors(algorithm_configuration.nb_processors))
     {
-      mexWarnMsgTxt("Incorrect number of processors. Please consult the documentation.");
+      mexWarnMsgIdAndTxt("RobustPCA:configuration", "Incorrect number of processors. Please consult the documentation.");
       return false;
     }
   }
@@ -226,7 +239,7 @@ bool robust_pca_trimming_dispatch(
   {
     if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
     {
-	    mexWarnMsgTxt("Incorrect chunk size. Please consult the documentation.");
+	    mexWarnMsgIdAndTxt("RobustPCA:configuration", "Incorrect chunk size. Please consult the documentation.");
       return false;
     }
   }
@@ -237,15 +250,23 @@ bool robust_pca_trimming_dispatch(
   { 
     init_vectors.resize(max_dimension);
     input_storage_t input_init_vector_storage(max_dimension*dimension, mxGetPr(algorithm_configuration.initial_vectors ));
-    input_matrix_t input_init_vector_data(max_dimension, dimension, input_init_vector_storage);
-    size_t index = 0;
-    for(const_input_row_iter_t it(input_init_vector_data, 0), ite(input_init_vector_data, max_dimension);
-        it != ite;
-        ++it)
+    input_matrix_t input_init_vector_data(dimension, max_dimension, input_init_vector_storage);
+    for(size_t index = 0;
+        index < max_dimension;
+        index++)
     {
-      init_vectors[index++] = *it;
+      init_vectors[index] = ub::column(input_init_vector_data, index);
     }
-    
+
+    // if the initial vectors are set, we avoid the computation of the regular PCA.
+    nb_pca_steps = 0;
+  }
+
+
+  if(!instance.set_nb_steps_pca(nb_pca_steps))
+  {
+    mexWarnMsgIdAndTxt("RobustPCA:configuration", "Incorrect number of regular PCA steps (%d). Please consult the documentation.", nb_pca_steps);
+    return false;
   }
 
 
@@ -346,6 +367,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   config.max_chunk_size = std::numeric_limits<size_t>::max();
   config.nb_processors = 1;
   config.max_dimension = dimension;
+  config.nb_pca_steps = 3;
 
   if(nrhs == 3)
   {
@@ -392,16 +414,22 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         mexErrMsgIdAndTxt("RobustPCA:configuration", "Unsupported format for initial directions (scalar data required)");
       }
       
-      if(mxGetN(config.initial_vectors) != dimension)
+      if(mxGetM(config.initial_vectors) != dimension)
       {
         mexErrMsgIdAndTxt("RobustPCA:configuration", "Error in the dimension of the initial values");
       }
 
-      if(mxGetM(config.initial_vectors) != config.max_dimension)
+      if(mxGetN(config.initial_vectors) != config.max_dimension)
       {
         mexErrMsgIdAndTxt("RobustPCA:configuration", "Error in the number of the initial values provided. Should be equal to \"max_dimensions\"");
       }
       
+    }
+
+    mxArray *nb_pca_steps = mxGetField(algorithmConfiguration, 0, "nb_pca_steps");
+    if(nb_pca_steps != 0)
+    {
+      config.nb_pca_steps = static_cast<size_t>(mxGetScalar(nb_pca_steps) + 0.5);
     }
 
     

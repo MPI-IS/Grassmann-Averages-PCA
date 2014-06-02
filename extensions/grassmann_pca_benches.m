@@ -13,11 +13,13 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
   Sigma = tmp * tmp'; 
   X = mvnrnd(zeros(D, 1), Sigma, N);
 
+  vectors = gram_schmidt(rand (D, K, class (X)) - 0.5);
 
   algorithm_config = {};
   algorithm_config.max_dimensions = K;
   algorithm_config.nb_processing_threads = nb_threads;
   algorithm_config.max_chunk_size = 1000;
+  algorithm_config.initial_vectors = vectors;
 
   
   mean_matlab = zeros(NB_steps, 1);
@@ -29,9 +31,10 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
     
     for j = 1:NB_steps
       display(sprintf('\tStep %d - #elements = %d', j, (N*j/NB_steps)))
+      xt = X(1:(N*j/NB_steps), :);
       for i = 1:nb_trials
         tic
-          out = grassmann_pca(X(1:(N*j/NB_steps), :), K);
+          out_soren = grassmann_pca(xt, K, 'init', vectors);
         u = toc;
         time_matlab(i) = u;
 
@@ -50,10 +53,10 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
   display('C++ version');
   for j = 1:NB_steps
     display(sprintf('\tStep %d - #elements = %d', j, (N*j/NB_steps)))
-    xt = (X(1:(N*j/NB_steps), :))';
+    xt = (X(1:(N*j/NB_steps), :));
     for i = 1:nb_trials
       tic
-        out = robustpca_m(xt, 0, algorithm_config);
+        out_raffi = robustpca_m(xt, 0, algorithm_config);
       u = toc;
       time_mex(i) = u;
 
@@ -63,5 +66,7 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
   end % for
   display(mean_mex')
   display(var_mex')
-    
+  if do_matlab
+    display(sprintf('max error %f', max(abs(out_raffi - out_soren))))
+  end
 end % function
