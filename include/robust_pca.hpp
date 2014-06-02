@@ -652,18 +652,6 @@ namespace robust_pca
     }
   };
 
-
-
-
-
-
-
-
-
-
-
-
-
 }
 
 #endif /* ROBUST_PCA_HPP__ */
