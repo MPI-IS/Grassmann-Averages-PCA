@@ -10,6 +10,9 @@
 
 typedef void (*entryfunc_t)(int, mxArray**, int, const mxArray**);
 
+#if !defined(RTLD_DEEPBIND) && defined(__APPLE__)
+  #define RTLD_DEEPBIND 0
+#endif
 
 entryfunc_t populate()
 {
@@ -27,12 +30,15 @@ void mexFunction(int nlhs, mxArray * plhs[], int nrhs, const mxArray * prhs[])
   if(gMexEntry == 0 && first_time)
   {
     gMexEntry = populate();
-    first_time = false;
+    first_time = true;
   }
-  if(!gMexEntry)
+  /*if(!gMexEntry)
   {
     mexErrMsgTxt("MATLAB Wrapper: cannot find " MATLAB_SO_WRAP);
+  }*/
+  assert(gMexEntry);
+  if(gMexEntry)
+  {
+    gMexEntry(nlhs, plhs, nrhs, prhs);
   }
-
-  gMexEntry (nlhs, plhs, nrhs, prhs);
 }

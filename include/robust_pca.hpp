@@ -9,8 +9,7 @@
 /*!@file
  * Robust PCA functions, following the paper of Soren Hauberg.
  *
- * @note These implementations assume the existence of boost somewhere. Currently, it is just used for 
- * computing the norms of differences and to generate some random data (which is now TR1 and C++0X).
+ * @note These implementations assume the existence of boost somewhere. 
  */
 
 #include <vector>
@@ -35,31 +34,38 @@ namespace robust_pca
 
   namespace ub = boost::numeric::ublas;
 
-
-
-
-
-
-
-
-  /*!@brief Robust PCA subspace algorithm
+  /*!@brief Robust PCA with Grassmann Average algorithm
    *
-   * This class implements the robust PCA using the Grassmanian averaging. The implementation is distributed among several threads. 
+   * This class implements the robust PCA using the Grassmann average. Its purpose is to compute the PCA of a dataset @f$\{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
+   * D. The particularity of the Grassman average scheme is to be more stable than other algorithms.
+   * 
    * The algorithm is the following:
-   * - pick a random or a given @f$\mu_{i, 0}@f$, @f$i@f$ being the current dimension and @f$0@f$ is the iteration number. This can also be
-   *   a parameter of the algorithm.
-   * - until convergence on @f$\mu_{i, t}@f$ do:
-   *   - computes the sign of the projection onto @f$\mu_{i, t}@f$ of the input vectors @f$X_j@f$. This is the sign of the projection @f$s_{j, t}@f$
-   *   - compute the next @f$\mu_{i, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f$
-   * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{i}@f$: @f$X_{j} = X_{j} - X_{j}\cdot\mu_{i} @f$.
+   * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
+   * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
+   *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
+   *   - compute the update of @f$\mu{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
+   * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
-   * The range taken by @f$i@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 
+   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 
    * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see robust_pca_impl::batch_process).
-   * The test for convergence is delegated to convergence_check.
+   * The test for convergence is delegated to the class details::convergence_check.
    *
-   * The multithreading strategy is 
-   * - to split the computation of @f$\sum_i s_{i, t} X_i@f$ (including the computation of the sign) among many independant chunks (threads). 
-   * - to split the computation of the project among many threads.
+   * The computation is distributed among several threads. The multithreading strategy is 
+   * - to split the computation of @f$\sum_j s_{j, t} X_j@f$ among several independant chunks. This computation involves the inner product and the sign. Each chunk addresses 
+   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function robust_pca_impl::set_max_chunk_size.
+   *   By default, the size of the chunk would be the size of the data divided by the number of threads.
+   * - to split the computation of the projection onto the orthogonal subspace of @f$\mu_{k}@f$.
+   * - to split the computation of the regular PCA algorithm (if any) into several independant chunks.
+   *
+   * The number of threads can be configured through the function robust_pca_impl::set_nb_processors.
+   * 
+   * @note
+   * The algorithm may also perform a few "regular PCA" steps, which is the computation of the eigen-vector with highest eigen-value. This can be configured through the function
+   * robust_pca_impl::set_nb_steps_pca.
+   *
+   * @tparam data_t type of vectors used for the computation. 
+   * @tparam norm_mu_t norm used to normalize the eigen-vector and project them onto the unit circle.
+   *
    * @author Soren Hauberg, Raffi Enficiaud
    */
   template <class data_t, class norm_mu_t = details::norm2>
@@ -394,7 +400,7 @@ namespace robust_pca
       return true;
     }
 
-    //! Sets the number of iterations for the initial PCA like algorithm. 
+    //! Sets the number of iterations for the "regular PCA" algorithm. 
     bool set_nb_steps_pca(size_t nb_steps)
     {
       nb_steps_pca = nb_steps;
@@ -403,26 +409,24 @@ namespace robust_pca
 
 
 
-    /*! Performs the computation of the current subspace on the elements given by the two iterators.
+    /*!Performs the computation of the eigen-vectors of the provided dataset.
      *
-     * @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
-     *  should provide a vector point.
-     * @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
+     * @tparam it_t an input random iterator. Each element pointed by the iterator should be convertible to data_t.
+     * @tparam it_eigenvectors an output iterator for storing the computed eigenvalues. This iterator should model a forward output iterator.
      *
-     * @param[in] max_iterations the maximum number of iterations at each dimension. 
-     * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first @c max_dimension_to_compute will be 
-     *            computed).
-     * @param[in] it input iterator at the beginning of the data
-     * @param[in] ite input iterator at the end of the data
+     * @param[in] max_iterations the maximum number of iterations in order to compute each eigen-vector. 
+     * @param[in] max_dimension_to_compute the maximum number of eigen-vectors to compute.
+     * @param[in] it an (input) iterator pointing on the beginning of the data
+     * @param[in] ite an (input) iterator pointing on the end of the data
+     * @param[out] it_eigenvectors an iterator on the beginning of the area where the computed eigen-vectors will be stored. The space should be at least @c max_dimension_to_compute.
      * @param[in] initial_guess if provided, the initial vectors will be initialized to this value. The size of the pointed container should be at least @c max_dimension_to_compute.
-     * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least @c max_dimension_to_compute.
      *
      * @returns true on success, false otherwise
      * @pre 
      * - @c !(it >= ite)
      * - all the vectors given by the iterators pair should be of the same size (no check is performed).
+     * - @c std::next(it_eigenvectors, i) should yield a valid iterator pointing on a valid storage area, for @c i in [0, max_dimension_to_compute[.
      *
-     * @note the iterator it_o_projected_vectors should implement random access to the elements.
      */
     template <class it_t, class it_o_eigenvalues_t>
     bool batch_process(
