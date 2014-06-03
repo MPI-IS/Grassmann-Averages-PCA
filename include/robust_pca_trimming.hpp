@@ -529,7 +529,7 @@ namespace robust_pca
       const size_t size_data(std::distance(it, ite));
 
       // size of the chunks.
-      const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(size_data/nb_processors));
+      const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(ceil(double(size_data)/nb_processors)));
       const size_t nb_chunks = (size_data + chunks_size - 1) / chunks_size;
 
 

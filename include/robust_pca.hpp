@@ -267,10 +267,9 @@ namespace robust_pca
       //! Update the accumulator and the signs vector from an upated mu
       void update_accumulation(data_t const& mu)
       {
-        std::vector<bool>::iterator itb(v_signs.begin());
-        
         compute_inner_products(mu);
 
+        std::vector<bool>::iterator itb(v_signs.begin());
         for(size_t s = 0; s < nb_elements; ++itb, s++)
         {
           bool sign = inner_prod_results[s] >= 0;
@@ -312,7 +311,7 @@ namespace robust_pca
 
         for(int line = 0; line < data_dimension; line ++, current_line += nb_elements)
         {
-          double mu_element = mu(line);    
+          double const mu_element = mu(line);    
           for(int column = 0; column < nb_elements; column++)
           {
             current_line[column] -= mu_element * inner_prod_results[column];
@@ -463,7 +462,7 @@ namespace robust_pca
       size_t size_data(std::distance(it, ite));
 
       // size of the chunks.
-      const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(size_data/nb_processors));
+      const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(ceil(double(size_data)/nb_processors)));
       const size_t nb_chunks = (size_data + chunks_size - 1) / chunks_size;
 
       // number of dimensions of the data vectors
