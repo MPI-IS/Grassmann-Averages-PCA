@@ -607,7 +607,7 @@ namespace robust_pca
         
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
-        std::swap(*it_eigenvectors, mu);
+        *it_eigenvectors = mu;
 
         // projection onto the orthogonal subspace
         if(current_dimension < max_dimension_to_compute - 1)
