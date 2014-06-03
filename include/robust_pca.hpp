@@ -472,9 +472,8 @@ namespace robust_pca
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
+      mu /= norm_op(mu); // normalizing
       assert(mu.size() == number_of_dimensions);
-      typename norm_mu_t::result_type norm_mu(norm_op(mu)); // normalizing
-      mu /= norm_mu;
 
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
       
@@ -565,7 +564,6 @@ namespace robust_pca
 
 
 
-        data_t previous_mu(mu);
         details::convergence_check<data_t> convergence_op(mu);
 
         // reseting the final accumulator
@@ -578,21 +576,19 @@ namespace robust_pca
             boost::bind(
               &async_processor_t::initial_accumulation, 
               boost::ref(v_individual_accumulators[i]), 
-              boost::cref(previous_mu)));
+              boost::cref(mu)));
         }
 
         // waiting for completion (barrier)
         async_merger.wait_notifications(v_individual_accumulators.size());
 
         // gathering the first mu
-        mu = async_merger.get_merged_result();
-        mu /= norm_op(mu);
+        mu = async_merger.get_merged_result() / norm_op(async_merger.get_merged_result());
 
 
         // other iterations as usual
         for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
         {
-          previous_mu = mu;
 
           // reseting the final accumulator
           async_merger.init();
@@ -600,20 +596,19 @@ namespace robust_pca
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            ioService.post(boost::bind(&async_processor_t::update_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(previous_mu)));
+            ioService.post(boost::bind(&async_processor_t::update_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(mu)));
           }
 
           // waiting for completion (barrier)
           async_merger.wait_notifications(v_individual_accumulators.size());
 
           // gathering the mus
-          mu = async_merger.get_merged_result();
-          mu /= norm_op(mu);
+          mu = async_merger.get_merged_result() / norm_op(async_merger.get_merged_result());
         }
         
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
-        *it_eigenvectors = mu;
+        std::swap(*it_eigenvectors, mu);
 
         // projection onto the orthogonal subspace
         if(current_dimension < max_dimension_to_compute - 1)
