@@ -126,7 +126,7 @@ namespace robust_pca
 
       //! Sets the data range
       template <class container_iterator_t>
-      bool set_data_range(container_iterator_t const &b, container_iterator_t const& e)
+      void set_data_range(container_iterator_t const &b, container_iterator_t const& e)
       {
         //begin = b;
         //end = e;
@@ -150,7 +150,7 @@ namespace robust_pca
           
         }
         
-        return true;
+        signal_counter();
       }
 
       //! Sets the dimension of the problem
@@ -489,7 +489,7 @@ namespace robust_pca
       asynchronous_results_merger async_merger(number_of_dimensions);
 
       {
-        bool b_result;
+        //bool b_result;
         it_t it_current_begin(it);
         for(int i = 0; i < nb_chunks; i++)
         {
@@ -508,23 +508,34 @@ namespace robust_pca
 
           async_processor_t &current_acc_object = v_individual_accumulators[i];
 
-          // updating the dimension of the problem
-          current_acc_object.set_data_dimensions(number_of_dimensions);
-
-          b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
-          if(!b_result)
-          {
-            return b_result;
-          }
-
-
           // attaching the update object callbacks
           current_acc_object.connector_accumulator() = boost::bind(&asynchronous_results_merger::update, &async_merger, _1);
           current_acc_object.connector_counter() = boost::bind(&asynchronous_results_merger::notify, &async_merger);
 
+          // updating the dimension of the problem
+          current_acc_object.set_data_dimensions(number_of_dimensions);
+
+          // pushing the asynchronous copy
+          ioService.post(
+            boost::bind(
+              &async_processor_t::template set_data_range<it_t>, 
+              boost::ref(current_acc_object), 
+              boost::cref(it_current_begin), boost::cref(it_current_end)));
+
+          //b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
+          //if(!b_result)
+          //{
+          //  return b_result;
+          //}
+
+
           // updating the next 
           it_current_begin = it_current_end;
         }
+        
+        // waiting for completion (barrier)
+        async_merger.wait_notifications(v_individual_accumulators.size());
+        
       }
 
 
