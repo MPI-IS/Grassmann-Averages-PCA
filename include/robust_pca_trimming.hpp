@@ -63,9 +63,40 @@ namespace robust_pca
   }
 
 
-  /*!@brief Robust PCA subspace algorithm, with trimming
+  /*!@brief Robust PCA with Grassmann Average algorithm, with trimming of outliers.
    *
-   * This class implements the robust PCA using the Grassmanian averaging with trimming.
+   * This class implements the robust PCA using the Grassmann average with trimming of the outliers. 
+   * Its purpose is to compute the PCA of a dataset @f$\{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
+   * D, and also by being robust to some noise that may corrupt the underlying subspace. 
+   * The particularity of the Grassman average scheme is to be more stable than other algorithms.
+   * 
+   * The algorithm is the following:
+   * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
+   * - ensure this @f$\mu_{k, 0}@f$ is orthogonal to the previous detected @f$\mu_{k', 0}, 0 \geq k' < k@f$
+   * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
+   *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
+   *   - compute the update of @f$\mu{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
+   * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
+   *
+   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 
+   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see robust_pca_impl::batch_process).
+   * The test for convergence is delegated to the class details::convergence_check.
+   *
+   * The computation is distributed among several threads. The multithreading strategy is 
+   * - to split the computation of @f$\sum_j s_{j, t} X_j@f$ among several independant chunks. This computation involves the inner product and the sign. Each chunk addresses 
+   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function robust_pca_impl::set_max_chunk_size.
+   *   By default, the size of the chunk would be the size of the data divided by the number of threads.
+   * - to split the computation of the projection onto the orthogonal subspace of @f$\mu_{k}@f$.
+   * - to split the computation of the regular PCA algorithm (if any) into several independant chunks.
+   *
+   * The number of threads can be configured through the function robust_pca_impl::set_nb_processors.
+   * 
+   * @note
+   * The algorithm may also perform a few "regular PCA" steps, which is the computation of the eigen-vector with highest eigen-value. This can be configured through the function
+   * robust_pca_impl::set_nb_steps_pca.
+   *
+   * @tparam data_t type of vectors used for the computation. 
+   * @tparam norm_mu_t norm used to normalize the eigen-vector and project them onto the unit circle.
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */

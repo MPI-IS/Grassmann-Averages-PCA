@@ -78,21 +78,6 @@ namespace robust_pca
       }
     };
     
-    
-    template <class T>
-    double inner_prod(const T& v1, const T& v2)
-    {
-      double prod(0);
-      assert(v1.size() == v2.size());
-      double const *p1 = &v1(0);
-      double const *p2 = &v1(0) + v1.size();
-      double const *p3 = &v2(0);
-      for(; p1 < p2; ++p1, ++p3)
-      {
-        prod += (*p1) * (*p3);
-      }
-      return prod;
-    }
 
 
 
@@ -131,7 +116,7 @@ namespace robust_pca
 
 
 
-    /*!@brief Checks the convergence of a numerical scheme.
+    /*!@brief Checks the convergence of a sequence.
      *
      * @tparam data_t: type of the data.
      * @tparam norm_t: the norm used in order to compare the closeness of two successive results.
@@ -144,16 +129,18 @@ namespace robust_pca
      * the functor returns true if:
      * @f[\left\|v_t - v_{t-1}\right\| < \epsilon@f]
      *
-     * @note When the convergence is reached, the previous states are not updated anymore (the calling algorithm is supposed to stop).
+     * @note Once the convergence is reached, the internal states are not updated anymore (the calling algorithm is supposed to stop).
      */
     template <class data_t, class norm_t = norm_infinity>
     struct convergence_check
     {
+      //! The amount of change below which the sequence is considered as having reached a steady point.
       const double epsilon;
 
       //! Holds an instance of the norm used for checking the convergence.
       norm_t norm_comparison;
 
+      //! The previous value
       data_t previous_state;
 
       //! Initialise the instance with the initial state of the vector.
@@ -260,7 +247,7 @@ namespace robust_pca
       };
 
 
-      //! Helper structure for managing additions of standard uBlas vectors.
+      //! Helper structure for managing additions on standard uBlas vectors.
       //! 
       //! This class is intended to be used with asynchronous_results_merger.
       template <class data_t>
