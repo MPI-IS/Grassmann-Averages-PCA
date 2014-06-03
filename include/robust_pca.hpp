@@ -99,12 +99,10 @@ namespace robust_pca
       
       // this is to send an update of the value of mu to all listeners
       // the connexion should be managed externally
-      typedef boost::signals2::signal<void (data_t const&)>
-        connector_accumulator_t;
+      typedef boost::function<void (data_t const&)> connector_accumulator_t;
       connector_accumulator_t signal_acc;
 
-      typedef boost::signals2::signal<void ()>
-        connector_counter_t;
+      typedef boost::function<void ()> connector_counter_t;
       connector_counter_t signal_counter;
 
 
@@ -523,10 +521,8 @@ namespace robust_pca
 
 
           // attaching the update object callbacks
-          current_acc_object.connector_accumulator().connect(
-            boost::bind(&asynchronous_results_merger::update, &async_merger, _1));
-          current_acc_object.connector_counter().connect(
-            boost::bind(&asynchronous_results_merger::notify, &async_merger));
+          current_acc_object.connector_accumulator() = boost::bind(&asynchronous_results_merger::update, &async_merger, _1);
+          current_acc_object.connector_counter() = boost::bind(&asynchronous_results_merger::notify, &async_merger);
 
           // updating the next 
           it_current_begin = it_current_end;

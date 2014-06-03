@@ -148,12 +148,10 @@ namespace robust_pca
       size_t data_dimension;              //!< The dimension of the data
       size_t nb_elements_to_keep;         //!< The number of elements to keep.
       
-      typedef boost::signals2::signal<void ()>
-        connector_counter_t;
+      typedef boost::function<void ()> connector_counter_t;
       connector_counter_t signal_counter;
 
-      typedef boost::signals2::signal<void (accumulator_element_t const&)> 
-        connector_accumulator_dimension_t;
+      typedef boost::function<void (accumulator_element_t const&)> connector_accumulator_dimension_t;
       connector_accumulator_dimension_t signal_acc_dimension;
 
  
@@ -613,14 +611,12 @@ namespace robust_pca
           }
           
           // attaching the update object callbacks
-          current_acc_object.connector_accumulator().connect(
-            boost::bind(
+          current_acc_object.connector_accumulator() = boost::bind(
               &asynchronous_results_merger::update, 
               &async_merger, 
-              _1));
+              _1);
 
-          current_acc_object.connector_counter().connect(
-            boost::bind(&asynchronous_results_merger::notify, &async_merger));
+          current_acc_object.connector_counter() = boost::bind(&asynchronous_results_merger::notify, &async_merger);
 
           // updating the next 
           it_current_begin = it_current_end;

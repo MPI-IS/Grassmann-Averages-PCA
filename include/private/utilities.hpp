@@ -377,8 +377,10 @@ namespace robust_pca
          */
         void notify()
         {
-          lock_t guard(internal_mutex);
-          nb_updates ++;
+          {
+            lock_t guard(internal_mutex);
+            nb_updates ++;
+          }
           condition_.notify_one();
         }
      
