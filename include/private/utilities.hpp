@@ -29,6 +29,8 @@
 #include <boost/numeric/ublas/vector_expression.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 
+// lock free queue, several producers, one consumer
+#include <boost/lockfree/queue.hpp>
 
 namespace robust_pca
 {
@@ -327,6 +329,9 @@ namespace robust_pca
         //! Thread synchronisation (event sent after an update, for counting).
         boost::condition_variable_any condition_;
 
+        //std::list<update_element const*> lf_queue;
+        boost::lockfree::queue<update_element const*> lf_queue;
+
       public:
 
         /*!Constructor
@@ -335,7 +340,8 @@ namespace robust_pca
          */
         asynchronous_results_merger(init_result_type const &initialisation_instance_) : 
           initialisation_instance(initialisation_instance_),
-          nb_updates(0)
+          nb_updates(0),
+          lf_queue(10)
         {}
 
         //! Initializes the internal states
@@ -362,12 +368,21 @@ namespace robust_pca
         /*! Receives the update element from each worker.
          * 
          * The update element is passed to the merger in order to create an updated value of the internal result.
-         *  @note The call is thread safe.
+         * @note The call is thread safe.
          */
-        void update(update_element const& updated_value)
+        void update(update_element const* updated_value)
         {
-          lock_t guard(internal_mutex);
-          merger_instance(current_value, updated_value);
+          boost::unique_lock<mutex_t> lock(internal_mutex, boost::try_to_lock);
+
+          if(lock.owns_lock())
+          {
+            merger_instance(current_value, *updated_value);
+          }
+          else
+          {
+            while(!lf_queue.push(updated_value))
+              ;
+          }
         }
 
 
@@ -380,7 +395,7 @@ namespace robust_pca
         {
           {
             lock_t guard(internal_mutex);
-            nb_updates ++;
+            ++nb_updates;
           }
           condition_.notify_one();
         }
@@ -396,8 +411,30 @@ namespace robust_pca
             // when entering wait, the lock is unlocked and made available to other threads.
             // when awakened, the lock is locked before wait returns. 
             condition_.wait(lock);
+
+            assert(nb_updates);
+            assert(lock.owns_lock());
+
+            // consumes what was under a collision in the update
+            update_element const* updated_value(0);
+            while(lf_queue.pop(updated_value))
+            {
+              merger_instance(current_value, *updated_value);
+            }
           }
-        
+
+          assert(lock.owns_lock());
+
+          // consumes what was under a collision in the update
+          // we might end up here if there was at least one collision, and everything was finished before the line "while (nb_updates < nb_notifications)"
+          {
+            update_element const* updated_value(0);
+            while(lf_queue.pop(updated_value))
+            {
+              merger_instance(current_value, *updated_value);
+            }
+          }
+
           return true;
         }
 

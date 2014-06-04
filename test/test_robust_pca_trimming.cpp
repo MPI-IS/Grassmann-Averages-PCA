@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   
   
   std::cout << "processing " << nb_elements << " elements "
-    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
+    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << std::endl;
   
 
 
@@ -282,7 +282,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   }
   
   std::cout << "processing " << nb_elements << " elements "
-    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
+    << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << std::endl;
 
 
   // testing the output sizes

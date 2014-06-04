@@ -18,7 +18,7 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
   algorithm_config = {};
   algorithm_config.max_dimensions = K;
   algorithm_config.nb_processing_threads = nb_threads;
-  algorithm_config.max_chunk_size = 1000;
+  %algorithm_config.max_chunk_size = 1000;
   algorithm_config.initial_vectors = vectors;
 
   
@@ -44,6 +44,9 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
     end % for
     display(mean_matlab')
     display(var_matlab')
+  else
+    display('Matlab results for comparison')
+    out_soren = grassmann_pca(X, K, 'init', vectors);  
   end;
   
   time_mex = zeros(nb_trials, 1);
@@ -66,7 +69,8 @@ function [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_benches (D
   end % for
   display(mean_mex')
   display(var_mex')
-  if do_matlab
-    display(sprintf('max error %f', max(abs(out_raffi - out_soren))))
+  if true
+    display('max error=')
+    display(max(abs(out_raffi - out_soren)))
   end
 end % function

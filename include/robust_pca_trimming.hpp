@@ -151,8 +151,10 @@ namespace robust_pca
       typedef boost::function<void ()> connector_counter_t;
       connector_counter_t signal_counter;
 
-      typedef boost::function<void (accumulator_element_t const&)> connector_accumulator_dimension_t;
+      typedef boost::function<void (accumulator_element_t const*)> connector_accumulator_dimension_t;
       connector_accumulator_dimension_t signal_acc_dimension;
+
+      std::vector<accumulator_element_t> v_accumulated_per_dimension;
 
  
       //! The matrix containing a copy of the data
@@ -252,6 +254,7 @@ namespace robust_pca
       {
         assert(data_dimensions_ > 0);
         data_dimension = data_dimensions_;
+        v_accumulated_per_dimension.resize(data_dimension);
       }
 
       //! Sets the number of element to keep in the upper and lower distributions.
@@ -280,10 +283,10 @@ namespace robust_pca
           }
 
           // posts the new value to the listeners for the current dimension
-          accumulator_element_t result;
+          accumulator_element_t &result = v_accumulated_per_dimension[dimension];
           result.dimension = dimension;
           result.value = acc;
-          signal_acc_dimension(result);
+          signal_acc_dimension(&result);
         }
 
         signal_counter();
@@ -346,12 +349,12 @@ namespace robust_pca
         std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
         double acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, 0.);
         
-        accumulator_element_t result;
+        accumulator_element_t &result = v_accumulated_per_dimension[dimension];
         result.dimension = dimension;
         //result.nb_elements = nb_total_elements - 2*nb_elements_to_keep;
         result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
         // signals the update
-        signal_acc_dimension(result);
+        signal_acc_dimension(&result);
         // signals the main merger
         signal_counter();
       }

@@ -100,7 +100,7 @@ namespace robust_pca
       
       // this is to send an update of the value of mu to all listeners
       // the connexion should be managed externally
-      typedef boost::function<void (data_t const&)> connector_accumulator_t;
+      typedef boost::function<void (data_t const*)> connector_accumulator_t;
       connector_accumulator_t signal_acc;
 
       typedef boost::function<void ()> connector_counter_t;
@@ -221,7 +221,7 @@ namespace robust_pca
 
 
         // posts the new value to the listeners
-        signal_acc(accumulator);
+        signal_acc(&accumulator);
         signal_counter();
       }
 
@@ -262,7 +262,7 @@ namespace robust_pca
 
 
         // posts the new value to the listeners
-        signal_acc(accumulator);
+        signal_acc(&accumulator);
         signal_counter();
       }
 
@@ -301,7 +301,7 @@ namespace robust_pca
         }
 
         // posts the new value to the listeners
-        signal_acc(accumulator);
+        signal_acc(&accumulator);
         signal_counter();
       }
 
@@ -593,6 +593,7 @@ namespace robust_pca
               boost::cref(mu)));
         }
 
+        
         // waiting for completion (barrier)
         async_merger.wait_notifications(v_individual_accumulators.size());
 

@@ -1,10 +1,11 @@
-addpath('D:\Code\robust_pca\extensions\')
+
 addpath('D:\Code\robust_pca\build\Release\')
 addpath('D:\Code\gr_pca\')
+addpath('D:\Code\robust_pca\extensions\')
 
 redo_all = true;
 avoid_recomputing_cpp = false;
-trimmed = true;
+trimmed = false;
 
 N = 100000;
 NBSteps= 10;
@@ -19,7 +20,7 @@ mean_mex_output = zeros(max_threads+1, NBSteps);
 
 if redo_all
   for nb_threads = 1:max_threads
-    do_matlab = nb_threads == 1;
+    do_matlab = false;%nb_threads == 1;
     if trimmed
       [mean_mex, var_mex, mean_matlab, var_matlab] = grassmann_pca_trimmed_benches(DIM, 5, timming_percent, 10, nb_threads, do_matlab);
     else
@@ -37,15 +38,15 @@ if redo_all
   end % for
 
   if trimmed
-    save(sprintf('benches_trimmed3_%d.mat', DIM));
+    save(sprintf('benches_trimmed4_%d_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
   else
-    save(sprintf('benches_%d.mat', DIM));
+    save(sprintf('benches_%d_4_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
   end
 else
   if trimmed
-    S = load(sprintf('benches_trimmed3_%d.mat', DIM));
+    S = load(sprintf('benches_trimmed4_%d_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
   else
-    S = load(sprintf('benches_%d.mat', DIM));
+    S = load(sprintf('benches_%d_4_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
   end
   mean_mex_output = S.mean_mex_output; 
 end; %
