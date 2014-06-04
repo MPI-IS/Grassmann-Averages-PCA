@@ -334,7 +334,8 @@ namespace robust_pca
          * @param initialisation_instance_ an instance of the class initialising the current state.
          */
         asynchronous_results_merger(init_result_type const &initialisation_instance_) : 
-          initialisation_instance(initialisation_instance_)
+          initialisation_instance(initialisation_instance_),
+          nb_updates(0)
         {}
 
         //! Initializes the internal states

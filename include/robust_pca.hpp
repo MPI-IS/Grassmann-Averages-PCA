@@ -93,6 +93,7 @@ namespace robust_pca
     {
     private:
       size_t nb_elements;
+      size_t aligned_nb_elements;
       data_t accumulator;
       std::vector<bool> v_signs;
       size_t data_dimension;
@@ -135,15 +136,17 @@ namespace robust_pca
         v_signs.resize(nb_elements);
         inner_prod_results.resize(nb_elements);
         
+        aligned_nb_elements = ((nb_elements + 63) / 64) * 64;
+        
         delete [] p_c_matrix;
-        p_c_matrix = new scalar_t[nb_elements*data_dimension];
+        p_c_matrix = new scalar_t[aligned_nb_elements*data_dimension];
         
         container_iterator_t bb(b);
 
         for(int column = 0; column < nb_elements; column++, ++bb)
         {
           double* current_line = p_c_matrix + column;
-          for(int line = 0; line < data_dimension; line ++, current_line += nb_elements)
+          for(int line = 0; line < data_dimension; line ++, current_line += aligned_nb_elements)
           {         
             *current_line = (*bb)(line);
           }
@@ -184,9 +187,9 @@ namespace robust_pca
         {
           out[column] = mu_element * current_line[column];
         }
-        current_line += nb_elements;
+        current_line += aligned_nb_elements;
         
-        for(int line = 1; line < data_dimension; line ++, current_line += nb_elements)
+        for(int line = 1; line < data_dimension; line ++, current_line += aligned_nb_elements)
         {
           mu_element = mu(line);    
           for(int column = 0; column < nb_elements; column++)
@@ -207,7 +210,7 @@ namespace robust_pca
         typename data_t::iterator it(accumulator.begin());
         for(size_t i = 0; i < data_dimension; i++, ++it)
         {
-          double const * const current_line = p_c_matrix + i*nb_elements;
+          double const * const current_line = p_c_matrix + i*aligned_nb_elements;
           double acc = 0;
           for(size_t s = 0; s < nb_elements; s++)
           {
@@ -242,7 +245,7 @@ namespace robust_pca
           if(sign)
           {
             typename data_t::iterator it(accumulator.begin());
-            for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
+            for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
             {
               *it += *current_line;              
             }
@@ -250,7 +253,7 @@ namespace robust_pca
           else 
           {
             typename data_t::iterator it(accumulator.begin());
-            for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
+            for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
             {
               *it -= *current_line;              
             }
@@ -281,7 +284,7 @@ namespace robust_pca
             if(sign)
             {
               typename data_t::iterator it(accumulator.begin());
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
+              for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
               {
                 *it += 2* (*current_line);              
               }
@@ -289,7 +292,7 @@ namespace robust_pca
             else 
             {
               typename data_t::iterator it(accumulator.begin());
-              for(int i = 0; i < data_dimension; i++, current_line += nb_elements, ++it)
+              for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
               {
                 *it -= 2* (*current_line);              
               }
@@ -309,7 +312,7 @@ namespace robust_pca
         compute_inner_products(mu);
         double *current_line = p_c_matrix;
 
-        for(int line = 0; line < data_dimension; line ++, current_line += nb_elements)
+        for(int line = 0; line < data_dimension; line ++, current_line += aligned_nb_elements)
         {
           double const mu_element = mu(line);    
           for(int column = 0; column < nb_elements; column++)
