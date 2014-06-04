@@ -447,6 +447,10 @@ namespace robust_pca
           return current_value;
         }
 
+        result_type & get_merged_result()
+        {
+          return current_value;
+        }
       };
 
 

@@ -38,15 +38,15 @@ if redo_all
   end % for
 
   if trimmed
-    save(sprintf('benches_trimmed4_%d_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
+    save(sprintf('benches_trimmed4_%d_nosignal_parallel_copy_aligned_lockfree_conservative_updates.mat', DIM));
   else
-    save(sprintf('benches_%d_4_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
+    save(sprintf('benches_%d_4_nosignal_parallel_copy_aligned_lockfree_conservative_updates.mat', DIM));
   end
 else
   if trimmed
-    S = load(sprintf('benches_trimmed4_%d_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
+    S = load(sprintf('benches_trimmed4_%d_nosignal_parallel_copy_aligned_lockfree_conservative_updates.mat', DIM));
   else
-    S = load(sprintf('benches_%d_4_nosignal_parallel_copy_aligned_lockfree.mat', DIM));
+    S = load(sprintf('benches_%d_4_nosignal_parallel_copy_aligned_lockfree_conservative_updates.mat', DIM));
   end
   mean_mex_output = S.mean_mex_output; 
 end; %

@@ -270,6 +270,9 @@ namespace robust_pca
       //! Update the accumulator and the signs vector from an upated mu
       void update_accumulation(data_t const& mu)
       {
+        accumulator = data_t(data_dimension, 0);
+
+        bool update = false;
         compute_inner_products(mu);
 
         std::vector<bool>::iterator itb(v_signs.begin());
@@ -278,6 +281,7 @@ namespace robust_pca
           bool sign = inner_prod_results[s] >= 0;
           if(sign != *itb)
           {
+            update = true;
             // update the value of the accumulator according to sign change
             *itb = sign;
             double* current_line = p_c_matrix + s;
@@ -301,7 +305,10 @@ namespace robust_pca
         }
 
         // posts the new value to the listeners
-        signal_acc(&accumulator);
+        if(update)
+        {
+          signal_acc(&accumulator);
+        }
         signal_counter();
       }
 
@@ -598,7 +605,8 @@ namespace robust_pca
         async_merger.wait_notifications(v_individual_accumulators.size());
 
         // gathering the first mu
-        mu = async_merger.get_merged_result() / norm_op(async_merger.get_merged_result());
+        data_t mu_no_norm = async_merger.get_merged_result();
+        mu = mu_no_norm / norm_op(async_merger.get_merged_result());
 
 
         // other iterations as usual
@@ -607,6 +615,7 @@ namespace robust_pca
 
           // reseting the final accumulator
           async_merger.init();
+          async_merger.get_merged_result() = mu_no_norm;
 
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
@@ -618,7 +627,8 @@ namespace robust_pca
           async_merger.wait_notifications(v_individual_accumulators.size());
 
           // gathering the mus
-          mu = async_merger.get_merged_result() / norm_op(async_merger.get_merged_result());
+          mu_no_norm = async_merger.get_merged_result();
+          mu = mu_no_norm / norm_op(async_merger.get_merged_result());
         }
         
 
