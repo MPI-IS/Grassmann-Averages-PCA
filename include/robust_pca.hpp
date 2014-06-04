@@ -490,6 +490,7 @@ namespace robust_pca
       std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_results_merger async_merger(number_of_dimensions);
+      async_merger.init_notifications();
 
       {
         //bool b_result;
@@ -522,8 +523,8 @@ namespace robust_pca
           ioService.post(
             boost::bind(
               &async_processor_t::template set_data_range<it_t>, 
-              boost::ref(current_acc_object), 
-              boost::cref(it_current_begin), boost::cref(it_current_end)));
+              boost::ref(v_individual_accumulators[i]), 
+              it_current_begin, it_current_end));
 
           //b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
           //if(!b_result)
