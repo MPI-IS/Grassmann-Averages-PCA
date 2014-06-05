@@ -250,12 +250,12 @@ if(NOT WITHOUT_MATLAB)
 
   macro(create_matlab_mex_wrapper library_name)
 
-    set(_matlab_wrapper_template ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
+    set(_matlab_wrapper_template        ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
     set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.c)
     set_target_properties(${library_name} 
       PROPERTIES 
         PREFIX ""
-        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") # to avoid the possibility to call it from matlab*
+        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") # to avoid the possibility to call it from matlab
     
     # the template contains all the necessary code. The library to load is defined by a #define
     configure_file(${_matlab_wrapper_template} ${_matlab_wrapper_template_output} COPYONLY)
@@ -266,7 +266,7 @@ if(NOT WITHOUT_MATLAB)
     target_link_libraries(${library_name}_matlab_loader dl)
     
     # this order is to be kept: we construct the loader before the real mex, since there is not link dependency here, it should work.
-    # this also enables to honor the dependencies of the primary target mex file. 
+    # this also enables to honour the dependencies of the primary target mex file. 
     add_dependencies(${library_name} ${library_name}_matlab_loader) # do not change to target_link_library here
     set_target_properties(${library_name}_matlab_loader 
       PROPERTIES 
@@ -279,39 +279,6 @@ if(NOT WITHOUT_MATLAB)
     unset(_matlab_mex_to_load)
 
   endmacro(create_matlab_mex_wrapper)
-
-
-  if(UNIX AND Matlab_NEED_WRAPPER)
-    create_matlab_mex_wrapper(robustpca_m)
-  else()
-    set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
-  endif()
-
-
-
-  if(WIN32)
-    set_target_properties(robustpca_m PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
-  endif()
-  
-  set_target_properties(robustpca_m PROPERTIES FOLDER "Matlab")
-
-
-endif()
-
-
-
-# adding the matlab unit tests
-if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
-  add_custom_target(
-    robustpca_matlab_unittest_scripts 
-    SOURCES test/robustpca_matlab_unit_tests.m)
-  set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
-  add_dependencies(robustpca_matlab_unittest_scripts robustpca_m)
-
-  set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
-  if(WIN32)
-    set(Matlab_UNIT_TESTS_CMD ${Matlab_UNIT_TESTS_CMD} -wait)
-  endif()
 
   macro(copy_dependency_with_config target_name dependency_name)
 
@@ -336,7 +303,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     add_custom_command(
       TARGET ${target_name}
       PRE_BUILD
-      COMMAND ${CMAKE_COMMAND} -E echo copy ${dependency_name} 
+      COMMAND ${CMAKE_COMMAND} -E echo Copy ${dependency_name} 
         $<$<CONFIG:Debug>:${dependency_name_debug}>
         $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}>
         into 
@@ -349,11 +316,9 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
       COMMENT "Copy ${target_name} dependencies into the output folder"
     )    
   
-
-
   endmacro(copy_dependency_with_config)
   
-  
+  # copying the boost dependencies
   if(NOT Boost_USE_STATIC_LIBS)
     copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
     copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
@@ -361,8 +326,50 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     copy_dependency_with_config(robustpca_m Boost_DATE_TIME_LIBRARY)
   endif()
 
+  # copying the matlab documentation
+  set(robustpca_m_help_file ${CMAKE_SOURCE_DIR}/extensions/robustpca_m.m)
+  add_custom_command(
+    TARGET robustpca_m
+    PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo Copy Matlab wrapper documentation into target directory $<TARGET_FILE_DIR:robustpca_m>/.
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${robustpca_m_help_file} $<TARGET_FILE_DIR:robustpca_m>/.
+    COMMENT "Copy robustpca_m help into the output folder"
+  )
+
+  if(UNIX AND Matlab_NEED_WRAPPER)
+    create_matlab_mex_wrapper(robustpca_m)
+  else()
+    set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
+  endif()
 
 
+
+  if(WIN32)
+    set_target_properties(robustpca_m 
+      PROPERTIES 
+        DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
+  endif()
+  
+  set_target_properties(robustpca_m PROPERTIES FOLDER "Matlab")
+
+
+endif()
+
+
+
+# adding the matlab unit tests
+if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
+  add_custom_target(
+    robustpca_matlab_unittest_scripts 
+    SOURCES test/robustpca_matlab_unit_tests.m)
+  set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
+  add_dependencies(robustpca_matlab_unittest_scripts robustpca_m)
+
+  set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
+  if(WIN32)
+    set(Matlab_UNIT_TESTS_CMD ${Matlab_UNIT_TESTS_CMD} -wait)
+  endif()
+    
   add_test(NAME robustpca_matlabtest-1
             COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/robustpca_matlabtest_1.log 
            -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
