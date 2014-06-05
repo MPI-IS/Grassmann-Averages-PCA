@@ -227,19 +227,22 @@ namespace robust_pca
     };
 
 
-
+    //! @namespace
     namespace threading
     {
 
+
       //! Ensures the proper stop of the processing pool and the finalisation of all threads.
+      //!
       struct safe_stop
       {
+      private:
         boost::asio::io_service& io_service;
         boost::thread_group& thread_group;
 
+      public:
         safe_stop(boost::asio::io_service& ios, boost::thread_group& tg) : io_service(ios), thread_group(tg)
-        {
-        }
+        {}
 
         ~safe_stop()
         {
@@ -251,7 +254,8 @@ namespace robust_pca
 
       //! Helper structure for managing additions on standard uBlas vectors.
       //! 
-      //! This class is intended to be used with asynchronous_results_merger.
+      //! This class is intended to be used with asynchronous_results_merger. It just adds an update to the current state.
+      //! @tparam data_t type of the vectors. It is supposed that data_t implements in-place addition (@c data_t::operator+=).
       template <class data_t>
       struct merger_addition
       {
@@ -266,15 +270,22 @@ namespace robust_pca
       //! Helper structure for managing initialisations of standard uBlas vectors.
       //! 
       //! This class is intended to be used with asynchronous_results_merger.
+      //! @tparam data_t type of the vectors
+      //! @note This implementation supposes that the type is compatible with boost::numeric::ublas::vector
       template <class data_t>
       struct initialisation_vector_specific_dimension
       {
-        const size_t data_dimension;
-        typedef typename data_t::value_type scalar_t;
+      private:
+        const size_t data_dimension;                    //!< Dimension of the vectors
+        typedef typename data_t::value_type scalar_t;   //<! Scalar type
 
+      public:
+        //! Initialise the instance with the dimension of the data. 
+        //! The dimension is fixed. 
         initialisation_vector_specific_dimension(size_t dimension) : data_dimension(dimension)
         {}
 
+        //! Initialise the current state a null (0) vector of the dimension guiven at construction.
         bool operator()(data_t & current_state) const
         {
           current_state = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
@@ -287,28 +298,35 @@ namespace robust_pca
 
       /*!@brief Merges the result of all workers and signals the results to the main thread.
        *
-       * The purpose of this class is to add the computed accumulator of each thread to the final result
-       * which contains the sum of all accumulators. 
+       * The purpose of this class is to gather the computation results coming from several threads into one unique result seen by the main calling thread. 
+       * Each thread computes a partial update of the final result. These partial update are signalled to this instance via @c asynchronous_results_merger::update (thread safe). 
+       * These updates are gathered/merged to the final result through the "merger" instance (of type @c merger_type) in a thread safe manner.
+       * The number of updates is also signalled to the main thread via a call to @c asynchronous_results_merger::notify. The main thread supposes the computation over/in sync if it received
+       * an amount of notification through the @c asynchronous_results_merger::wait function.
        *
        * @tparam result_type_ the type of the final result.
        * @tparam merger_type the type of the merger. The merger should be a callable with two arguments: result_type_ and update_element_
        * @tparam init_result_type the type of the initialiser. The initialiser should be a callable with one argument of type result_type_.
        * @tparam update_element_ the type of the update. These updates are provided by the several workers to this merger. 
        *
+       * @note This implementation supposes that the pointers to the update elements remain after the call to @c asynchronous_results_merger::notify. This is because
+       * the implementation tries to avoid any "long" or time consuming lock. If the merge cannot be performed in the asynchronous_results_merger::update call itself,
+       * then the update element is queued and the merge is performed in the main calling thread (the wait function). 
        */
       template <class result_type_, class merger_type, class init_result_type, class update_element_ = result_type_>
       struct asynchronous_results_merger : boost::noncopyable
       {
       public:
-        typedef result_type_ result_type;
-        typedef update_element_ update_element;
+
+        typedef result_type_ result_type;         //!< The type returned by asynchronous_results_merger::get_merged_result
+        typedef update_element_ update_element;   //!< The type used for the updates.
 
       protected:
-        typedef boost::recursive_mutex mutex_t;
-        typedef boost::lock_guard<mutex_t> lock_t;
+        typedef boost::recursive_mutex mutex_t;     //!< Type of the mutex. This one is re-entrant/recursive in order to allow the same thread locking it several times.
+        typedef boost::lock_guard<mutex_t> lock_t;  //!< Exclusive lock
 
         //! Mutex for critical sections. 
-        //!@note This mutex is reentrant.
+        //!@note This mutex is re-entrant.
         mutable mutex_t internal_mutex;
 
         //! Holds the current value of the merge.
@@ -377,6 +395,10 @@ namespace robust_pca
           if(lock.owns_lock())
           {
             merger_instance(current_value, *updated_value);
+            while(lf_queue.pop(updated_value))
+            {
+              merger_instance(current_value, *updated_value);
+            }
           }
           else
           {
@@ -412,7 +434,7 @@ namespace robust_pca
             // when awakened, the lock is locked before wait returns. 
             condition_.wait(lock);
 
-            assert(nb_updates);
+            //assert(nb_updates);           // cannot be awakened if there is no update
             assert(lock.owns_lock());
 
             // consumes what was under a collision in the update
@@ -447,6 +469,9 @@ namespace robust_pca
           return current_value;
         }
 
+        //! Returns the current merged results.
+        //! @warning the call is not thread safe (intended to be called once the wait_notifications returned and no
+        //! other thread is working). 
         result_type & get_merged_result()
         {
           return current_value;
