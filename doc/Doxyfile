@@ -51,7 +51,7 @@ PROJECT_BRIEF          = "Robust PCA computation using the Grassman average sche
 # and the maximum width should not exceed 200 pixels. Doxygen will copy the logo
 # to the output directory.
 
-PROJECT_LOGO           = "/Users/raffi/Documents/minerva_01 doxygen.jpeg"
+PROJECT_LOGO           = ./minerva.png
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute) path
 # into which the generated documentation will be written. If a relative path is
@@ -512,10 +512,6 @@ HIDE_SCOPE_NAMES       = NO
 
 SHOW_INCLUDE_FILES     = YES
 
-# If the SHOW_GROUPED_MEMB_INC tag is set to YES then Doxygen will add for each
-# grouped member an include statement to the documentation, telling the reader
-# which file to include in order to use the member.
-# The default value is: NO.
 
 SHOW_GROUPED_MEMB_INC  = NO
 
