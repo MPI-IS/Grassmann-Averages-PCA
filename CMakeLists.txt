@@ -361,7 +361,10 @@ endif()
 if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   add_custom_target(
     robustpca_matlab_unittest_scripts 
-    SOURCES test/robustpca_matlab_unit_tests.m)
+    SOURCES 
+      test/robustpca_matlab_unit_tests.m
+      test/robustpca_matlab_performance_unit_tests.m)
+
   set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
   add_dependencies(robustpca_matlab_unittest_scripts robustpca_m)
 
