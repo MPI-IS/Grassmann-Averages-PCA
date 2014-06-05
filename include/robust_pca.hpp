@@ -587,7 +587,7 @@ namespace robust_pca
 
         details::convergence_check<data_t> convergence_op(mu);
 
-        // reseting the final accumulator
+        // reseting the accumulator and the notifications
         async_merger.init();
 
         // pushing the initialisation of the mu and sign vectors to the pool
@@ -605,8 +605,9 @@ namespace robust_pca
         async_merger.wait_notifications(v_individual_accumulators.size());
 
         // gathering the first mu
-        data_t mu_no_norm = async_merger.get_merged_result();
-        mu = mu_no_norm / norm_op(async_merger.get_merged_result());
+        //data_t mu_no_norm = async_merger.get_merged_result();
+        mu = async_merger.get_merged_result();
+        mu /= norm_op(mu);
 
 
         // other iterations as usual
@@ -614,8 +615,9 @@ namespace robust_pca
         {
 
           // reseting the final accumulator
-          async_merger.init();
-          async_merger.get_merged_result() = mu_no_norm;
+          async_merger.init_notifications();
+          //async_merger.init();
+          //async_merger.get_merged_result() = mu_no_norm;
 
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
@@ -627,8 +629,9 @@ namespace robust_pca
           async_merger.wait_notifications(v_individual_accumulators.size());
 
           // gathering the mus
-          mu_no_norm = async_merger.get_merged_result();
-          mu = mu_no_norm / norm_op(async_merger.get_merged_result());
+          //mu_no_norm = async_merger.get_merged_result();
+          mu = async_merger.get_merged_result();
+          mu /= norm_op(mu);
         }
         
 
