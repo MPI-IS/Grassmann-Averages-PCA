@@ -9,13 +9,26 @@ The library is an implementation of the Robust PCA using Grassmann averages and 
 
   "Grassmann averages for scalable robust PCA", Søren Hauberg, Aasa Feragen and Michael J. Black, CVPR 2014.
 
-  
+
+
 Table of content
 ----------------
 
+0- License and terms of use
 1- Preparation
 2- Compilation & Installation
 3- Tests
+
+
+----------------------------------------------------------------
+0- License and terms of use
+----------------------------------------------------------------
+This program is an open-source project of the Max Planck Society. It is distributed
+under the terms of the BSD-3 Clause license. See accompanying LICENSE.txt file. 
+
+
+
+
 
 
 ----------------------------------------------------------------
@@ -85,10 +98,37 @@ make
 ~~~~~~~~~~~~~~
 
 
-
-2.2 Compilation options
+2.2 Matlab bindings
 ----------------------
-Depending on the platform and the available instruction set (SSE, SSE2, SSE4, AVX, ...), the compilation options may be changed in order to produce a more computationally efficient binary. 
+The Matlab bindings are on by default. It is possible to disable them by providing a variable to the cmake script:
+~~~~~~~~~~~~~~
+cd $UNTAR_PATH
+mkdir build
+cmake -DWITHOUT_MATLAB=1 ..
+make 
+~~~~~~~~~~~~~~
+
+The cmake script tries to find Matlab automatically. If it fails to do so, the Matlab root location can be provided:
+~~~~~~~~~~~~~~
+cd $UNTAR_PATH
+mkdir build
+cmake -DMATLAB_USER_ROOT="C:\Program Files\MATLAB\R2013b" ..
+make 
+~~~~~~~~~~~~~~
+
+In order to be able to find Matlab, a valid license should be available. In particular, if the license is a floating network
+license, the license server should be accessible during the compilation. 
+
+
+2.3 Compilation options
+----------------------
+Depending on the platform and the available instruction set (SSE, SSE2, SSE4, AVX, ...), the compilation options may be changed in order to produce 
+a final binary that is more efficient.
+
+
+
+
+
 
 
 

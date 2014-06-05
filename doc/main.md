@@ -1,4 +1,4 @@
-Scalable robust PCA C++ library                         {#mainpage}
+Robust PCA C++ library                         {#mainpage}
 ============
 
 @tableofcontents
