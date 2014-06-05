@@ -317,14 +317,14 @@ namespace robust_pca
             {
               for(; current_line < current_line_end; ++current_line, ++p)
               {
-                *p += 2*(*current_line);
+                *p += *current_line;
               }
             }
             else 
             {
               for(; current_line < current_line_end; ++current_line, ++p)
               {
-                *p -= 2*(*current_line);
+                *p -= *current_line;
               }
             }
           }
@@ -333,6 +333,11 @@ namespace robust_pca
         // posts the new value to the listeners
         if(update)
         {
+          scalar_t *p(p_acc);
+          for(size_t d = 0; d < data_dimension; d++, ++p)
+          {
+            *p *= 2;
+          }          
           signal_acc(&accumulator);
         }
         signal_counter();
