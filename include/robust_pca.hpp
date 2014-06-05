@@ -134,21 +134,21 @@ namespace robust_pca
         nb_elements = std::distance(b, e);
         assert(nb_elements > 0);
         v_signs.resize(nb_elements);
-        inner_prod_results.resize(nb_elements);
+        //inner_prod_results.resize(nb_elements);
         
-        aligned_nb_elements = ((nb_elements + 63) / 64) * 64;
+        aligned_nb_elements = ((data_dimension + 63) / 64) * 64;
         
         delete [] p_c_matrix;
         p_c_matrix = new scalar_t[aligned_nb_elements*data_dimension];
         
         container_iterator_t bb(b);
 
-        for(int column = 0; column < nb_elements; column++, ++bb)
-        {
-          double* current_line = p_c_matrix + column;
-          for(int line = 0; line < data_dimension; line ++, current_line += aligned_nb_elements)
-          {         
-            *current_line = (*bb)(line);
+        scalar_t *current_line = p_c_matrix;
+        for(int line = 0; line < nb_elements; line ++, current_line += aligned_nb_elements, ++bb)
+        {         
+          for(int column = 0; column < data_dimension; column++)
+          {
+            current_line[column] = (*bb)(column);
           }
           
         }
@@ -176,6 +176,8 @@ namespace robust_pca
         return signal_counter;
       }
       
+      
+      #if 0
       //! Inner product computation
       void compute_inner_products(data_t const &mu)
       {
@@ -198,10 +200,12 @@ namespace robust_pca
           }               
         }
       }
+      #endif
 
       //! PCA steps
       void pca_accumulation(data_t const &mu)
       {
+      #if 0
         accumulator = data_t(data_dimension, 0);
         compute_inner_products(mu);
                
@@ -222,10 +226,22 @@ namespace robust_pca
 
         // posts the new value to the listeners
         signal_acc(&accumulator);
+      #endif
         signal_counter();
       }
 
-
+      double inner_product(scalar_t const* p_mu, size_t element_index) const
+      {
+        scalar_t const * current_line = p_c_matrix + element_index * aligned_nb_elements;
+        scalar_t const * const current_line_end = current_line + data_dimension;
+        
+        double acc(0);
+        for(; current_line < current_line_end; ++current_line, ++p_mu)
+        {
+          acc += (*current_line) * (*p_mu);
+        }
+        return acc;
+      }
 
 
       //! Initialises the accumulator and the signs vector from the first mu
@@ -234,28 +250,30 @@ namespace robust_pca
         accumulator = data_t(data_dimension, 0);
         std::vector<bool>::iterator itb(v_signs.begin());
 
+        scalar_t const * const p_mu = &mu.data()[0];
+        scalar_t * const p_acc = &accumulator.data()[0];
         // first iteration, we store the signs
-        compute_inner_products(mu);
+        // compute_inner_products(mu);
         for(size_t s = 0; s < nb_elements; ++itb, s++)
         {
-          bool sign = inner_prod_results[s] >= 0;
+          bool sign = inner_product(p_mu, s) >= 0;
 
           *itb = sign;
-          double* current_line = p_c_matrix + s;
+          scalar_t *p(p_acc);
+          scalar_t const * current_line = p_c_matrix + s * aligned_nb_elements;
+          scalar_t const * const current_line_end = current_line + data_dimension;
           if(sign)
           {
-            typename data_t::iterator it(accumulator.begin());
-            for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
+            for(; current_line < current_line_end; ++current_line, ++p)
             {
-              *it += *current_line;              
+              *p += *current_line;              
             }
           }
           else 
           {
-            typename data_t::iterator it(accumulator.begin());
-            for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
+            for(; current_line < current_line_end; ++current_line, ++p)
             {
-              *it -= *current_line;              
+              *p -= *current_line;              
             }
           }
         }
@@ -273,32 +291,38 @@ namespace robust_pca
         accumulator = data_t(data_dimension, 0);
 
         bool update = false;
-        compute_inner_products(mu);
+        //compute_inner_products(mu);
+
+        scalar_t const * const p_mu = &mu.data()[0];
+        scalar_t * const p_acc = &accumulator.data()[0];
+
 
         std::vector<bool>::iterator itb(v_signs.begin());
         for(size_t s = 0; s < nb_elements; ++itb, s++)
         {
-          bool sign = inner_prod_results[s] >= 0;
+          bool sign = inner_product(p_mu, s) >= 0;
           if(sign != *itb)
           {
             update = true;
             // update the value of the accumulator according to sign change
             *itb = sign;
-            double* current_line = p_c_matrix + s;
+            
+            scalar_t *p(p_acc);
+            scalar_t const * current_line = p_c_matrix + s * aligned_nb_elements;
+            scalar_t const * const current_line_end = current_line + data_dimension;
+            
             if(sign)
             {
-              typename data_t::iterator it(accumulator.begin());
-              for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
+              for(; current_line < current_line_end; ++current_line, ++p)
               {
-                *it += 2* (*current_line);              
+                *p += 2*(*current_line);
               }
             }
             else 
             {
-              typename data_t::iterator it(accumulator.begin());
-              for(int i = 0; i < data_dimension; i++, current_line += aligned_nb_elements, ++it)
+              for(; current_line < current_line_end; ++current_line, ++p)
               {
-                *it -= 2* (*current_line);              
+                *p -= 2*(*current_line);
               }
             }
           }
@@ -316,15 +340,19 @@ namespace robust_pca
       void project_onto_orthogonal_subspace(data_t const &mu)
       {
         // update of vectors in the orthogonal space, and update of the norms at the same time. 
-        compute_inner_products(mu);
-        double *current_line = p_c_matrix;
+        //compute_inner_products(mu);
+        
+        scalar_t const * const p_mu = &mu.data()[0];
+        scalar_t const * const p_mu_end = p_mu + data_dimension;
+        scalar_t * current_line = p_c_matrix;
+        
 
-        for(int line = 0; line < data_dimension; line ++, current_line += aligned_nb_elements)
+        for(size_t line = 0; line < nb_elements; line ++, current_line += aligned_nb_elements)
         {
-          double const mu_element = mu(line);    
-          for(int column = 0; column < nb_elements; column++)
+          double const inner_prod = inner_product(p_mu, line);
+          for(int column = 0; column < data_dimension; column++)
           {
-            current_line[column] -= mu_element * inner_prod_results[column];
+            current_line[column] -= inner_prod * p_mu[column];
           }               
         }
   

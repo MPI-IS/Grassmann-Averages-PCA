@@ -30,7 +30,7 @@
 #include <boost/numeric/ublas/vector.hpp>
 
 // lock free queue, several producers, one consumer
-#include <boost/lockfree/queue.hpp>
+//#include <boost/lockfree/queue.hpp>
 
 namespace robust_pca
 {
@@ -347,8 +347,8 @@ namespace robust_pca
         //! Thread synchronisation (event sent after an update, for counting).
         boost::condition_variable_any condition_;
 
-        //std::list<update_element const*> lf_queue;
-        boost::lockfree::queue<update_element const*> lf_queue;
+        std::list<update_element const*> lf_queue;
+        //boost::lockfree::queue<update_element const*> lf_queue;
 
       public:
 
@@ -359,7 +359,7 @@ namespace robust_pca
         asynchronous_results_merger(init_result_type const &initialisation_instance_) : 
           initialisation_instance(initialisation_instance_),
           nb_updates(0),
-          lf_queue(10)
+          lf_queue()
         {}
 
         //! Initializes the internal states
@@ -390,20 +390,22 @@ namespace robust_pca
          */
         void update(update_element const* updated_value)
         {
-          boost::unique_lock<mutex_t> lock(internal_mutex, boost::try_to_lock);
+          boost::unique_lock<mutex_t> lock(internal_mutex);//, boost::try_to_lock);
 
           if(lock.owns_lock())
           {
             merger_instance(current_value, *updated_value);
-            while(lf_queue.pop(updated_value))
+            while(!lf_queue.empty())
             {
+              updated_value = lf_queue.back();
+              lf_queue.pop_back();
               merger_instance(current_value, *updated_value);
             }
           }
           else
           {
-            while(!lf_queue.push(updated_value))
-              ;
+            //while(!lf_queue.push(updated_value))
+            //  ;
           }
         }
 
@@ -439,8 +441,10 @@ namespace robust_pca
 
             // consumes what was under a collision in the update
             update_element const* updated_value(0);
-            while(lf_queue.pop(updated_value))
+            if(!lf_queue.empty())
             {
+              updated_value = lf_queue.back();
+              lf_queue.pop_back();
               merger_instance(current_value, *updated_value);
             }
           }
@@ -451,8 +455,10 @@ namespace robust_pca
           // we might end up here if there was at least one collision, and everything was finished before the line "while (nb_updates < nb_notifications)"
           {
             update_element const* updated_value(0);
-            while(lf_queue.pop(updated_value))
+            while(!lf_queue.empty())
             {
+              updated_value = lf_queue.back();
+              lf_queue.pop_back();            
               merger_instance(current_value, *updated_value);
             }
           }

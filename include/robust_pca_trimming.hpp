@@ -21,10 +21,10 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/bind.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/signals2.hpp>
 #include <numeric>
 
 #include <boost/scoped_array.hpp>
+#include <boost/function.hpp>
 
 // utilities
 #include <include/private/utilities.hpp>
