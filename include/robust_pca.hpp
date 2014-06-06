@@ -43,7 +43,7 @@ namespace robust_pca
    * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
    * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
    *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
-   *   - compute the update of @f$\mu{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
+   *   - compute the update of @f$\mu_{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
    * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
    * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 
@@ -92,13 +92,23 @@ namespace robust_pca
     struct asynchronous_chunks_processor
     {
     private:
+      //! Type of the elements contained in the vectors
+      typedef typename data_t::value_type scalar_t;
+
+      //! Number of elements
       size_t nb_elements;
-      size_t data_padding;
-      data_t accumulator;
-      std::vector<bool> v_signs;
+
+      //! Dimension of the vectors.
       size_t data_dimension;
+
+      //! Internal accumulator.
+      //! Should live beyond the scope of update and init, as required by the merger.
+      data_t accumulator;
+
+      //! Signs stored for decreasing the number of updates
+      std::vector<bool> v_signs;
       
-      // this is to send an update of the value of mu to all listeners
+      // this is to send an update of the value of mu to one listener
       // the connexion should be managed externally
       typedef boost::function<void (data_t const*)> connector_accumulator_t;
       connector_accumulator_t signal_acc;
@@ -106,16 +116,48 @@ namespace robust_pca
       typedef boost::function<void ()> connector_counter_t;
       connector_counter_t signal_counter;
 
-
-      
-      typedef typename data_t::value_type scalar_t;
-      
       //! The matrix containing a copy of the data
       scalar_t *p_c_matrix;
       
-      //std::vector<double> inner_prod_results;
+      //! Padding for one line of the matrix
+      size_t data_padding;
+
+      //! "Optimized" inner product
+      double inner_product(scalar_t const* p_mu, scalar_t const* current_line) const
+      {
+        scalar_t const * const current_line_end = current_line + data_dimension;
+
+        const int _64_elements = data_dimension >> 6;
+        //const int _remainder = data_dimension ~ ((1 << 6)-1);
+        double acc(0);
+
+        for(int j = 0; j < _64_elements; j++, current_line += 64, p_mu += 64)
+        {
+          for(int i = 0; i < 64; i++)
+          {
+            acc += current_line[i] * p_mu[i];
+          }
+        }
+        for(; current_line < current_line_end; current_line++, p_mu++)
+        {
+          acc += (*current_line) * (*p_mu);
+        }
+        return acc;
+      }
+
+
+
+
+      //! "Optimized" inner product
+      double inner_product(scalar_t const* p_mu, size_t element_index) const
+      {
+        return inner_product(p_mu, p_c_matrix + element_index * data_padding);
+      }
+
+
+
     public:
-      asynchronous_chunks_processor() : nb_elements(0), data_dimension(0), p_c_matrix(0)
+      asynchronous_chunks_processor() : nb_elements(0), data_dimension(0), p_c_matrix(0), data_padding(0)
       {
       }
       
@@ -129,14 +171,13 @@ namespace robust_pca
       template <class container_iterator_t>
       void set_data_range(container_iterator_t const &b, container_iterator_t const& e)
       {
-        //begin = b;
-        //end = e;
         nb_elements = std::distance(b, e);
         assert(nb_elements > 0);
         v_signs.resize(nb_elements);
-        //inner_prod_results.resize(nb_elements);
-        
-        data_padding = ((data_dimension + 63) / 64) * 64;
+
+        // aligning on 64 bytes = 1 << 6
+        data_padding = (data_dimension*sizeof(scalar_t) + (1<<6) - 1) & (~((1 << 6)-1));
+        data_padding /= sizeof(scalar_t);
         
         delete [] p_c_matrix;
         p_c_matrix = new scalar_t[data_padding*nb_elements];
@@ -150,7 +191,6 @@ namespace robust_pca
           {
             current_line[column] = (*bb)(column);
           }
-          
         }
         
         signal_counter();
@@ -175,32 +215,7 @@ namespace robust_pca
       {
         return signal_counter;
       }
-      
-      
-      #if 0
-      //! Inner product computation
-      void compute_inner_products(data_t const &mu)
-      {
-        double *out = &inner_prod_results[0];
-        double mu_element = mu(0);
-        double *current_line = p_c_matrix;
-        
-        for(int column = 0; column < nb_elements; column++)
-        {
-          out[column] = mu_element * current_line[column];
-        }
-        current_line += data_padding;
-        
-        for(int line = 1; line < data_dimension; line ++, current_line += data_padding)
-        {
-          mu_element = mu(line);    
-          for(int column = 0; column < nb_elements; column++)
-          {
-            out[column] += mu_element * current_line[column];
-          }               
-        }
-      }
-      #endif
+
 
       //! PCA steps
       void pca_accumulation(data_t const &mu)
@@ -232,18 +247,6 @@ namespace robust_pca
         signal_counter();
       }
 
-      double inner_product(scalar_t const* p_mu, size_t element_index) const
-      {
-        scalar_t const * current_line = p_c_matrix + element_index * data_padding;
-        scalar_t const * const current_line_end = current_line + data_dimension;
-        
-        double acc(0);
-        for(; current_line < current_line_end; ++current_line, ++p_mu)
-        {
-          acc += (*current_line) * (*p_mu);
-        }
-        return acc;
-      }
 
 
       //! Initialises the accumulator and the signs vector from the first mu
@@ -254,8 +257,8 @@ namespace robust_pca
 
         scalar_t const * const p_mu = &mu.data()[0];
         scalar_t * const p_acc = &accumulator.data()[0];
+
         // first iteration, we store the signs
-        // compute_inner_products(mu);
         for(size_t s = 0; s < nb_elements; ++itb, s++)
         {
           bool sign = inner_product(p_mu, s) >= 0;
@@ -297,34 +300,36 @@ namespace robust_pca
 
         scalar_t const * const p_mu = &mu.data()[0];
         scalar_t * const p_acc = &accumulator.data()[0];
+        scalar_t const * current_line = p_c_matrix;
 
 
         std::vector<bool>::iterator itb(v_signs.begin());
-        for(size_t s = 0; s < nb_elements; ++itb, s++)
+        for(size_t s = 0; s < nb_elements; ++itb, s++, current_line += data_padding)
         {
-          bool sign = inner_product(p_mu, s) >= 0;
+          bool sign = inner_product(p_mu, current_line) >= 0;
           if(sign != *itb)
           {
             update = true;
+
             // update the value of the accumulator according to sign change
             *itb = sign;
             
             scalar_t *p(p_acc);
-            scalar_t const * current_line = p_c_matrix + s * data_padding;
+            scalar_t const * current_line_copy= current_line;
             scalar_t const * const current_line_end = current_line + data_dimension;
             
             if(sign)
             {
-              for(; current_line < current_line_end; ++current_line, ++p)
+              for(; current_line_copy < current_line_end; ++current_line_copy, ++p)
               {
-                *p += *current_line;
+                *p += *current_line_copy;
               }
             }
             else 
             {
-              for(; current_line < current_line_end; ++current_line, ++p)
+              for(; current_line_copy < current_line_end; ++current_line_copy, ++p)
               {
-                *p -= *current_line;
+                *p -= *current_line_copy;
               }
             }
           }
@@ -356,7 +361,7 @@ namespace robust_pca
 
         for(size_t line = 0; line < nb_elements; line ++, current_line += data_padding)
         {
-          double const inner_prod = inner_product(p_mu, line);
+          double const inner_prod = inner_product(p_mu, current_line);
           for(int column = 0; column < data_dimension; column++)
           {
             current_line[column] -= inner_prod * p_mu[column];

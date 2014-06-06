@@ -140,7 +140,6 @@ include_directories(${RobustPCA_SOURCE_DIR})
 set(RobustPCA_LIB
      include/robust_pca.hpp
      include/robust_pca_trimming.hpp
-     include/robust_pca_stable_trimming.hpp
      include/private/utilities.hpp
 
      include/private/boost_ublas_matlab_helper.hpp
