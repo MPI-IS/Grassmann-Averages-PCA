@@ -72,10 +72,11 @@ namespace robust_pca
    * 
    * The algorithm is the following:
    * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
-   * - ensure this @f$\mu_{k, 0}@f$ is orthogonal to the previous detected @f$\mu_{k', 0}, 0 \geq k' < k@f$
+   * - ensure this @f$\mu_{k, 0}@f$ is orthogonal to the previous detected @f$\mu_{k', 0}, 0 \leq k' < k@f$
    * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
    *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
-   *   - compute the update of @f$\mu{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
+   *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
+   *   - compute the update of @f$\mu_{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
    * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
    * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 

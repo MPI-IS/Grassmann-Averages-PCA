@@ -17,7 +17,8 @@ Table of content
 0- License and terms of use
 1- Preparation
 2- Compilation & Installation
-3- Tests
+3- Matlab
+4- Tests
 
 
 ----------------------------------------------------------------
@@ -38,7 +39,12 @@ under the terms of the BSD-3 Clause license. See accompanying LICENSE.txt file.
 The Robust PCA C++ library depends on 
 - Boost C++ (www.boost.org) 
 - cmake 2.8.11+
-- Matlab (the bindings are optional).
+- Matlab (the bindings are optional)
+
+You should be able to compile the code with a free development environment. These include
+- Linux: regular command line
+- OSX: regular command line or XCode, XCode should be installed on the system in order to have the compiler
+- Windows: Visual Studio Express (or command line for experienced users).
 
 
 1.1 Boost 
@@ -83,6 +89,16 @@ mkdir build
 cmake ..
 make 
 ~~~~~~~~~~~~~~
+
+On Windows, it would be 
+~~~~~~~~~~~~~~
+cd $UNTAR_PATH
+mkdir build
+cmake -G "Visual Studio 12 Win64" ..
+robustpca.sln
+~~~~~~~~~~~~~~
+And then you build the Release/Debug version directly from Visual Studio.
+
 
 2.1 Indicating the location of Boost
 ----------------------
@@ -132,6 +148,20 @@ a final binary that is more efficient.
 
 
 
+
+
 ----------------------------------------------------------------
-3- Test
+3- Matlab
+----------------------------------------------------------------
+The library contains Matlab bindings. Two files are actually needed to make the bindings work:
+- robustpca_m.m: this file contains only the help
+- robustpca_m.mexXXX : the extension depends on the platform. This is the binary MEX file
+
+If you followed the previous instructions, after the build these two files can be found under $UNTAR_PATH/build, or $UNTAR_PATH/build/[Release|Debug] or $UNTAR_PATH/build/Debug, depending if you are using a 
+
+
+
+
+----------------------------------------------------------------
+4- Test
 ----------------------------------------------------------------
