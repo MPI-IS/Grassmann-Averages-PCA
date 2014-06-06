@@ -116,16 +116,31 @@ endif()
 
 # compilation options
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-std=c++11 HAS_CXX11_FLAG)
-check_cxx_compiler_flag(-std=c++0x HAS_CXX0X_FLAG)
-if (HAS_CXX11_FLAG)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-elseif(HAS_CXX0X_FLAG)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+include(CheckIncludeFileCXX)
+
+set(HAS_AVX FALSE)
+check_include_file_cxx(smmintrin.h HAS_SSE41_INSTRINSICS)
+
+if(NOT MSVC)
+  check_cxx_compiler_flag(-std=c++11 HAS_CXX11_FLAG)
+  check_cxx_compiler_flag(-std=c++0x HAS_CXX0X_FLAG)
+  if (HAS_CXX11_FLAG)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  elseif(HAS_CXX0X_FLAG)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+  endif()
+else()
+  check_cxx_compiler_flag(/AVX HAS_AVX)
 endif()
 
 if(MSVC)
   add_definitions(-D_SCL_SECURE_NO_WARNINGS)
+  set(MSVC_Additional_flags "/fp:fast /GF /Oy /GT /Ox /Ob2 /Oi /Os")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${MSVC_Additional_flags}")
+  if(HAS_SSE41_INSTRINSICS AND HAS_AVX)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /arch:AVX ")
+    add_definitions(-DROBUSTPCA_INNER_PROD_INTRINSICS_AVX)
+  endif()
 endif()
 
 
