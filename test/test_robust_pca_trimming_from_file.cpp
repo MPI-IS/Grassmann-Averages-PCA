@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 {
 
   using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   typedef boost::chrono::steady_clock clock_type;
   typedef boost::numeric::ublas::matrix<double> matrix_t;

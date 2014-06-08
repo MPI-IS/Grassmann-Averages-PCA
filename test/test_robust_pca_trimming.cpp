@@ -36,7 +36,7 @@ BOOST_FIXTURE_TEST_SUITE(robust_pca_trimmed, fixture_simple_matrix_creation)
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {
   using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 {
   using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   typedef boost::chrono::steady_clock clock_type;
   
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 {
 
   using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   typedef boost::chrono::steady_clock clock_type;
   

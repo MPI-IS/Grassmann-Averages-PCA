@@ -233,7 +233,6 @@ namespace robust_pca
 
 
       //! Ensures the proper stop of the processing pool and the finalisation of all threads.
-      //!
       struct safe_stop
       {
       private:
@@ -252,7 +251,7 @@ namespace robust_pca
       };
 
 
-      //! Helper structure for managing additions on standard uBlas vectors.
+      //! @brief Helper structure for managing additions on standard uBlas vectors.
       //! 
       //! This class is intended to be used with asynchronous_results_merger. It just adds an update to the current state.
       //! @tparam data_t type of the vectors. It is supposed that data_t implements in-place addition (@c data_t::operator+=).

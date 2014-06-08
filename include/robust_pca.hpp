@@ -344,13 +344,10 @@ namespace robust_pca
       void project_onto_orthogonal_subspace(data_t const &mu)
       {
         // update of vectors in the orthogonal space, and update of the norms at the same time. 
-        //compute_inner_products(mu);
         
         scalar_t const * const p_mu = &mu.data()[0];
-        scalar_t const * const p_mu_end = p_mu + data_dimension;
         scalar_t * current_line = p_c_matrix;
         
-
         for(size_t line = 0; line < nb_elements; line ++, current_line += data_padding)
         {
           double const inner_prod = inner_product(p_mu, current_line);
