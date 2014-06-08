@@ -417,10 +417,16 @@ namespace robust_pca
          */
         void notify()
         {
-          {
-            lock_t guard(internal_mutex);
-            ++nb_updates;
-          }
+          lock_t guard(internal_mutex);
+          ++nb_updates;
+
+          //
+          // The condition functions are not async-signal safe, and should not be called from a signal handler. 
+          // In particular, calling pthread_cond_signal or pthread_cond_broadcast from a signal handler may
+          // deadlock the calling thread.
+          // 
+          // Raffi: the notification outside the lock above causes a deadlock, apparently it should be protected
+          // from simultaneous access. 
           condition_.notify_one();
         }
      
