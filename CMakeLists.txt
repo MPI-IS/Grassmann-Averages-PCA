@@ -156,7 +156,7 @@ set(RobustPCA_LIB
      include/robust_pca_trimming.hpp
      include/private/utilities.hpp
 
-     include/private/boost_ublas_matlab_helper.hpp
+     include/private/boost_ublas_external_storage.hpp
      include/private/boost_ublas_row_iterator.hpp
 
      src/robust_pca.cpp)

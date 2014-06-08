@@ -14,7 +14,7 @@
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 #include <include/private/boost_ublas_row_iterator.hpp>
-#include <include/private/boost_ublas_matlab_helper.hpp>
+#include <include/private/boost_ublas_external_storage.hpp>
 
 #include <boost/scoped_array.hpp>
 
