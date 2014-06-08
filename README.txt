@@ -39,21 +39,19 @@ under the terms of the BSD-3 Clause license. See accompanying LICENSE.txt file.
 The Robust PCA C++ library depends on 
 - Boost C++ (www.boost.org) 
 - cmake 2.8.11+
-- Matlab (the bindings are optional)
+- Matlab (optional bindings)
 
-You should be able to compile the code with a free development environment. These include
-- Linux: regular command line
-- OSX: regular command line or XCode, XCode should be installed on the system in order to have the compiler
-- Windows: Visual Studio Express (or command line for experienced users).
-
+You should be able to compile the code with a free development environment. The code has been tested on:
+- Linux: from a regular command line, using gcc 4.6 and 4.8
+- OSX: regular command line (Clang 5.1) or XCode (5.0, 5.1), XCode should be installed on the system in order to have the compiler
+- Windows: Visual Studio Express 2013
 
 1.1 Boost 
 ----------------------
-Usually boost can be installed by the system package manager. For instance:
-- on Ubuntu: sudo apt-get install boost-alldev
+Usually boost can be installed through the system package manager. For instance:
+- on Ubuntu: sudo apt-get install libboost-all-dev
 - on Mac: brew install boost
 - on Windows: you have to compile boost as the binaries are not distributed. After untarring boost, you can build boost this way:
-
 
 ~~~~~~~~~~~~~~
 cd $BOOST_DIR
@@ -157,7 +155,9 @@ The library contains Matlab bindings. Two files are actually needed to make the 
 - robustpca_m.m: this file contains only the help
 - robustpca_m.mexXXX : the extension depends on the platform. This is the binary MEX file
 
-If you followed the previous instructions, after the build these two files can be found under $UNTAR_PATH/build, or $UNTAR_PATH/build/[Release|Debug] or $UNTAR_PATH/build/Debug, depending if you are using a 
+If you followed the previous instructions, after the build these two files can be found under $UNTAR_PATH/build, 
+or $UNTAR_PATH/build/[Release|Debug] if you are using an IDE (Xcode, Visual). Several files are accompanying the 
+mex file: these are the dependencies on Boost. 
 
 
 
