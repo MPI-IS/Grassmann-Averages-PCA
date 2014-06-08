@@ -16,7 +16,7 @@
 #include <include/robust_pca.hpp>
 #include <include/robust_pca_trimming.hpp>
 #include <include/private/boost_ublas_matlab_helper.hpp>
-#include <include/private/boost_ublas_matrix_helper.hpp>
+#include <include/private/boost_ublas_row_iterator.hpp>
 
 
 

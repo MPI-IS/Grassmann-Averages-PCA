@@ -11,7 +11,7 @@
 #include <test/test_main.hpp>
 
 #include <include/robust_pca_trimming.hpp>
-#include <include/private/boost_ublas_matrix_helper.hpp>
+#include <include/private/boost_ublas_row_iterator.hpp>
 
 // data stored into a matrix
 #include <boost/numeric/ublas/matrix.hpp>

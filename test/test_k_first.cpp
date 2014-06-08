@@ -24,7 +24,7 @@
 #include <boost/chrono/include.hpp>
 
 #include <include/robust_pca_trimming.hpp>
-#include <include/private/boost_ublas_matrix_helper.hpp>
+#include <include/private/boost_ublas_row_iterator.hpp>
 
 
 BOOST_AUTO_TEST_CASE(test_heap)

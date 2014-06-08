@@ -79,10 +79,9 @@ if(NOT WITHOUT_MATLAB)
   endif()
 
   # Adding a project for the script that finds Matlab, the script being under development currently
-  add_custom_target(MatlabCMakePackage
-    SOURCES 
-    ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake
-    )
+  add_custom_target(
+    MatlabCMakePackage
+    SOURCES ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake)
   set_target_properties(MatlabCMakePackage PROPERTIES FOLDER "Community")
 endif()
 
@@ -158,7 +157,7 @@ set(RobustPCA_LIB
      include/private/utilities.hpp
 
      include/private/boost_ublas_matlab_helper.hpp
-     include/private/boost_ublas_matrix_helper.hpp
+     include/private/boost_ublas_row_iterator.hpp
 
      src/robust_pca.cpp)
 add_library(robustpca ${RobustPCA_LIB})
