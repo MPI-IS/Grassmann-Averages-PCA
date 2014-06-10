@@ -30,3 +30,11 @@ In order to build the project, you will need:
 - Boost C++ library 1.54+
 
 ### Matlab extensions
+
+
+
+Example code
+---------------
+
+@example example_robustpca.cpp
+This is an example of how to use the non-trimmed version of the Robust PCA.
