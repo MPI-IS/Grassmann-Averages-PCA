@@ -66,17 +66,23 @@ namespace robust_pca
   /*!@brief Robust PCA with Grassmann Average algorithm, with trimming of outliers.
    *
    * This class implements the robust PCA using the Grassmann average with trimming of the outliers. 
-   * Its purpose is to compute the PCA of a dataset @f$\{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
-   * D, and also by being robust to some noise that may corrupt the underlying subspace. 
-   * The particularity of the Grassman average scheme is to be more stable than other algorithms.
+   * Its purpose is to compute the PCA of a dataset @f$\mathbf{X} = \{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
+   * D, and also by being "more" robust to outliers that might occur in the original data.
+   * The particularity of the Grassman average scheme is to be more stable than other algorithms against the dimension of the data.
    * 
    * The algorithm is the following:
    * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
-   * - ensure this @f$\mu_{k, 0}@f$ is orthogonal to the previous detected @f$\mu_{k', 0}, 0 \leq k' < k@f$
+   * - ensure this @f$\mu_{k, 0}@f$ is orthogonal to the previous detected @f$\mu_{k', 0},\, \forall k' \in [0, k)@f$
    * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
    *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
-   *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
-   *   - compute the update of @f$\mu_{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
+   *   - for each dimension @f$0 \lt d \leq D@f$, do:
+   *     - For all @f$j@f$, consider the multiplied data set projected onto dimension @f$d@f$: 
+   *       @f[\mathbf{X_\mu^{(d)}} = \left\{proj_d \left(s_{j, t} \cdot X_j\right) \right\} = \left\{s_{j, t} \cdot X_j^{(d)}\right\}@f]
+   *       which is a 1-D sequence
+   *     - compute the indexes @f$J_d@f$ of the @f$\frac{K}{2}@f$ lowest and biggest points of this 1-D sequence @f$\mathbf{X_\mu^{(d)}}@f$
+   *     - compute the update of @f$\mu_{k, .}@f$ for dimension @f$d@f$ : 
+   *       @f[\mu_{k, t+1}^{(d)} = \frac{\sum_{j \notin J_d} proj_d \left(s_{j, t} \cdot X_j \right)}{\# J - \# J_d} @f]
+   *   - normalize @f[\mu_{k, t+1} = \frac{\left(\mu_{k, t+1}^{(1)}, \ldots \mu_{k, t+1}^{(D)}\right)^t}{\left\|\left(\mu_{k, t+1}^{(1)}, \ldots \mu_{k, t+1}^{(D)}\right)^t\right\|}@f]
    * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
    * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 
@@ -328,31 +334,13 @@ namespace robust_pca
       
       void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, typename data_t::value_type* p_data)
       {
-
-#if 0
-        std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-        const typename data_t::value_type min_value = p_data[nb_elements_to_keep];
-        std::nth_element (p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements, std::greater<typename data_t::value_type>());
-        const typename data_t::value_type max_value = p_data[nb_elements_to_keep];
-
-
-        size_t nb_elements_acc = nb_total_elements - 2*nb_elements_to_keep;
-
-        double acc = 0;
-        for(int i = 0; i < nb_total_elements; i++)
-        {
-          if(p_data[i] >= min_value && p_data[i] <= max_value)
-            acc += p_data[i];
-        }
-#endif
-
         std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
         std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
         double acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, 0.);
         
         accumulator_element_t &result = v_accumulated_per_dimension[dimension];
         result.dimension = dimension;
-        //result.nb_elements = nb_total_elements - 2*nb_elements_to_keep;
+
         result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
         // signals the update
         signal_acc_dimension(&result);
@@ -430,6 +418,12 @@ namespace robust_pca
 
 
   public:
+    /*!@brief Constructor
+     *
+     * Constructs an instance of the RobustPCA with trimming with the provided percentage of trimming.
+     *
+     * @param[in] trimming_percentage_ the percentage of data that should be trimmed from the lower and upper distributions.
+     */
     robust_pca_with_trimming_impl(double trimming_percentage_ = 0) :
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable),
       trimming_percentage(trimming_percentage_),
@@ -486,7 +480,7 @@ namespace robust_pca
      *            computed).
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
-     * @param[in] initial_guess if provided, the initial vector will be initialized to this value.
+     * @param[in] initial_guess if provided, the initial vectors will be initialized to this value.
      * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
      *
      * @returns true on success, false otherwise
