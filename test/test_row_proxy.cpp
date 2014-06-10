@@ -13,18 +13,18 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/vector.hpp>
-#include <include/private/boost_ublas_matrix_helper.hpp>
-#include <include/private/boost_ublas_matlab_helper.hpp>
+#include <include/private/boost_ublas_row_iterator.hpp>
+#include <include/private/boost_ublas_external_storage.hpp>
 
 #include <boost/scoped_array.hpp>
 
 
-BOOST_TEST_DONT_PRINT_LOG_VALUE(robust_pca::ublas_adaptor::row_iter<boost::numeric::ublas::matrix<double> >);
-BOOST_TEST_DONT_PRINT_LOG_VALUE(robust_pca::ublas_adaptor::row_iter<const boost::numeric::ublas::matrix<double> >);
+BOOST_TEST_DONT_PRINT_LOG_VALUE(robust_pca::details::ublas_helpers::row_iter<boost::numeric::ublas::matrix<double> >);
+BOOST_TEST_DONT_PRINT_LOG_VALUE(robust_pca::details::ublas_helpers::row_iter<const boost::numeric::ublas::matrix<double> >);
 
 BOOST_AUTO_TEST_CASE(test_row_proxy_read)
 {
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef ub::matrix<double> matrix_t;
@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_read)
 
 BOOST_AUTO_TEST_CASE(test_row_proxy_advance)
 {
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef ub::matrix<double> matrix_t;
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_advance)
 
 BOOST_AUTO_TEST_CASE(test_row_proxy_write)
 {
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef ub::matrix<double> matrix_t;
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write)
 
 BOOST_AUTO_TEST_CASE(test_row_proxy_read_specific_storage)
 {
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef ub::matrix<double, ub::row_major, ub::bounded_array<double, 1000> > matrix_t;
@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_read_specific_storage)
 // testing the row write access capability on for the row proxy, element wise
 BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage)
 {
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef ub::matrix<double, ub::row_major, ub::bounded_array<double, 1000> > matrix_t;
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage)
 // testing the row write access capability for the row proxy, vector access
 BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage_row_access)
 {
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef ub::matrix<double, ub::row_major, ub::bounded_array<double, 1000> > matrix_t;
@@ -221,8 +221,7 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_storage_row_access)
 // testing the row write access capability for the row proxy, vector access, external storage
 BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_external_storage)
 {
-  using namespace robust_pca::ublas_adaptor;
-  using namespace robust_pca::ublas_matlab_helper;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   typedef ub::matrix<double, ub::row_major, external_storage_adaptor<double> > matrix_t;
@@ -271,24 +270,10 @@ BOOST_AUTO_TEST_CASE(test_row_proxy_write_specific_external_storage)
 }
 
 
-#if 0
-namespace std
-{
-
-  template <class T>
-  struct iterator_traits< robust_pca::ublas_adaptor::row_iter<T> >
-  {
-    
-  };
-  
-}
-#endif
-
 // testing the row write access capability for the row proxy, vector access, external storage
 BOOST_AUTO_TEST_CASE(test_row_proxy_random_access_iterator)
 {
-  using namespace robust_pca::ublas_adaptor;
-  using namespace robust_pca::ublas_matlab_helper;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   
   typedef ub::matrix<double, ub::row_major > matrix_t;

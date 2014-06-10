@@ -1,0 +1,49 @@
+/* Copyright 2014, Max Planck Institute for Intelligent Systems.
+ * Distributed under the BSD 3-Clause license.
+ * (See accompanying file LICENSE.txt or copy at
+ * http://opensource.org/licenses/BSD-3-Clause )
+ */
+
+#ifndef MATLAB_SO_WRAP
+  #error MATLAB_SO_WRAP should be defined
+#endif
+
+
+#include "mex.h"
+#include <dlfcn.h>
+
+
+typedef void (*entryfunc_t)(int, mxArray**, int, const mxArray**);
+
+#if !defined(RTLD_DEEPBIND) && defined(__APPLE__)
+  #define RTLD_DEEPBIND 0
+#endif
+
+entryfunc_t populate()
+{
+  void *fh = dlopen (MATLAB_SO_WRAP, RTLD_NOW | RTLD_DEEPBIND );
+  if(!fh)
+    return 0;
+  void *p = dlsym (fh, "mexFunction");
+  return (entryfunc_t) (p);
+}
+
+static bool first_time = true;
+static entryfunc_t gMexEntry = 0;
+void mexFunction(int nlhs, mxArray * plhs[], int nrhs, const mxArray * prhs[])
+{
+  if(gMexEntry == 0 && first_time)
+  {
+    gMexEntry = populate();
+    first_time = true;
+  }
+  /*if(!gMexEntry)
+  {
+    mexErrMsgTxt("MATLAB Wrapper: cannot find " MATLAB_SO_WRAP);
+  }*/
+  assert(gMexEntry);
+  if(gMexEntry)
+  {
+    gMexEntry(nlhs, plhs, nrhs, prhs);
+  }
+}

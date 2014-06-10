@@ -15,7 +15,7 @@
 # - on Mac, the installed versions of Matlab are given by the MATLAB pathes in /Application
 # - on Unix, the desired Matlab should be accessible from the PATH.
 #
-# Additionnal information is provided when ``MATLAB_FIND_DEBUG`` is set.
+# Additional information is provided when ``MATLAB_FIND_DEBUG`` is set.
 # When a Matlab binary is found automatically and the ``MATLAB_VERSION`` is not given, then the
 # version is queried from Matlab directly. On Windows, it can make a window running Matlab appear.
 #

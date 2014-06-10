@@ -13,7 +13,7 @@
 #include <test/test_main.hpp>
 
 #include <include/robust_pca.hpp>
-#include <include/private/boost_ublas_matrix_helper.hpp>
+#include <include/private/boost_ublas_row_iterator.hpp>
 
 // data stored into a matrix
 #include <boost/numeric/ublas/io.hpp>
@@ -35,7 +35,6 @@ BOOST_FIXTURE_TEST_SUITE(robust_pca, fixture_simple_matrix_creation)
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {
   using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
 
   typedef robust_pca_impl< ub::vector<double> > robust_pca_t;
@@ -43,10 +42,9 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
   robust_pca_t instance;
 
 
-  typedef row_iter<const matrix_t> const_row_iter_t;
+  typedef details::ublas_helpers::row_iter<const matrix_t> const_row_iter_t;
   typedef ub::vector<double> data_t;
 
-  std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
@@ -55,7 +53,6 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     dimensions,
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
-    temporary_data.begin(),
     eigen_vectors.begin()));
 
   BOOST_CHECK(!instance.batch_process(
@@ -63,16 +60,14 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     dimensions,
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
-    temporary_data.begin(),
     eigen_vectors.begin()));
 }
 
 
 BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 {
-  //BOOST_REQUIRE(false);
   using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   typedef boost::chrono::steady_clock clock_type;
 
@@ -84,7 +79,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   typedef ub::vector<double> data_t;
 
 
-  std::vector<data_t> temporary_data(nb_elements);
   std::vector<data_t> eigen_vectors(dimensions);
   const int max_iterations = 1000;
 
@@ -108,7 +102,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin(),
       &v_init_points));
     elapsed = clock_type::now() - start;
@@ -121,14 +114,13 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin()));
     elapsed = clock_type::now() - start;
   }
 
 
   std::cout << "processing " << nb_elements << " elements "
-            << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
+            << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << std::endl;
 
   
 
@@ -208,7 +200,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   // this test uses several worker threads, but should provide exactly the same values at the previous test. 
   // its body is almost the same.
   using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
+  using namespace robust_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   typedef boost::chrono::steady_clock clock_type;
 
@@ -220,8 +212,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   typedef ub::vector<double> data_t;
 
 
-  std::vector<data_t> temporary_data(nb_elements);
-  std::vector<data_t> eigen_vectors(dimensions);
+  std::vector<data_t> eigen_vectors(DATA_DIMENSION == 5 ? dimensions : 5);
   const int max_iterations = 1000;
 
 
@@ -251,7 +242,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin(),
       &v_init_points));
     elapsed = clock_type::now() - start;
@@ -261,20 +251,19 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     clock_type::time_point start = clock_type::now();
     BOOST_CHECK(instance.batch_process(
       max_iterations,
-      dimensions,
+      5,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      temporary_data.begin(),
       eigen_vectors.begin()));
     elapsed = clock_type::now() - start;
   }
 
   std::cout << "processing " << nb_elements << " elements "
-            << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << "microseconds" << std::endl;
+            << "in " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed) << std::endl;
 
   // testing the output sizes
-  BOOST_REQUIRE_EQUAL(eigen_vectors.size(), dimensions);
-  for(int i = 0; i < dimensions; i++)
+  BOOST_REQUIRE_EQUAL(eigen_vectors.size(), DATA_DIMENSION == 5 ? dimensions : 5);
+  for(int i = 0; i < eigen_vectors.size(); i++)
   {
     BOOST_CHECKPOINT("testing eigenvector size for vector " << i);
     BOOST_REQUIRE_EQUAL(eigen_vectors[i].size(), dimensions);
@@ -291,15 +280,15 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   }
 
   // testing orthogonality of all eigenvectors
-  for(int i = 0; i < dimensions-1; i++)
+  for(int i = 0; i < eigen_vectors.size()-1; i++)
   {
-    for(int j = i + 1; j < dimensions; j++)
+    for(int j = i + 1; j < eigen_vectors.size(); j++)
     {
       BOOST_CHECK_LE(ub::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6);
     }
   }
 
-  for(int i = 0; i < dimensions; i++)
+  for(int i = 0; i < eigen_vectors.size(); i++)
   {
     BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
   }
