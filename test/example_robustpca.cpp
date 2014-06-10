@@ -5,6 +5,11 @@
 
 
 
+#include <include/robust_pca.hpp>
+#include <include/private/boost_ublas_row_iterator.hpp>
+
+
+
 // generating a matrix of random numbers, each row will contain
 // a data vector.
 void generate_matrix(const int nb_elements, const int dimension matrix_t& mat)
@@ -38,12 +43,17 @@ void example_robust_pca_impl()
   
   typedef row_iter<const matrix_t> const_row_iter_t;        // iterator on the data, deferencing one
                                                              // of these iterator should yield a structure
-                                                             // convertible to data_t
+                                                             // convertible to data_t. This iterator iterates 
+                                                             // over the rows of a given matrix.
 
   
   const int dimensions = 5;                   // each vector is of dimension 5
   const int max_dimension_to_compute = 3;     // we want only the first 3 eigen-vectors
   const int max_iterations = 1000;            // at most 1000 iterations before giving up for the current dimension
+  
+  // generating the data points
+  matrix_t mat_data;
+  generate_matrix(10000, dimensions, mat_data);
 
 
   // configure the first points
@@ -57,8 +67,24 @@ void example_robust_pca_impl()
   robust_pca_t instance;
   
   // some configuration
-  instance.set_nb_processors(4);              // using 4 processors
-  instance.set_nb_processors(4);              // using 4 processors
+  if(!instance.set_nb_processors(4))              // using 4 processors
+  {
+    std::cerr << "Error while setting the number of threads" << std::endl;
+    return;
+  }
+  
+  if(!instance.set_max_chunk_size(1000))          // using max chunk size of 1000
+  {
+    std::cerr << "Error while setting the chunk size" << std::endl;
+    return;
+  }
+  
+  if(!instance.set_nb_steps_pca(3))               // using 3 PCA steps
+  {
+    std::cerr << "Error while setting the number of PCA steps" << std::endl;
+    return;
+  }
+  
   
   bool return_calue = instance.batch_process(
     max_iterations,
@@ -68,5 +94,8 @@ void example_robust_pca_impl()
     eigen_vectors.begin(),
     &v_init_points));
 
-
+  if(!return_calue)
+  {
+    std::cerr << "Error during the computation of the RobustPCA" << std::endl;  
+  }
 }
