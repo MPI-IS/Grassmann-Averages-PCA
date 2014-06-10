@@ -404,7 +404,9 @@ namespace robust_pca
 
     /*!@brief Constructor
      * 
-     * By default, the number of available processors is 1 and the maximum size of the chunks is the maximal size
+     * @note By default the number of processors used for computation is set to 1.
+     * The maximum size of the chunks is "infinite": each chunk will receive in that case the size of the data
+     * divided by the number of running threads.
      */
     robust_pca_impl() : 
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable), 
@@ -421,11 +423,12 @@ namespace robust_pca
       return true;
     }
 
-    //! Sets the maximum chunk size. 
-    //!
-    //! By default, the chunk size is the size of the data divided by the number of processing threads.
-    //! Lowering the chunk size should provid better granularity in the overall processing time at the end 
-    //! of the processing.
+    /*!@brief Sets the maximum chunk size. 
+     *
+     * By default, the chunk size is the size of the data divided by the number of processing threads.
+     * Lowering the chunk size should provid better granularity in the overall processing time at the end 
+     * of the processing.
+     */
     bool set_max_chunk_size(size_t chunk_size)
     {
       if(chunk_size == 0)
@@ -445,7 +448,7 @@ namespace robust_pca
 
 
 
-    /*!Performs the computation of the eigen-vectors of the provided dataset.
+    /*!@brief Performs the computation of the eigen-vectors of the provided dataset.
      *
      * @tparam it_t an input random iterator. Each element pointed by the iterator should be convertible to data_t.
      * @tparam it_eigenvectors an output iterator for storing the computed eigenvalues. This iterator should model a forward output iterator.

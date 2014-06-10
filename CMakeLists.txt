@@ -172,7 +172,14 @@ add_library(robustpca_examples ${RobustPCAExamples_LIB})
 target_link_libraries(robustpca_examples robustpca)
 
 
-
+# documentation of the main doxygen page
+add_custom_target(
+  doxygen_files
+  SOURCES 
+    doc/main.md
+    doc/Doxyfile
+  )
+set_target_properties(doxygen_files PROPERTIES FOLDER "Documentation")
 
 
 

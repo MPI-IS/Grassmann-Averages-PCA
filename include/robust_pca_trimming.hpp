@@ -38,17 +38,19 @@ namespace robust_pca
   {
 
     //!@internal
-    //! Helper object for the updates
+    //!Helper object for the updates
     struct s_dimension_update
     {
       size_t dimension;
       double value;
     };
 
-    //! Adaptation of merger_addition concept for accumulator and count at the same time.
-    //! 
-    //! The trimmed version of the robust pca algorithm may strip some element along each dimension. 
-    //! In order to compute the @f$\mu@f$ properly, the count should also be transfered.
+    /*!@internal
+     * @brief Adaptation of merger_addition concept for accumulator and count at the same time.
+     * 
+     * The trimmed version of the robust pca algorithm may strip some element along each dimension. 
+     * In order to compute the @f$\mu@f$ properly, the count should also be transfered.
+     */
     template <class data_t>
     struct merger_update_specific_dimension
     {
@@ -424,6 +426,9 @@ namespace robust_pca
      * Constructs an instance of the RobustPCA with trimming with the provided percentage of trimming.
      *
      * @param[in] trimming_percentage_ the percentage of data that should be trimmed from the lower and upper distributions.
+     * @note By default the number of processors used for computation is set to 1.
+     * The maximum size of the chunks is "infinite": each chunk will receive in that case the size of the data
+     * divided by the number of running threads.
      */
     robust_pca_with_trimming_impl(double trimming_percentage_ = 0) :
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable),
@@ -443,11 +448,12 @@ namespace robust_pca
       return true;
     }
     
-    //! Sets the maximum chunk size. 
-    //!
-    //! By default, the chunk size is the size of the data divided by the number of processing threads.
-    //! Lowering the chunk size should provid better granularity in the overall processing time at the end 
-    //! of the processing.
+    /*!@brief Sets the maximum chunk size. 
+     *
+     * By default, the chunk size is the size of the data divided by the number of processing threads.
+     * Lowering the chunk size should provid better granularity in the overall processing time at the end 
+     * of the processing.
+     */
     bool set_max_chunk_size(size_t chunk_size)
     {
       if(chunk_size == 0)
@@ -471,10 +477,11 @@ namespace robust_pca
     
 
 
-    /*! Performs the computation of the current subspace on the elements given by the two iterators.
-     *  @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
+    /*!@brief Performs the computation of the current subspace on the elements given by the two iterators.
+     *
+     * @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
      *   should provide a vector point.
-     *  @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
+     * @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
      *
      * @param[in] max_iterations the maximum number of iterations at each dimension.
      * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first max_dimension_to_compute will be
