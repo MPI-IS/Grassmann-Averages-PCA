@@ -93,6 +93,7 @@ namespace robust_pca
    * - to split the computation of @f$\sum_j s_{j, t} X_j@f$ among several independant chunks. This computation involves the inner product and the sign. Each chunk addresses 
    *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function robust_pca_impl::set_max_chunk_size.
    *   By default, the size of the chunk would be the size of the data divided by the number of threads.
+   * - to compute the @f$\frac{K}{2}@f$ extremal points along each dimension in parallel
    * - to split the computation of the projection onto the orthogonal subspace of @f$\mu_{k}@f$.
    * - to split the computation of the regular PCA algorithm (if any) into several independant chunks.
    *
