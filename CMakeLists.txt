@@ -165,6 +165,12 @@ target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} 
 set_target_properties(robustpca PROPERTIES INSTALL_RPATH "@loader_path/.")
 
 
+# examples, checks the compilation only
+set(RobustPCAExamples_LIB
+     test/example_robustpca.cpp)
+add_library(robustpca_examples ${RobustPCAExamples_LIB})
+target_link_libraries(robustpca_examples robustpca)
+
 
 
 

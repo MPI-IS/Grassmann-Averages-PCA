@@ -12,15 +12,16 @@
 
 // generating a matrix of random numbers, each row will contain
 // a data vector.
-void generate_matrix(const int nb_elements, const int dimension matrix_t& mat)
+template <class matrix_t>
+void generate_matrix(const int nb_elements, const int dimension, matrix_t& mat_data)
 {
   static boost::random::mt19937 rng;
   boost::random::uniform_real_distribution<double> dist(-1000, 1000);
   
-  mat_data.resize(nb_elements, dimensions);
+  mat_data.resize(nb_elements, dimension);
   for(int i = 0; i < nb_elements; i++)
   {
-    for(int j = 0; j < dimensions; j++)
+    for(int j = 0; j < dimension; j++)
     {
       mat_data(i, j) = dist(rng);
     }
@@ -34,14 +35,14 @@ void example_robust_pca_impl()
   namespace ub = boost::numeric::ublas;
 
   
-  typedef ub::vector<double> data_t;                        // type of the vectors 
-  typedef ub::matrix<double> matrix_t;                      // type of the structure holding the data
+  typedef ub::vector<double> data_t;                         // type of the vectors 
+  typedef ub::matrix<double> matrix_t;                       // type of the structure holding the data
 
-  typedef robust_pca_impl< data_t > robust_pca_t;           // the type of the structure for the computation of the robust pca
+  typedef robust_pca_impl< data_t > robust_pca_t;            // the type of the structure for the computation of the robust pca
                                                              // data_t tells which kind of structure will be used for internal computations
                                                              // and will be received from the data iterators.
   
-  typedef row_iter<const matrix_t> const_row_iter_t;        // iterator on the data, deferencing one
+  typedef row_iter<const matrix_t> const_row_iter_t;         // iterator on the data, deferencing one
                                                              // of these iterator should yield a structure
                                                              // convertible to data_t. This iterator iterates 
                                                              // over the rows of a given matrix.
@@ -58,10 +59,12 @@ void example_robust_pca_impl()
 
   // configure the first points
   const double initial_point[] = {0.2097, 0.3959, 0.5626, 0.2334, 0.6545}; // some dummy initial point
-  std::vector<data_t> eigen_vectors(dimensions);
-  ub::vector<double> vec_initial_point(initial_point, initial_point + dimensions);
-  std::vector< ub::vector<double> > v_init_points(max_dimension_to_compute, vec_initial_point);
+  data_t vec_initial_point(dimensions);
+  std::copy(initial_point, initial_point + dimensions, vec_initial_point.begin());
+  std::vector< data_t > v_init_points(max_dimension_to_compute, vec_initial_point);
 
+  // allocate the output
+  std::vector<data_t> eigen_vectors(max_dimension_to_compute);
   
   // the instance
   robust_pca_t instance;
@@ -92,7 +95,7 @@ void example_robust_pca_impl()
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
     eigen_vectors.begin(),
-    &v_init_points));
+    &v_init_points);
 
   if(!return_calue)
   {
