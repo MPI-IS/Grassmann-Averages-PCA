@@ -89,8 +89,8 @@ bool robust_pca_dispatch(
   typedef external_storage_adaptor<input_array_type> input_storage_t;
   typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
 
-  typedef external_storage_adaptor<double> output_storage_t;
-  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
+  typedef external_storage_adaptor<input_array_type> output_storage_t;
+  typedef ub::matrix<input_array_type, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
                                                                                // dimension of the matrix output_eigen_vectors (we take the transpose of it)
 
   const size_t &dimension = algorithm_configuration.columns;
@@ -104,7 +104,7 @@ bool robust_pca_dispatch(
   input_matrix_t input_data(nb_elements, dimension, input_storage);
 
   // output data matrix, also external storage for uBlas
-  output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
+  output_storage_t storageOutput(dimension * max_dimension, static_cast<input_array_type *>(mxGetData(outputMatrix)));
   output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
 
   size_t nb_pca_steps = algorithm_configuration.nb_pca_steps;
@@ -112,7 +112,7 @@ bool robust_pca_dispatch(
 
 
   // this is the form of the data extracted from the storage
-  typedef ub::vector<double> data_t;
+  typedef ub::vector<input_array_type> data_t;
   typedef robust_pca_impl< data_t > robust_pca_t;
 
   typedef row_iter<const input_matrix_t> const_input_row_iter_t;
@@ -189,8 +189,8 @@ bool robust_pca_trimming_dispatch(
   typedef external_storage_adaptor<input_array_type> input_storage_t;
   typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
 
-  typedef external_storage_adaptor<double> output_storage_t;
-  typedef ub::matrix<double, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
+  typedef external_storage_adaptor<input_array_type> output_storage_t;
+  typedef ub::matrix<input_array_type, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
                                                                                // dimension of the matrix output_eigen_vectors (we take the transpose of it)
 
 
@@ -204,7 +204,7 @@ bool robust_pca_trimming_dispatch(
   input_matrix_t input_data(nb_elements, dimension, input_storage);
 
   // output data matrix, also external storage for uBlas
-  output_storage_t storageOutput(dimension * max_dimension, mxGetPr(outputMatrix));
+  output_storage_t storageOutput(dimension * max_dimension, static_cast<input_array_type *>(mxGetData(outputMatrix)));
   output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
 
 
@@ -213,7 +213,7 @@ bool robust_pca_trimming_dispatch(
 
 
   // this is the form of the data extracted from the storage
-  typedef ub::vector<double> data_t;
+  typedef ub::vector<input_array_type> data_t;
   typedef robust_pca_with_trimming_impl< data_t > robust_pca_t;
 
   typedef row_iter<const input_matrix_t> const_input_row_iter_t;

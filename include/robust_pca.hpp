@@ -127,12 +127,12 @@ namespace robust_pca
       //! This one has the particularity to be more cache/memory bandwidth friendly. More efficient
       //! implementations may be used, but it turned out that the memory bandwidth is saturated when
       //! many threads are processing different data.
-      double inner_product(scalar_t const* p_mu, scalar_t const* current_line) const
+      scalar_t inner_product(scalar_t const* p_mu, scalar_t const* current_line) const
       {
         scalar_t const * const current_line_end = current_line + data_dimension;
 
-        const int _64_elements = data_dimension >> 6;
-        double acc(0);
+        const int _64_elements = static_cast<int>(data_dimension >> 6);
+        scalar_t acc(0);
 
         for(int j = 0; j < _64_elements; j++, current_line += 64, p_mu += 64)
         {
@@ -149,7 +149,7 @@ namespace robust_pca
       }
 
       //! "Optimized" inner product
-      double inner_product(scalar_t const* p_mu, size_t element_index) const
+      scalar_t inner_product(scalar_t const* p_mu, size_t element_index) const
       {
         return inner_product(p_mu, p_c_matrix + element_index * data_padding);
       }
@@ -224,11 +224,11 @@ namespace robust_pca
         scalar_t const * const p_mu = &mu.data()[0];
         scalar_t * const p_acc = &accumulator.data()[0];
                 
-        double const * current_line = p_c_matrix;
+        scalar_t const * current_line = p_c_matrix;
 
         for(size_t s = 0; s < nb_elements; s++, current_line += data_padding)
         {
-          const double inner_prod = inner_product(p_mu, current_line);
+          const scalar_t inner_prod = inner_product(p_mu, current_line);
           for(size_t d = 0; d < data_dimension; d++)
           {
             p_acc[d] += inner_prod * current_line[d];
@@ -350,7 +350,7 @@ namespace robust_pca
         
         for(size_t line = 0; line < nb_elements; line ++, current_line += data_padding)
         {
-          double const inner_prod = inner_product(p_mu, current_line);
+          scalar_t const inner_prod = inner_product(p_mu, current_line);
           for(int column = 0; column < data_dimension; column++)
           {
             current_line[column] -= inner_prod * p_mu[column];

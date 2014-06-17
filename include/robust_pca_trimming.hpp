@@ -39,10 +39,11 @@ namespace robust_pca
 
     //!@internal
     //!Helper object for the updates
+    template <class scalar_t>
     struct s_dimension_update
     {
       size_t dimension;
-      double value;
+      scalar_t value;
     };
 
     /*!@internal
@@ -55,7 +56,7 @@ namespace robust_pca
     struct merger_update_specific_dimension
     {
       typedef data_t input_t;
-      bool operator()(input_t &current_state, s_dimension_update const& update_value) const
+      bool operator()(input_t &current_state, s_dimension_update<typename data_t::value_type> const& update_value) const
       {
         current_state(update_value.dimension) += update_value.value;
         return true;
@@ -151,7 +152,7 @@ namespace robust_pca
       //! Scalar type of the data
       typedef typename data_t::value_type scalar_t;
       
-      typedef details::s_dimension_update accumulator_element_t;
+      typedef details::s_dimension_update<scalar_t> accumulator_element_t;
 
       
       size_t nb_elements;                 //!< The size of the current dataset
@@ -171,14 +172,14 @@ namespace robust_pca
       scalar_t *p_c_matrix;
       
       //! The result of the inner products
-      std::vector<double> inner_prod_results;
+      std::vector<scalar_t> inner_prod_results;
       std::vector<scalar_t> current_dimension_sort;
   
       void compute_inner_products(data_t const &mu)
       {
-        double *out = &inner_prod_results[0];
-        double mu_element = mu(0);
-        double *current_line = p_c_matrix;
+        scalar_t *out = &inner_prod_results[0];
+        scalar_t mu_element = mu(0);
+        scalar_t *current_line = p_c_matrix;
         
         for(int column = 0; column < nb_elements; column++)
         {
@@ -245,7 +246,7 @@ namespace robust_pca
         
         for(int column = 0; column < nb_elements; column++, ++bb)
         {
-          double* current_line = p_c_matrix + column;
+          scalar_t* current_line = p_c_matrix + column;
           for(int line = 0; line < data_dimension; line ++, current_line += nb_elements)
           {         
             *current_line = (*bb)(line);
@@ -281,12 +282,12 @@ namespace robust_pca
       {
         compute_inner_products(mu);
                
-        double const * const p_inner_product = &inner_prod_results[0];
+        scalar_t const * const p_inner_product = &inner_prod_results[0];
 
         for(size_t dimension = 0; dimension < data_dimension; dimension++)
         {
-          double const * const current_line = p_c_matrix + dimension*nb_elements;
-          double acc = 0;
+          scalar_t const * const current_line = p_c_matrix + dimension*nb_elements;
+          scalar_t acc = 0;
           for(size_t s = 0; s < nb_elements; s++)
           {
             acc += p_inner_product[s] * current_line[s];
@@ -303,22 +304,22 @@ namespace robust_pca
       }
 
       
-      void compute_data_matrix(data_t const &mu, typename data_t::value_type* p_out, size_t padding)
+      void compute_data_matrix(data_t const &mu, scalar_t* p_out, size_t padding)
       {
         // updates the internal inner products
         compute_inner_products(mu);
         
         // the current line is spans a particular dimension
-        double *current_line = p_c_matrix;
+        scalar_t *current_line = p_c_matrix;
 
         // this spans the inner product results for all dimensions
 
-        std::vector<double> v_mult(nb_elements);
+        std::vector<int> v_mult(nb_elements);
         for(size_t element(0); element < nb_elements; element++)
         {
           v_mult[element] = inner_prod_results[element] >= 0 ? 1 : -1;
         }
-        double const * const out = &v_mult[0];
+        int const * const out = &v_mult[0];
 
         for(size_t current_dimension = 0; 
             current_dimension < data_dimension; 
@@ -335,11 +336,11 @@ namespace robust_pca
       }
       
       
-      void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, typename data_t::value_type* p_data)
+      void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, scalar_t* p_data)
       {
         std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
         std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
-        double acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, 0.);
+        scalar_t acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, scalar_t(0.));
         
         accumulator_element_t &result = v_accumulated_per_dimension[dimension];
         result.dimension = dimension;
@@ -355,11 +356,11 @@ namespace robust_pca
       void project_onto_orthogonal_subspace(data_t const &mu)
       {
         compute_inner_products(mu);
-        double *current_line = p_c_matrix;
+        scalar_t *current_line = p_c_matrix;
         
         for(int line = 0; line < data_dimension; line ++, current_line += nb_elements)
         {
-          double mu_element = mu(line);    
+          scalar_t mu_element = mu(line);    
           for(int column = 0; column < nb_elements; column++)
           {
             current_line[column] -= mu_element * inner_prod_results[column];
@@ -384,7 +385,7 @@ namespace robust_pca
         data_t,
         details::merger_update_specific_dimension<data_t>,
         details::threading::initialisation_vector_specific_dimension<data_t>,
-        details::s_dimension_update
+        details::s_dimension_update<typename data_t::value_type>
       >
     {
     public:
@@ -402,7 +403,8 @@ namespace robust_pca
         result_t,
         merger_type, 
         data_init_type,
-        details::s_dimension_update> parent_type;
+        details::s_dimension_update<typename data_t::value_type>
+      > parent_type;
       typedef typename parent_type::lock_t lock_t;
 
       /*!Constructor
@@ -636,7 +638,7 @@ namespace robust_pca
       // flipped vectors that will then be trimmed and accumulated. But this is a copy of the initial data:
       // if the memory pressure is too big, then something else should be found (like a vector of vector, being
       // potentially scattered in memory).
-      boost::scoped_array<double> matrix_temp(new double[number_of_dimensions*size_data]);
+      boost::scoped_array<scalar_t> matrix_temp(new scalar_t[number_of_dimensions*size_data]);
 
 
 
