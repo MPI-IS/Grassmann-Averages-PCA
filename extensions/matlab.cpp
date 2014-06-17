@@ -435,14 +435,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   }
 
 
-  // TODO put the dimension
-  // for the library to work, we need to allocate some temporary storage
-  // we also allocate the output if given
-  plhs[0] = mxCreateDoubleMatrix(dimension, config.max_dimension, mxREAL);
+
+  plhs[0] = mxCreateNumericMatrix(dimension, config.max_dimension, mxGetClassID(X), mxREAL);
   mxArray *outputMatrix = plhs[0];
   assert(outputMatrix);
-
-
 
   
   bool result = false;
