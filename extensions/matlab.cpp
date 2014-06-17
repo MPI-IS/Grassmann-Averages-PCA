@@ -100,7 +100,7 @@ bool robust_pca_dispatch(
 
 
   // input data matrix, external storage.
-  input_storage_t input_storage(nb_elements * dimension, mxGetPr(X));
+  input_storage_t input_storage(nb_elements * dimension, static_cast<input_array_type *>(mxGetData(X)));
   input_matrix_t input_data(nb_elements, dimension, input_storage);
 
   // output data matrix, also external storage for uBlas
@@ -144,7 +144,7 @@ bool robust_pca_dispatch(
   if(algorithm_configuration.initial_vectors != 0)
   { 
     init_vectors.resize(max_dimension);
-    input_storage_t input_init_vector_storage(max_dimension*dimension, mxGetPr(algorithm_configuration.initial_vectors ));
+    input_storage_t input_init_vector_storage(max_dimension*dimension, static_cast<input_array_type*>(mxGetData(algorithm_configuration.initial_vectors)));
     input_matrix_t input_init_vector_data(dimension, max_dimension, input_init_vector_storage);
     for(size_t index = 0;
         index < max_dimension;
@@ -200,7 +200,7 @@ bool robust_pca_trimming_dispatch(
   const size_t &max_iterations = algorithm_configuration.max_iterations;
 
   // input data matrix, external storage.
-  input_storage_t input_storage(nb_elements*dimension, mxGetPr(X));
+  input_storage_t input_storage(nb_elements*dimension, static_cast<input_array_type*>(mxGetData(X)));
   input_matrix_t input_data(nb_elements, dimension, input_storage);
 
   // output data matrix, also external storage for uBlas
@@ -247,7 +247,7 @@ bool robust_pca_trimming_dispatch(
   if(algorithm_configuration.initial_vectors != 0)
   { 
     init_vectors.resize(max_dimension);
-    input_storage_t input_init_vector_storage(max_dimension*dimension, mxGetPr(algorithm_configuration.initial_vectors ));
+    input_storage_t input_init_vector_storage(max_dimension*dimension, static_cast<input_array_type*>(mxGetData(algorithm_configuration.initial_vectors)));
     input_matrix_t input_init_vector_data(dimension, max_dimension, input_init_vector_storage);
     for(size_t index = 0;
         index < max_dimension;
@@ -457,6 +457,19 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     else
     {
       result = robust_pca_trimming_dispatch<double>(X, config, outputMatrix);
+    }
+    
+    break;
+  }
+  case mxSINGLE_CLASS:
+  {
+    if(!b_trimming)
+    {
+      result = robust_pca_dispatch<float>(X, config, outputMatrix);
+    }
+    else
+    {
+      result = robust_pca_trimming_dispatch<float>(X, config, outputMatrix);
     }
     
     break;
