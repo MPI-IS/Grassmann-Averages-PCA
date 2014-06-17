@@ -14,8 +14,6 @@
  * This file contains the implementation of the trimmed version. 
  */
 
-// boost heaps
-#include <boost/heap/pairing_heap.hpp>
 
 // for the thread pools
 #include <boost/asio/io_service.hpp>

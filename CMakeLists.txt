@@ -64,7 +64,7 @@ if(NOT WITHOUT_MATLAB)
   # simple wart to the current state of the Matlab release into the community
   set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/extensions ${CMAKE_MODULE_PATH})
   set(MATLAB_FIND_DEBUG TRUE)
-  find_package(Matlab 8.2 REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
+  find_package(Matlab 8.1 REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
   
   # the following lines should not be needed
   if(NOT ${Matlab_FOUND})
@@ -144,7 +144,6 @@ endif()
 
 
 
-
 include_directories(${Boost_INCLUDE_DIRS})
 
 
@@ -212,8 +211,13 @@ if(NOT WITHOUT_TESTS)
 
       test/test_robust_pca.cpp
       test/test_robust_pca_trimming.cpp
-      test/test_row_proxy.cpp
-      test/test_k_first.cpp)
+      test/test_row_proxy.cpp)
+
+  # this file is used for some internal tests related to ordering
+  if(${Boost_MINOR_VERSION} GREATER 48)
+    set(RobustPCA_tests ${RobustPCA_tests} test/test_k_first.cpp)
+  endif()
+
   add_executable(robustpca_test ${RobustPCA_tests})
   target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
 
