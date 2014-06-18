@@ -33,8 +33,13 @@ endif()
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
-# link against dynamic libraries
-add_definitions(-DBOOST_ALL_DYN_LINK)
+#set(Boost_USE_STATIC_LIBS ON)
+
+if(NOT Boost_USE_STATIC_LIBS)
+  # link against dynamic libraries
+  add_definitions(-DBOOST_ALL_DYN_LINK)
+endif()
+
 set(Boost_REALPATH ON)
 if(NOT WITHOUT_TESTS)
   set(Boost_USE_MULTITHREADED ON)
@@ -120,13 +125,45 @@ include(CheckIncludeFileCXX)
 set(HAS_AVX FALSE)
 check_include_file_cxx(smmintrin.h HAS_SSE41_INSTRINSICS)
 
+# this variable contains the libraries to which the tests should be linked against, in case              
+# we are using the static libraries of boost.                                                            
+set(BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
+
+
 if(NOT MSVC)
+  # c++11 options
   check_cxx_compiler_flag(-std=c++11 HAS_CXX11_FLAG)
   check_cxx_compiler_flag(-std=c++0x HAS_CXX0X_FLAG)
-  if (HAS_CXX11_FLAG)
+  # pthread options
+  check_cxx_compiler_flag(-pthread   HAS_MINUS_PTHREAD)
+  # visbility options 
+  check_cxx_compiler_flag(-fvisibility=hidden         HAS_VISIBILITY_HIDDEN)
+  check_cxx_compiler_flag(-fvisibility-inlines-hidden HAS_VISIBILITY_INLINE_HIDDEN)
+  if(HAS_CXX11_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
   elseif(HAS_CXX0X_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+  endif()
+
+  if(Boost_USE_STATIC_LIBS)
+    # if we do not do that, the symbols linked from boost remain weak and then clash with the ones
+    # defined in the matlab process. So by default the symbols are hidden.
+    # this also means that for shared libraries (like MEX), the entry point should be explicitely
+    # declared with default visibility, otherwise Matlab cannot find the entry point.i
+    if(HAS_VISIBILITY_INLINE_HIDDEN)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
+    endif()
+    if(HAS_VISIBILITY_HIDDEN)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
+    endif()
+    
+    if(HAS_MINUS_PTHREAD)
+      # Apparently, compiling with -pthread generated the proper link flags and some defines at compilation
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+    endif()
+
+    # update to include rt library (from chrono)
+    set(BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS} rt)
   endif()
 else()
   check_cxx_compiler_flag(/AVX HAS_AVX)
@@ -188,7 +225,7 @@ if(NOT WITHOUT_TESTS)
   add_definitions(-DBOOST_TEST_NO_LIB)
 
   if(WIN32)
-    set(TEST_DYNAMIC_LIBRARY_PATH_CMD "PATH")
+    met(TEST_DYNAMIC_LIBRARY_PATH_CMD "PATH")
   elseif(APPLE)
     set(TEST_DYNAMIC_LIBRARY_PATH_CMD "DYLD_LIBRARY_PATH")
   else()
@@ -219,36 +256,44 @@ if(NOT WITHOUT_TESTS)
   endif()
 
   add_executable(robustpca_test ${RobustPCA_tests})
-  target_link_libraries(robustpca_test robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
+  target_link_libraries(robustpca_test robustpca ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
 
   # the main definition is in there
   set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
 
   # the link is with dynamic 
-  set_target_properties(robustpca_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+  if(NOT Boost_USE_STATIC_LIBS)
+    set_target_properties(robustpca_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+  endif()
   set_target_properties(robustpca_test PROPERTIES FOLDER "UnitTests")
 
   add_test(
     NAME robustpca_test-1
     COMMAND robustpca_test)
-  set_tests_properties(
-    robustpca_test-1 
-    PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
+  if(NOT Boost_USE_STATIC_LIBS)
+    set_tests_properties(
+      robustpca_test-1 
+      PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
+  endif()
 
   # second test based on files
   add_executable(robustpca_test_with_files test/test_robust_pca_trimming_from_file.cpp)
   set_source_files_properties(test/test_robust_pca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
-  target_link_libraries(robustpca_test_with_files robustpca ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
-  set_target_properties(robustpca_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+  target_link_libraries(robustpca_test_with_files robustpca ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
+  if(NOT Boost_USE_STATIC_LIBS)
+    set_target_properties(robustpca_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+  endif()
   set_target_properties(robustpca_test_with_files PROPERTIES FOLDER "UnitTests")
 
   add_test(
     NAME robustpca_test-2
     CONFIGURATIONS Release
     COMMAND robustpca_test_with_files --data ${CMAKE_SOURCE_DIR}/test/mat_test.csv --eigen_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv --expected_result ${CMAKE_SOURCE_DIR}/test/mat_test_desired_output.csv)
-  set_tests_properties(
-    robustpca_test-2 
-    PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
+  if(NOT Boost_USE_STATIC_LIBS)
+    set_tests_properties(
+      robustpca_test-2 
+      PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
+  endif()
 
 endif()
 
@@ -265,10 +310,15 @@ if(NOT WITHOUT_MATLAB)
       extensions/matlab.cpp)
   add_library(robustpca_m SHARED ${RobustPCAMEX_LIB})
   target_link_libraries(robustpca_m robustpca ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
-
+  #set_target_properties(robustpca_m PROPERTIES LINK_FLAGS "-t")
+  
   set_target_properties(robustpca_m PROPERTIES PREFIX "")
   #set_target_properties(robustpca_m PROPERTIES INSTALL_RPATH "@loader_path/../lib")
-  set(Matlab_NEED_WRAPPER TRUE)
+  if(Boost_USE_STATIC_LIBS)
+    set(Matlab_NEED_WRAPPER FALSE)
+  else()
+    set(Matlab_NEED_WRAPPER TRUE)
+  endif()
 
   # just for convenience, does not produce any artifacts.
   add_custom_target(
@@ -286,7 +336,11 @@ if(NOT WITHOUT_MATLAB)
       PROPERTIES 
         PREFIX ""
         SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") # to avoid the possibility to call it from matlab
-    
+    if(UNIX)
+      set_target_properties(${library_name}
+        PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
+      )
+    endif()
     # the template contains all the necessary code. The library to load is defined by a #define
     configure_file(${_matlab_wrapper_template} ${_matlab_wrapper_template_output} COPYONLY)
     
@@ -378,6 +432,11 @@ if(NOT WITHOUT_MATLAB)
     set_target_properties(robustpca_m 
       PROPERTIES 
         DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
+  else()
+    set_target_properties(robustpca_m
+      PROPERTIES
+        DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
+    )
   endif()
   
   set_target_properties(robustpca_m PROPERTIES FOLDER "Matlab")
