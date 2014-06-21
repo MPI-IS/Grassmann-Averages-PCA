@@ -21,7 +21,7 @@ typedef void (*entryfunc_t)(int, mxArray**, int, const mxArray**);
 
 entryfunc_t populate()
 {
-  void *fh = dlopen (MATLAB_SO_WRAP, RTLD_NOW | RTLD_DEEPBIND );
+  void *fh = dlopen (MATLAB_SO_WRAP, RTLD_LAZY | RTLD_DEEPBIND );
   if(!fh)
     return 0;
   void *p = dlsym (fh, "mexFunction");
@@ -37,10 +37,12 @@ void mexFunction(int nlhs, mxArray * plhs[], int nrhs, const mxArray * prhs[])
     gMexEntry = populate();
     first_time = true;
   }
-  /*if(!gMexEntry)
+  if(!gMexEntry)
   {
-    mexErrMsgTxt("MATLAB Wrapper: cannot find " MATLAB_SO_WRAP);
-  }*/
+    char message[1000];
+    snprintf(message, 1000, "MATLAB Wrapper: cannot open " MATLAB_SO_WRAP " %s", dlerror());
+    mexErrMsgTxt(message);
+  }
   assert(gMexEntry);
   if(gMexEntry)
   {

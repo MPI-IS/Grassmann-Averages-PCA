@@ -33,7 +33,7 @@ endif()
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
-#set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_LIBS ON)
 
 if(NOT Boost_USE_STATIC_LIBS)
   # link against dynamic libraries
@@ -145,7 +145,7 @@ if(NOT MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
   endif()
 
-  if(Boost_USE_STATIC_LIBS)
+  #if(Boost_USE_STATIC_LIBS)
     # if we do not do that, the symbols linked from boost remain weak and then clash with the ones
     # defined in the matlab process. So by default the symbols are hidden.
     # this also means that for shared libraries (like MEX), the entry point should be explicitely
@@ -156,7 +156,8 @@ if(NOT MSVC)
     if(HAS_VISIBILITY_HIDDEN)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
     endif()
-    
+  if(Boost_USE_STATIC_LIBS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++") 
     if(HAS_MINUS_PTHREAD)
       # Apparently, compiling with -pthread generated the proper link flags and some defines at compilation
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
