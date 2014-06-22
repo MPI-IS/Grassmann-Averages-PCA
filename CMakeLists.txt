@@ -490,7 +490,7 @@ endif()
 if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
 
 
-  set(GAPCA_MEXUnitTest_Project grassmann_average_pca_matlab_unittest_scripts)
+  set(GAPCA_MEXUnitTest_Project ${GAPCA_MEX_Project}_matlab_unittest_scripts)
   add_custom_target(
     ${GAPCA_MEXUnitTest_Project} 
     SOURCES 
