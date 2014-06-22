@@ -4,7 +4,7 @@
 // http://opensource.org/licenses/BSD-3-Clause)
 
 //!@file
-//! Mex wrapper file for robust PCA
+//! Mex wrapper file for Grassmann PCA
 
 // this first include is a small workaround for clang503/xcode5.1: algorithm should be included prior to mex.h
 #include <algorithm>
@@ -75,7 +75,7 @@ struct s_algorithm_configuration
 
 
 template <class input_array_type>
-bool robust_pca_dispatch(
+bool grassmann_pca_dispatch(
   mxArray const* X, 
   s_algorithm_configuration const& algorithm_configuration, 
   mxArray *outputMatrix)
@@ -175,7 +175,7 @@ bool robust_pca_dispatch(
 }
 
 template <class input_array_type>
-bool robust_pca_trimming_dispatch(
+bool grassmann_pca_trimming_dispatch(
   mxArray const* X,
   s_algorithm_configuration const& algorithm_configuration, 
   mxArray *outputMatrix)
@@ -448,11 +448,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   {
     if(!b_trimming)
     {
-      result = robust_pca_dispatch<double>(X, config, outputMatrix);
+      result = grassmann_pca_dispatch<double>(X, config, outputMatrix);
     }
     else
     {
-      result = robust_pca_trimming_dispatch<double>(X, config, outputMatrix);
+      result = grassmann_pca_trimming_dispatch<double>(X, config, outputMatrix);
     }
     
     break;
@@ -461,11 +461,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   {
     if(!b_trimming)
     {
-      result = robust_pca_dispatch<float>(X, config, outputMatrix);
+      result = grassmann_pca_dispatch<float>(X, config, outputMatrix);
     }
     else
     {
-      result = robust_pca_trimming_dispatch<float>(X, config, outputMatrix);
+      result = grassmann_pca_trimming_dispatch<float>(X, config, outputMatrix);
     }
     
     break;
