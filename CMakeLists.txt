@@ -494,8 +494,8 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   add_custom_target(
     ${GAPCA_MEXUnitTest_Project} 
     SOURCES 
-      test/robustpca_matlab_unit_tests.m
-      test/robustpca_matlab_performance_unit_tests.m)
+      test/grassmannpca_matlab_unit_tests.m
+      test/grassmannpca_matlab_performance_unit_tests.m)
 
   set_target_properties(${GAPCA_MEXUnitTest_Project} PROPERTIES FOLDER "UnitTests")
   add_dependencies(${GAPCA_MEXUnitTest_Project} ${GAPCA_MEX_Project})
@@ -507,7 +507,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     
   add_test(NAME ${PROJECT_NAME}_matlabtest-1
            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_1.log 
-           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
+           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
   set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES TIMEOUT 180)
   # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
   # check the content of the log file.
@@ -516,7 +516,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   add_test(NAME ${PROJECT_NAME}_matlabtest-2
             CONFIGURATIONS Release
             COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_2.log 
-           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
+           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
   set_tests_properties(${PROJECT_NAME}_matlabtest-2 PROPERTIES TIMEOUT 600)
 
   
