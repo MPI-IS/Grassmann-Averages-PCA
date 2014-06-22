@@ -1,4 +1,4 @@
-Robust PCA C++ library                         {#mainpage}
+GrassmannAveragePCA C++ library                         {#mainpage}
 ============
 
 @tableofcontents
@@ -15,11 +15,11 @@ for high dimensional problems. The full details can be found in the following ar
 > Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2014
 
 or on the web page of [the Robust PCA](http://ps.is.tuebingen.mpg.de/project/Robust_PCA). Two algorithms are actually implemented:
-- the robust PCA
-- the trimmed robust PCA
+- the Grassmann averages PCA
+- the trimmed Grassmann averages PCA
 
 The code is written in C++ that should be compatible with plain C++03 compilers. The implementations is done in two classes:
-- @c robust_pca::robust_pca_impl for the robust PCA
+- @c robust_pca::robust_pca_impl for the Grassmann average PCA
 - and @c robust_pca::robust_pca_with_trimming_impl for the trimmed version
 
 These classes are templates and you should be able to run the algorithms on different types of data quite easily. 
@@ -45,6 +45,6 @@ The code contains several examples of use:
 
 
 @example example_robustpca.cpp
-This is an example of how to use the non-trimmed version of the Robust PCA. The use of the trimmed version is exacly
+This is an example of how to use the non-trimmed version of the GrassmannAveragPCA. The use of the trimmed version is exacly
 similar to this one except for the instanciation of the class @c robust_pca::robust_pca_with_trimming_impl, where the 
 trimming percentage should be given.
