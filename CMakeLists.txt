@@ -203,16 +203,15 @@ set(${PROJECT_NAME}_LIB
      include/private/boost_ublas_row_iterator.hpp
 
      src/robust_pca.cpp)
-add_library(${PROJECT_NAME} ${${PROJECT_NAME}_LIB})
-target_link_libraries(${PROJECT_NAME} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
-#set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH "@loader_path/.")
+add_library(grassman_averages ${${PROJECT_NAME}_LIB})
+target_link_libraries(grassman_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
 
 
 # examples, checks the compilation only
 set(${PROJECT_NAME}Examples_LIB
     test/example_robustpca.cpp)
 add_library(${PROJECT_NAME}_examples ${${PROJECT_NAME}Examples_LIB})
-target_link_libraries(${PROJECT_NAME}_examples ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME}_examples grassman_averages)
 
 
 # documentation of the main doxygen page
@@ -263,7 +262,7 @@ if(NOT WITHOUT_TESTS)
   endif()
 
   add_executable(${PROJECT_NAME}_test ${${PROJECT_NAME}_tests})
-  target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME} ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
+  target_link_libraries(${PROJECT_NAME}_test grassman_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
 
   # the main definition is in there
   set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
@@ -286,7 +285,7 @@ if(NOT WITHOUT_TESTS)
   # second test based on files
   add_executable(${PROJECT_NAME}_test_with_files test/test_grassmannpca_trimming_from_file.cpp)
   set_source_files_properties(test/test_grassmannpca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
-  target_link_libraries(${PROJECT_NAME}_test_with_files ${PROJECT_NAME} ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
+  target_link_libraries(${PROJECT_NAME}_test_with_files grassman_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
   if(NOT Boost_USE_STATIC_LIBS)
     set_target_properties(${PROJECT_NAME}_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
   endif()
@@ -327,7 +326,7 @@ if(NOT WITHOUT_MATLAB)
 
   include_directories(${Matlab_INCLUDE_DIRS})
   add_library(${GAPCA_MEX_Project} SHARED extensions/matlab.cpp)
-  target_link_libraries(${GAPCA_MEX_Project} ${PROJECT_NAME} ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
+  target_link_libraries(${GAPCA_MEX_Project} grassman_averages ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
   set_target_properties(${GAPCA_MEX_Project} 
       PROPERTIES 
         PREFIX ""
