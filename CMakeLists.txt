@@ -4,7 +4,7 @@
 # http://opensource.org/licenses/BSD-3-Clause)
 
 cmake_minimum_required(VERSION 2.8.11)
-project(GrassmannAveragePCA)
+project(GrassmannAveragesPCA)
 
 
 # build type, by default to release (with optimisations) 
@@ -193,7 +193,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 
 # main library
-include_directories(${GrassmannAveragePCA_SOURCE_DIR})
+include_directories(${GrassmannAveragesPCA_SOURCE_DIR})
 set(${PROJECT_NAME}_LIB
      include/grassmann_pca.hpp
      include/grassmann_pca_with_trimming.hpp

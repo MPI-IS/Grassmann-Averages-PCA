@@ -125,7 +125,7 @@ bool grassmann_pca_dispatch(
   {
     if(!instance.set_nb_processors(algorithm_configuration.nb_processors))
     {
-      mexWarnMsgIdAndTxt("GrassmannAveragePCA:configuration", "Incorrect number of processors. Please consult the documentation.");
+      mexWarnMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Incorrect number of processors. Please consult the documentation.");
       return false;
     }
   }
@@ -134,7 +134,7 @@ bool grassmann_pca_dispatch(
   {
     if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
     {
-	    mexWarnMsgIdAndTxt("GrassmannAveragePCA:configuration", "Incorrect chunk size. Please consult the documentation.");
+	    mexWarnMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Incorrect chunk size. Please consult the documentation.");
       return false;
     }
   }
@@ -159,7 +159,7 @@ bool grassmann_pca_dispatch(
 
   if(!instance.set_nb_steps_pca(nb_pca_steps))
   {
-    mexWarnMsgIdAndTxt("GrassmannAveragePCA:configuration", "Incorrect number of regular PCA steps (%d). Please consult the documentation.", nb_pca_steps);
+    mexWarnMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Incorrect number of regular PCA steps (%d). Please consult the documentation.", nb_pca_steps);
     return false;
   }
 
@@ -228,7 +228,7 @@ bool grassmann_pca_trimming_dispatch(
   {
     if(!instance.set_nb_processors(algorithm_configuration.nb_processors))
     {
-      mexWarnMsgIdAndTxt("GrassmannAveragePCA:configuration", "Incorrect number of processors. Please consult the documentation.");
+      mexWarnMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Incorrect number of processors. Please consult the documentation.");
       return false;
     }
   }
@@ -237,7 +237,7 @@ bool grassmann_pca_trimming_dispatch(
   {
     if(!instance.set_max_chunk_size(algorithm_configuration.max_chunk_size))
     {
-	    mexWarnMsgIdAndTxt("GrassmannAveragePCA:configuration", "Incorrect chunk size. Please consult the documentation.");
+	    mexWarnMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Incorrect chunk size. Please consult the documentation.");
       return false;
     }
   }
@@ -263,7 +263,7 @@ bool grassmann_pca_trimming_dispatch(
 
   if(!instance.set_nb_steps_pca(nb_pca_steps))
   {
-    mexWarnMsgIdAndTxt("GrassmannAveragePCA:configuration", "Incorrect number of regular PCA steps (%d). Please consult the documentation.", nb_pca_steps);
+    mexWarnMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Incorrect number of regular PCA steps (%d). Please consult the documentation.", nb_pca_steps);
     return false;
   }
 
@@ -287,7 +287,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // arguments checking
   if (nrhs < 1 || nrhs > 4)
   {
-	  mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Incorrect number of arguments. Please consult the documentation.");
+	  mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Incorrect number of arguments. Please consult the documentation.");
   }
 
   const mxArray* const X = prhs[0];
@@ -296,12 +296,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   // checking the format of the data
   if (!mxIsDouble(X) && !mxIsSingle(X))
   {
-	  mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Unsupported input format (floating point required)");
+	  mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Unsupported input format (floating point required)");
   }
 
   if(mxIsComplex(X))
   {
-    mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Unsupported format (scalar data required)");
+    mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Unsupported format (scalar data required)");
   }
 
 
@@ -330,17 +330,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     const mxArray* const trimmingArray = prhs[1];
     if(!mxIsNumeric(trimmingArray))
     {
-      mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Erroneous argument for the trimming percentage (non numeric argument)");
+      mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Erroneous argument for the trimming percentage (non numeric argument)");
     }
 
     if(mxIsEmpty(trimmingArray))
     {
-      mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Erroneous argument for the trimming percentage (empty value)");
+      mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Erroneous argument for the trimming percentage (empty value)");
     }
 
     if(mxGetNumberOfElements(trimmingArray) > 1)
     {
-      mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Erroneous argument for the trimming percentage (non scalar)");
+      mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Erroneous argument for the trimming percentage (non scalar)");
     }
 
     mxClassID classId = mxGetClassID(trimmingArray);
@@ -354,7 +354,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if(config.trimming_percentage < 0 || config.trimming_percentage > 100)
     {
-      mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Erroneous argument for the trimming percentage (not within the range [0, 100])");
+      mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Erroneous argument for the trimming percentage (not within the range [0, 100])");
     }
 
     b_trimming = config.trimming_percentage > 0 && config.trimming_percentage < 100;
@@ -373,7 +373,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     if(!mxIsStruct(algorithmConfiguration))
     {
-      mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Erroneous argument for the algorithm configuration (not a structure)");
+      mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Erroneous argument for the algorithm configuration (not a structure)");
     }
     
     mxArray *nb_iteration_array = mxGetField(algorithmConfiguration, 0, "nb_iterations_max");
@@ -405,21 +405,21 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
       if (!mxIsDouble(config.initial_vectors) && !mxIsSingle(config.initial_vectors))
       {
-        mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Unsupported input format for initial directions (floating point required)");
+        mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Unsupported input format for initial directions (floating point required)");
       }
       if(mxIsComplex(config.initial_vectors))
       {
-        mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Unsupported format for initial directions (scalar data required)");
+        mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Unsupported format for initial directions (scalar data required)");
       }
       
       if(mxGetM(config.initial_vectors) != dimension)
       {
-        mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Error in the dimension of the initial values");
+        mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Error in the dimension of the initial values");
       }
 
       if(mxGetN(config.initial_vectors) != config.max_dimension)
       {
-        mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "Error in the number of the initial values provided. Should be equal to \"max_dimensions\"");
+        mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Error in the number of the initial values provided. Should be equal to \"max_dimensions\"");
       }
       
     }
@@ -477,7 +477,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
   if(!result)
   {
-    mexErrMsgIdAndTxt("GrassmannAveragePCA:configuration", "An error occurred in the call of the function.");
+    mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "An error occurred in the call of the function.");
   }
 
 }

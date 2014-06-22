@@ -13,13 +13,13 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
     function testSizesReturn(testCase)
       % very simple binding test
       mat = rand(3,3);
-      ret = GrassmannAveragePCA(mat);
+      ret = GrassmannAveragesPCA(mat);
       testCase.verifyEqual(size(ret), size(mat));
 
 
       % by default, uses all dimensions
       mat = rand(10,3);
-      ret = GrassmannAveragePCA(mat);
+      ret = GrassmannAveragesPCA(mat);
       testCase.verifyEqual(size(ret, 1), size(mat, 2));
       testCase.verifyEqual(size(ret, 2), size(mat, 2));
 
@@ -29,13 +29,13 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       algorithm_config.max_dimensions = 2;
 
       mat = rand(100,5);
-      ret = GrassmannAveragePCA(mat, 0, algorithm_config);
+      ret = GrassmannAveragesPCA(mat, 0, algorithm_config);
       testCase.verifyEqual(size(ret, 1), size(mat, 2)); % dimension
       testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of basis vectors
       display(ret);
 
       % also the case for the trimmed version
-      ret = GrassmannAveragePCA(mat, 1, algorithm_config);
+      ret = GrassmannAveragesPCA(mat, 1, algorithm_config);
       testCase.verifyEqual(size(ret, 1), size(mat, 2)); % dimension
       testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of basis vectors
       display(ret);
@@ -49,13 +49,13 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       algorithm_config = {};
       algorithm_config.max_dimensions = 3;
       
-      ret = GrassmannAveragePCA(mat, 0, algorithm_config);
+      ret = GrassmannAveragesPCA(mat, 0, algorithm_config);
       testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions);
       testCase.verifyEqual(size(ret, 1), size(mat, 2));
 
       algorithm_config.max_dimensions = 2;
       
-      ret = GrassmannAveragePCA(mat, 0, algorithm_config);
+      ret = GrassmannAveragesPCA(mat, 0, algorithm_config);
       testCase.verifyEqual(size(ret, 1), size(mat, 2));
       testCase.verifyEqual(size(ret, 2), 2);
     end
@@ -68,10 +68,10 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       algorithm_config.max_dimensions = 3;
       algorithm_config.initial_vectors = rand(3, 3); % 3 vectors dimension 3, should fail
       
-      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'GrassmannAveragePCA:configuration');
+      testCase.verifyError(@() GrassmannAveragesPCA(mat, 0, algorithm_config), 'GrassmannAveragesPCA:configuration');
 
       algorithm_config.initial_vectors = rand(2, 3); % 2 vectors dimension 3, should fail
-      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'GrassmannAveragePCA:configuration');
+      testCase.verifyError(@() GrassmannAveragesPCA(mat, 0, algorithm_config), 'GrassmannAveragesPCA:configuration');
     end    
 
     function testInitWithWrongNbElementsIsCaught(testCase)
@@ -82,7 +82,7 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       algorithm_config.max_dimensions = 1;
       algorithm_config.initial_vectors = rand(2, 4); % two initial vectors, only one requested, correct dimension
       
-      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'GrassmannAveragePCA:configuration');
+      testCase.verifyError(@() GrassmannAveragesPCA(mat, 0, algorithm_config), 'GrassmannAveragesPCA:configuration');
     end    
 
     
@@ -94,7 +94,7 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       algorithm_config.max_dimensions = 2; % max dimension
       algorithm_config.nb_processing_threads = 4;
       
-      ret = GrassmannAveragePCA(mat, 5, algorithm_config); % 5 percent
+      ret = GrassmannAveragesPCA(mat, 5, algorithm_config); % 5 percent
       
       testCase.verifyEqual(size(ret, 1), size(mat, 2));
       testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions);

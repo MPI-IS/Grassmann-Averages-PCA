@@ -1,4 +1,4 @@
-GrassmannAveragePCA C++ library                         {#mainpage}
+GrassmannAveragesPCA C++ library                         {#mainpage}
 ============
 
 @tableofcontents
@@ -44,7 +44,7 @@ The code contains several examples of use:
 - the examples attached to this documentation
 
 
-@example example_robustpca.cpp
+@example example_grassmannpca.cpp
 This is an example of how to use the non-trimmed version of the GrassmannAveragPCA. The use of the trimmed version is 
 similar to this one except for the instanciation of the class @c grassmann_averages_pca::grassmann_pca_with_trimming, where the 
 trimming percentage should be given.

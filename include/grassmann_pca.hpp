@@ -458,7 +458,7 @@ namespace grassmann_averages_pca
      * @param[in] max_dimension_to_compute the maximum number of eigen-vectors to compute.
      * @param[in] it an (input) iterator pointing on the beginning of the data
      * @param[in] ite an (input) iterator pointing on the end of the data
-     * @param[out] it_eigenvectors an iterator on the beginning of the area where the computed eigen-vectors will be stored. The space should be at least @c max_dimension_to_compute.
+     * @param[out] it_basisvectors an iterator on the beginning of the area where the computed eigen-vectors will be stored. The space should be at least @c max_dimension_to_compute.
      * @param[in] initial_guess if provided, the initial vectors will be initialized to this value. The size of the pointed container should be at least @c max_dimension_to_compute.
      *
      * @returns true on success, false otherwise

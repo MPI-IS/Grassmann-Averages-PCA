@@ -1,6 +1,6 @@
 
 
-GrassmannAveragePCA C++ library
+GrassmannAveragesPCA C++ library
 =====================
 
 Homepage : http://ps.is.tuebingen.mpg.de/project/Robust_PCA
@@ -37,7 +37,7 @@ under the terms of the BSD-3 Clause license. See accompanying LICENSE.txt file.
 1- Preparation
 ----------------------------------------------------------------
 
-The GrassmannAveragePCA C++ library depends on 
+The GrassmannAveragesPCA C++ library depends on 
 - Boost C++ (www.boost.org) 
 - cmake 2.8.11+
 - Matlab 2013a+ (optional bindings). A previous version might be used, see §Matlab.
@@ -97,7 +97,7 @@ CMake (http://www.cmake.org) is usually available with an installer or as a pack
 
 1.3 Matlab (2013a+, optional)
 ----------------------
-The library contains a target that enables the GrassmannAveragePCA to be run from Matlab (MEX files). 
+The library contains a target that enables the GrassmannAveragesPCA to be run from Matlab (MEX files). 
 Matlab 2013a+ is required for these MEX files, but this requirement is mainly because of the use of the Unit Testing Framework of Matlab. 
 If you are familiar with CMake, it should be easy for you to disable the Matlab unit tests while still being able to compile the 
 MEX extensions. 
@@ -108,7 +108,7 @@ MEX extensions.
 
 
 ----------------------------------------------------------------
-2- Compilation & installation of the GrassmannAveragePCA
+2- Compilation & installation of the GrassmannAveragesPCA
 ----------------------------------------------------------------
 Simple create a "build" directory under the path you have untarred the library
 
@@ -124,7 +124,7 @@ On Windows, it would be
 cd $UNTAR_PATH
 mkdir build
 cmake -G "Visual Studio 12 Win64" ..
-GrassmannAveragePCA.sln
+GrassmannAveragesPCA.sln
 ~~~~~~~~~~~~~~
 And then you build the Release/Debug version directly from Visual Studio.
 
@@ -155,7 +155,7 @@ make
 
 2.2 Matlab bindings
 ----------------------
-The library contains a target that enables the GrassmannAveragePCA to be run from Matlab. 
+The library contains a target that enables the GrassmannAveragesPCA to be run from Matlab. 
 The Matlab bindings are on by default. It is possible to disable them by providing a variable to the cmake script:
 
 ~~~~~~~~~~~~~~
@@ -195,10 +195,10 @@ a final binary that is more efficient.
 ----------------------------------------------------------------
 3- Matlab
 ----------------------------------------------------------------
-The library contains a target that enables the GrassmannAveragePCA to be run from Matlab (MEX files). 
+The library contains a target that enables the GrassmannAveragesPCA to be run from Matlab (MEX files). 
 Two files are actually needed to make the bindings work:
-- GrassmannAveragePCA.m: this file contains only the help
-- GrassmannAveragePCA.mexXXX : the extension depends on the platform. This is the binary MEX file
+- GrassmannAveragesPCA.m: this file contains only the help
+- GrassmannAveragesPCA.mexXXX : the extension depends on the platform. This is the binary MEX file
 
 If you followed the previous instructions, after the build these two files can be found under $UNTAR_PATH/build, 
 or $UNTAR_PATH/build/[Release|Debug] if you are using an IDE (Xcode, Visual). Several files are accompanying the 
@@ -210,12 +210,12 @@ the static library version. The dependencies are the following:
 - boost_thread
 
 These files are copied automatically during the Matlab mex file generation into the build directory. Note that the file
-GrassmannAveragePCA.m does not contain any code but only the documentation for the mex file. This file should be in the same path as 
-GrassmannAveragePCA.mexXXX and is also copied automatically into the build directory. Inside Matlab, typing 
+GrassmannAveragesPCA.m does not contain any code but only the documentation for the mex file. This file should be in the same path as 
+GrassmannAveragesPCA.mexXXX and is also copied automatically into the build directory. Inside Matlab, typing 
 
-  help GrassmannAveragePCA 
+  help GrassmannAveragesPCA 
   
-prints the help for using the GrassmannAveragePCA MEX file.
+prints the help for using the GrassmannAveragesPCA MEX file.
 
 
 

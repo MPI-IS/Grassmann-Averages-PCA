@@ -1,13 +1,13 @@
 % Grassmann Averages for robust PCA computation.
 % 
-% GRASSMANAVERAGEPCA returns the "basis-vectors" of a dataset computed using the Grassmann average technique. 
+% GRASSMANNAVERAGESPCA returns the "basis-vectors" of a dataset computed using the Grassmann average technique. 
 %
 % For more information about the Grassmann averages, see the <a href="matlab:web('http://ps.is.tuebingen.mpg.de/project/Robust_PCA')">Robust PCA</a> page.
 % The general forms of the function are the following:
 %
-%   basisvectors = GRASSMANAVERAGEPCA(DATA)
-%   basisvectors = GRASSMANAVERAGEPCA(DATA, trimming_percentage)
-%   basisvectors = GRASSMANAVERAGEPCA(DATA, trimming_percentage, robustpca_configuration)
+%   basisvectors = GRASSMANNAVERAGESPCA(DATA)
+%   basisvectors = GRASSMANNAVERAGESPCA(DATA, trimming_percentage)
+%   basisvectors = GRASSMANNAVERAGESPCA(DATA, trimming_percentage, robustpca_configuration)
 %
 % DATA is always an N x D matrix, where N is the number of samples and D is the dimension of the data. 
 % 
@@ -46,22 +46,22 @@
 % Example of use
 % --------------
 %
-% * GRASSMANAVERAGEPCA on D = 100 dimensions sample of N = 100000 random Gaussian variables:
+% * GRASSMANNAVERAGESPCA on D = 100 dimensions sample of N = 100000 random Gaussian variables:
 %   D = 100;
 %   N = 100000;
 %   tmp = rand(D); 
 %   sigma = tmp * tmp'; 
 %   X = mvnrnd(zeros(D, 1), sigma, N);
-%   grassmann_pca_basis_vectors = GRASSMANAVERAGEPCA(X);
+%   grassmann_pca_basis_vectors = GRASSMANNAVERAGESPCA(X);
 % 
 % * Trimming K = 5 percent of the distribution:
-%   grassmann_pca_basis_vectors = GRASSMANAVERAGEPCA(X, 5)
+%   grassmann_pca_basis_vectors = GRASSMANNAVERAGESPCA(X, 5)
 %
 % * Getting only the first 3 basis vectors:
 %   robustpca_config = {};
 %   robustpca_config.max_dimensions = 3;
-%   grassmann_pca_basis_vectors = GRASSMANAVERAGEPCA(X, 0, robustpca_config);
+%   grassmann_pca_basis_vectors = GRASSMANNAVERAGESPCA(X, 0, robustpca_config);
 %
 %
 %  See also the <a href="matlab:web('http://ps.is.tuebingen.mpg.de/project/Robust_PCA')">Robust PCA</a> page
-function basis_vectors = GrassmannAveragePCA(X, trimming_percentage, additionnal_options)
+function basis_vectors = GrassmannAveragesPCA(X, trimming_percentage, additionnal_options)
