@@ -253,8 +253,8 @@ if(NOT WITHOUT_TESTS)
       test/test_main.hpp
       test/test_main.cpp
 
-      test/test_robust_pca.cpp
-      test/test_robust_pca_trimming.cpp
+      test/test_grassmannpca.cpp
+      test/test_grassmannpca_trimming.cpp
       test/test_row_proxy.cpp)
 
   # this file is used for some internal tests related to ordering
