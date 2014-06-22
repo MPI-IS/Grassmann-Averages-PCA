@@ -7,7 +7,7 @@ Homepage : http://ps.is.tuebingen.mpg.de/project/Robust_PCA
  
 The library is an implementation of the Robust PCA using Grassmann averages and presented in the paper:
 
-  "Grassmann averages for scalable robust PCA", Søren Hauberg, Aasa Feragen and Michael J. Black, CVPR 2014.
+  "Grassmann averages for scalable robust PCA", S¿ren Hauberg, Aasa Feragen and Michael J. Black, CVPR 2014.
 
 
 
@@ -248,7 +248,7 @@ are running Matlab, and need a valid Matlab installation (with a valid license).
 ----------------------------------------------------------------
 - It is known that the MEX files on OSX does not honour its dependencies (boost) because of a troubleshooting with Matlab. On
   OSX currently the only possible way to run the MEX file is to use the static boost libraries.
-- On Linux, some symbol clash may occur with Matlab. This is because Matlab is shipped with its own libstdc++, that may be older 
+- On Linux, some symbol may clash with Matlab. This is mainly because Matlab is shipped with its own libstdc++, that may be older 
   than the one used for compiling the MEX extensions. In that case, you can safely run Matlab with the new version of libstdc++
   that is shipped with your system, using the following command
   LD_PRELOAD=/path/to/your/libstdc++.so matlab

@@ -1,10 +1,10 @@
-// Copyright 2014, Max Planck Institute for Intelligent Systems.
+// Copyright 2014, Max Planck Society.
 // Distributed under the BSD 3-Clause license.
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
 /*!@file
- * This file includes the tests for the robust pca
+ * This file includes the tests for the grassmann pca
  */
 
 
@@ -30,7 +30,7 @@
 
 
 
-BOOST_FIXTURE_TEST_SUITE(robust_pca, fixture_simple_matrix_creation)
+BOOST_FIXTURE_TEST_SUITE(grassmann_pca, fixture_simple_matrix_creation)
 
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {

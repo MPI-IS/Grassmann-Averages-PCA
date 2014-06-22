@@ -28,7 +28,7 @@ void generate_matrix(const int nb_elements, const int dimension, matrix_t& mat_d
   }
 }
 
-void example_robust_pca_impl()
+void example_grassmann_pca_impl()
 {
   using namespace grassmann_averages_pca;
   using namespace grassmann_averages_pca::details::ublas_helpers;

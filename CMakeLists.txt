@@ -1,4 +1,4 @@
-# Copyright 2014, Max Planck Institute for Intelligent Systems.
+# Copyright 2014, Max Planck Society.
 # Distributed under the BSD 3-Clause license.
 # (See accompanying file LICENSE.txt or copy at
 # http://opensource.org/licenses/BSD-3-Clause)
@@ -182,7 +182,7 @@ if(MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${MSVC_Additional_flags}")
   if(HAS_SSE41_INSTRINSICS AND HAS_AVX)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /arch:AVX ")
-    add_definitions(-DROBUSTPCA_INNER_PROD_INTRINSICS_AVX)
+    add_definitions(-DGRASSMANNPCA_INNER_PROD_INTRINSICS_AVX)
   endif()
 endif()
 
@@ -210,8 +210,8 @@ target_link_libraries(grassman_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_L
 # examples, checks the compilation only
 set(${PROJECT_NAME}Examples_LIB
     test/example_robustpca.cpp)
-add_library(${PROJECT_NAME}_examples ${${PROJECT_NAME}Examples_LIB})
-target_link_libraries(${PROJECT_NAME}_examples grassman_averages)
+add_library(grassman_averages_examples ${${PROJECT_NAME}Examples_LIB})
+target_link_libraries(grassman_averages_examples grassman_averages)
 
 
 # documentation of the main doxygen page
@@ -222,6 +222,15 @@ add_custom_target(
     doc/Doxyfile
   )
 set_target_properties(doxygen_files PROPERTIES FOLDER "Documentation")
+
+
+# the readme file
+add_custom_target(
+  readme
+  SOURCES 
+    README.txt
+  )
+set_target_properties(readme PROPERTIES FOLDER "Documentation")
 
 
 

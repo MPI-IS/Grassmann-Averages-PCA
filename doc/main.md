@@ -8,7 +8,7 @@ Welcome to the "Grassmann averages for scalable robust PCA C++" library.
 
 Content
 -------
-This library provides a method for computing a PCA in a robust manner, using Grassmann averages. The method scales particularly well
+This library provides a method for computing a PCA like decomposition using Grassmann averages. The method scales particularly well
 for high dimensional problems. The full details can be found in the following article 
 
 > **Grassmann averages for Scalable Robust PCA**, Søren Hauberg, Aasa Feragen and Michael J. Black
@@ -18,9 +18,9 @@ or on the web page of [the Robust PCA](http://ps.is.tuebingen.mpg.de/project/Rob
 - the Grassmann averages PCA
 - the trimmed Grassmann averages PCA
 
-The code is written in C++ that should be compatible with plain C++03 compilers. The implementations is done in two classes:
-- @c robust_pca::robust_pca_impl for the Grassmann average PCA
-- and @c robust_pca::robust_pca_with_trimming_impl for the trimmed version
+The code is written in C++ that should be compatible with plain C++03 compilers. The implementations is done in the following two classes:
+- @c grassmann_averages_pca::robust_pca_impl for the Grassmann average PCA
+- and @c grassmann_averages_pca::robust_pca_with_trimming_impl for the trimmed version
 
 These classes are templates and you should be able to run the algorithms on different types of data quite easily. 
 The implementation uses several threads in order to do the processing. 
@@ -45,6 +45,6 @@ The code contains several examples of use:
 
 
 @example example_robustpca.cpp
-This is an example of how to use the non-trimmed version of the GrassmannAveragPCA. The use of the trimmed version is exacly
-similar to this one except for the instanciation of the class @c robust_pca::robust_pca_with_trimming_impl, where the 
+This is an example of how to use the non-trimmed version of the GrassmannAveragPCA. The use of the trimmed version is 
+similar to this one except for the instanciation of the class @c grassmann_averages_pca::robust_pca_with_trimming_impl, where the 
 trimming percentage should be given.
