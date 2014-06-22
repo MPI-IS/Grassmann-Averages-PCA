@@ -335,14 +335,32 @@ namespace grassmann_averages_pca
       
       void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, scalar_t* p_data)
       {
-        std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-        std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
-        scalar_t acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, scalar_t(0.));
-        
         accumulator_element_t &result = v_accumulated_per_dimension[dimension];
         result.dimension = dimension;
-
-        result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
+            
+        if(nb_elements_to_keep < nb_total_elements / 2)
+        {
+          std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
+          std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
+          scalar_t acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, scalar_t(0.));
+          
+          result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
+        }
+        else
+        {
+          assert(nb_elements_to_keep == nb_total_elements / 2);
+          std::nth_element(p_data, p_data + nb_elements_to_keep+1, p_data + nb_total_elements);
+          
+          if(nb_total_elements & 1)
+          {
+            result.value = *(p_data + nb_elements_to_keep);
+          }
+          else
+          {
+            result.value = (*(p_data + nb_elements_to_keep) + *std::max_element(p_data, p_data + nb_elements_to_keep)) / 2;
+          }
+          
+        }
         // signals the update
         signal_acc_dimension(&result);
         // signals the main merger
@@ -568,8 +586,8 @@ namespace grassmann_averages_pca
       
 
 
-      // number of elements to keep
-      const int K_elements = static_cast<int>(std::ceil(trimming_percentage*size_data/2));
+      // number of elements to keep, lower bound
+      const int K_elements = static_cast<int>(trimming_percentage*size_data/2);
 
 
       // preparing the ranges on which each processing thread will run.
