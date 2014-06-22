@@ -23,7 +23,7 @@
 // boost chrono
 #include <boost/chrono/include.hpp>
 
-#include <include/robust_pca_trimming.hpp>
+#include <include/grassmann_pca_with_trimming.hpp>
 #include <include/private/boost_ublas_row_iterator.hpp>
 
 

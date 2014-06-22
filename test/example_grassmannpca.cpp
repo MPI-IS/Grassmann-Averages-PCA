@@ -5,7 +5,7 @@
 
 
 
-#include <include/robust_pca.hpp>
+#include <include/grassmann_pca.hpp>
 #include <include/private/boost_ublas_row_iterator.hpp>
 
 
@@ -38,7 +38,7 @@ void example_grassmann_pca_impl()
   typedef ub::vector<double> data_t;                         // type of the vectors 
   typedef ub::matrix<double> matrix_t;                       // type of the structure holding the data
 
-  typedef grassmann_pca< data_t > grassmann_pca_t;           // the type of the structure for the computation of the robust pca
+  typedef grassmann_pca< data_t > grassmann_pca_t;           // the type of the structure for the computation of the grassmann averages pca
                                                              // data_t tells which kind of structure will be used for internal computations
                                                              // and will be received from the data iterators.
   

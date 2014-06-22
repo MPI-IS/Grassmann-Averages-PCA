@@ -195,21 +195,21 @@ include_directories(${Boost_INCLUDE_DIRS})
 # main library
 include_directories(${GrassmannAveragePCA_SOURCE_DIR})
 set(${PROJECT_NAME}_LIB
-     include/robust_pca.hpp
-     include/robust_pca_trimming.hpp
+     include/grassmann_pca.hpp
+     include/grassmann_pca_with_trimming.hpp
      include/private/utilities.hpp
 
      include/private/boost_ublas_external_storage.hpp
      include/private/boost_ublas_row_iterator.hpp
 
-     src/robust_pca.cpp)
+     src/grassmann_pca.cpp)
 add_library(grassman_averages ${${PROJECT_NAME}_LIB})
 target_link_libraries(grassman_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
 
 
 # examples, checks the compilation only
 set(${PROJECT_NAME}Examples_LIB
-    test/example_robustpca.cpp)
+    test/example_grassmannpca.cpp)
 add_library(grassman_averages_examples ${${PROJECT_NAME}Examples_LIB})
 target_link_libraries(grassman_averages_examples grassman_averages)
 
