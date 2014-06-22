@@ -3,8 +3,8 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
-#ifndef BOOST_UBLAS_MATLAB_HELPER_ROBUST_PCA_HPP__
-#define BOOST_UBLAS_MATLAB_HELPER_ROBUST_PCA_HPP__
+#ifndef BOOST_UBLAS_MATLAB_HELPER_GRASSMANN_AVERAGES_PCA_HPP__
+#define BOOST_UBLAS_MATLAB_HELPER_GRASSMANN_AVERAGES_PCA_HPP__
 
 
 #include <boost/numeric/ublas/storage.hpp>
@@ -194,4 +194,4 @@ namespace boost { namespace numeric { namespace ublas {
 }}}
 
 
-#endif /* BOOST_UBLAS_MATLAB_HELPER_ROBUST_PCA_HPP__ */
+#endif /* BOOST_UBLAS_MATLAB_HELPER_GRASSMANN_AVERAGES_PCA_HPP__ */

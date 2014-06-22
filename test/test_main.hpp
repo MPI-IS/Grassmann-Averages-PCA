@@ -3,8 +3,8 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
-#ifndef ROBUST_PCA_TEST_MAIN_HPP__
-#define ROBUST_PCA_TEST_MAIN_HPP__
+#ifndef GRASSMANN_AVERAGES_PCA_TEST_MAIN_HPP__
+#define GRASSMANN_AVERAGES_PCA_TEST_MAIN_HPP__
 
 
 #include <boost/random/mersenne_twister.hpp>
@@ -70,4 +70,4 @@ struct fixture_simple_matrix_creation
 };
 
 
-#endif /* ROBUST_PCA_TEST_MAIN_HPP__ */
+#endif /* GRASSMANN_AVERAGES_PCA_TEST_MAIN_HPP__ */

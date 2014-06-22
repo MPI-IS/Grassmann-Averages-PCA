@@ -3,8 +3,8 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
-#ifndef BOOST_UBLAS_MATRIX_HELPER_ROBUST_PCA_HPP__
-#define BOOST_UBLAS_MATRIX_HELPER_ROBUST_PCA_HPP__
+#ifndef BOOST_UBLAS_MATRIX_HELPER_GRASSMANN_AVERAGES_PCA_HPP__
+#define BOOST_UBLAS_MATRIX_HELPER_GRASSMANN_AVERAGES_PCA_HPP__
 
 /*!@file
  * Contains utility classes around uBlas matrices(mainly an iterator on matrix rows).

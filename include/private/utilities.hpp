@@ -3,8 +3,8 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
-#ifndef ROBUST_PCA_UTILITIES_HPP__
-#define ROBUST_PCA_UTILITIES_HPP__
+#ifndef GRASSMANN_AVERAGES_PCA_UTILITIES_HPP__
+#define GRASSMANN_AVERAGES_PCA_UTILITIES_HPP__
 
 /*!@file
  * Robust PCA companion functions.
@@ -496,4 +496,4 @@ namespace grassmann_averages_pca
 } // namespace robust_pca
 
 
-#endif /* ROBUST_PCA_UTILITIES_HPP__*/ 
+#endif /* GRASSMANN_AVERAGES_PCA_UTILITIES_HPP__*/ 

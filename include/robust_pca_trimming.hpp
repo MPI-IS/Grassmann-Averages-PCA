@@ -3,8 +3,8 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
-#ifndef ROBUST_PCA_TRIMMED_HPP__
-#define ROBUST_PCA_TRIMMED_HPP__
+#ifndef GRASSMANN_AVERAGES_PCA_TRIMMED_HPP__
+#define GRASSMANN_AVERAGES_PCA_TRIMMED_HPP__
 
 
 
@@ -798,10 +798,7 @@ namespace grassmann_averages_pca
 
   };
 
-
-
-
 }
 
 
-#endif /* ROBUST_PCA_TRIMMED_HPP__ */
+#endif /* GRASSMANN_AVERAGES_PCA_TRIMMED_HPP__ */
