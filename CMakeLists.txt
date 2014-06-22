@@ -4,7 +4,7 @@
 # http://opensource.org/licenses/BSD-3-Clause)
 
 cmake_minimum_required(VERSION 2.8.11)
-project(RobustPCA)
+project(GrassmannAveragePCA)
 
 
 # build type, by default to release (with optimisations) 
@@ -31,9 +31,12 @@ endif()
 # Boost, uBlas and some other header only libraries are needed in any case. The boost.test framework
 # is optional.
 
+
+
+
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
-set(Boost_USE_STATIC_LIBS ON)
+#set(Boost_USE_STATIC_LIBS ON)
 
 if(NOT Boost_USE_STATIC_LIBS)
   # link against dynamic libraries
@@ -41,18 +44,17 @@ if(NOT Boost_USE_STATIC_LIBS)
 endif()
 
 set(Boost_REALPATH ON)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_DEBUG ON)
+set(Boost_DETAILED_FAILURE_MSG ON)
+if(DEFINED BOOST_ROOT)
+  set(Boost_NO_SYSTEM_PATHS ON)
+else()
+  set(Boost_NO_SYSTEM_PATHS OFF)
+endif()
+set(Boost_NO_BOOST_CMAKE ON)
+
 if(NOT WITHOUT_TESTS)
-  set(Boost_USE_MULTITHREADED ON)
-
-  set(Boost_DEBUG ON)
-  set(Boost_DETAILED_FAILURE_MSG ON)
-  if(DEFINED BOOST_ROOT)
-    set(Boost_NO_SYSTEM_PATHS ON)
-  else()
-    set(Boost_NO_SYSTEM_PATHS OFF)
-  endif()
-  set(Boost_NO_BOOST_CMAKE ON)
-
   find_package(Boost COMPONENTS unit_test_framework system thread chrono date_time)
 else()
   find_package(Boost COMPONENTS system thread chrono date_time)
@@ -125,8 +127,8 @@ include(CheckIncludeFileCXX)
 set(HAS_AVX FALSE)
 check_include_file_cxx(smmintrin.h HAS_SSE41_INSTRINSICS)
 
-# this variable contains the libraries to which the tests should be linked against, in case              
-# we are using the static libraries of boost.                                                            
+# this variable contains the libraries to which the tests should be linked against. In case              
+# we are using the static libraries of boost, its content will be expanded.
 set(BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${Boost_CHRONO_LIBRARY})
 
 
@@ -145,26 +147,30 @@ if(NOT MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
   endif()
 
-  #if(Boost_USE_STATIC_LIBS)
-    # if we do not do that, the symbols linked from boost remain weak and then clash with the ones
-    # defined in the matlab process. So by default the symbols are hidden.
-    # this also means that for shared libraries (like MEX), the entry point should be explicitely
-    # declared with default visibility, otherwise Matlab cannot find the entry point.i
-    if(HAS_VISIBILITY_INLINE_HIDDEN)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
-    endif()
-    if(HAS_VISIBILITY_HIDDEN)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
-    endif()
+
+  # if we do not do that, the symbols linked from boost remain weak and then clash with the ones
+  # defined in the matlab process. So by default the symbols are hidden.
+  # this also means that for shared libraries (like MEX), the entry point should be explicitely
+  # declared with default visibility, otherwise Matlab cannot find the entry point.i
+  if(HAS_VISIBILITY_INLINE_HIDDEN)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
+  endif()
+  if(HAS_VISIBILITY_HIDDEN)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
+  endif()
+
   if(Boost_USE_STATIC_LIBS)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++") 
-    if(HAS_MINUS_PTHREAD)
+    # does not work, libstdc++ should be compiled with -fPIC
+    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++") 
+    if(HAS_MINUS_PTHREAD AND NOT APPLE)
       # Apparently, compiling with -pthread generated the proper link flags and some defines at compilation
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
     endif()
 
     # update to include rt library (from chrono)
-    set(BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS} rt)
+    if(NOT APPLE)
+      set(BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS} rt)
+    endif()
   endif()
 else()
   check_cxx_compiler_flag(/AVX HAS_AVX)
@@ -187,8 +193,8 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 
 # main library
-include_directories(${RobustPCA_SOURCE_DIR})
-set(RobustPCA_LIB
+include_directories(${GrassmannAveragePCA_SOURCE_DIR})
+set(${PROJECT_NAME}_LIB
      include/robust_pca.hpp
      include/robust_pca_trimming.hpp
      include/private/utilities.hpp
@@ -197,16 +203,16 @@ set(RobustPCA_LIB
      include/private/boost_ublas_row_iterator.hpp
 
      src/robust_pca.cpp)
-add_library(robustpca ${RobustPCA_LIB})
-target_link_libraries(robustpca ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
-set_target_properties(robustpca PROPERTIES INSTALL_RPATH "@loader_path/.")
+add_library(${PROJECT_NAME} ${${PROJECT_NAME}_LIB})
+target_link_libraries(${PROJECT_NAME} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
+#set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH "@loader_path/.")
 
 
 # examples, checks the compilation only
-set(RobustPCAExamples_LIB
-     test/example_robustpca.cpp)
-add_library(robustpca_examples ${RobustPCAExamples_LIB})
-target_link_libraries(robustpca_examples robustpca)
+set(${PROJECT_NAME}Examples_LIB
+    test/example_robustpca.cpp)
+add_library(${PROJECT_NAME}_examples ${${PROJECT_NAME}Examples_LIB})
+target_link_libraries(${PROJECT_NAME}_examples ${PROJECT_NAME})
 
 
 # documentation of the main doxygen page
@@ -243,7 +249,7 @@ if(NOT WITHOUT_TESTS)
   endif()
 
 
-  set(RobustPCA_tests
+  set(${PROJECT_NAME}_tests
       test/test_main.hpp
       test/test_main.cpp
 
@@ -253,46 +259,46 @@ if(NOT WITHOUT_TESTS)
 
   # this file is used for some internal tests related to ordering
   if(${Boost_MINOR_VERSION} GREATER 48)
-    set(RobustPCA_tests ${RobustPCA_tests} test/test_k_first.cpp)
+    set(${PROJECT_NAME}_tests ${${PROJECT_NAME}_tests} test/test_k_first.cpp)
   endif()
 
-  add_executable(robustpca_test ${RobustPCA_tests})
-  target_link_libraries(robustpca_test robustpca ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
+  add_executable(${PROJECT_NAME}_test ${${PROJECT_NAME}_tests})
+  target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME} ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
 
   # the main definition is in there
   set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
 
   # the link is with dynamic 
   if(NOT Boost_USE_STATIC_LIBS)
-    set_target_properties(robustpca_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+    set_target_properties(${PROJECT_NAME}_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
   endif()
-  set_target_properties(robustpca_test PROPERTIES FOLDER "UnitTests")
+  set_target_properties(${PROJECT_NAME}_test PROPERTIES FOLDER "UnitTests")
 
   add_test(
-    NAME robustpca_test-1
-    COMMAND robustpca_test)
+    NAME ${PROJECT_NAME}_test-1
+    COMMAND ${PROJECT_NAME}_test)
   if(NOT Boost_USE_STATIC_LIBS)
     set_tests_properties(
-      robustpca_test-1 
+      ${PROJECT_NAME}_test-1 
       PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
   endif()
 
   # second test based on files
-  add_executable(robustpca_test_with_files test/test_robust_pca_trimming_from_file.cpp)
+  add_executable(${PROJECT_NAME}_test_with_files test/test_robust_pca_trimming_from_file.cpp)
   set_source_files_properties(test/test_robust_pca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
-  target_link_libraries(robustpca_test_with_files robustpca ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
+  target_link_libraries(${PROJECT_NAME}_test_with_files ${PROJECT_NAME} ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
   if(NOT Boost_USE_STATIC_LIBS)
-    set_target_properties(robustpca_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
+    set_target_properties(${PROJECT_NAME}_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
   endif()
-  set_target_properties(robustpca_test_with_files PROPERTIES FOLDER "UnitTests")
+  set_target_properties(${PROJECT_NAME}_test_with_files PROPERTIES FOLDER "UnitTests")
 
   add_test(
-    NAME robustpca_test-2
+    NAME ${PROJECT_NAME}_test-2
     CONFIGURATIONS Release
-    COMMAND robustpca_test_with_files --data ${CMAKE_SOURCE_DIR}/test/mat_test.csv --eigen_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv --expected_result ${CMAKE_SOURCE_DIR}/test/mat_test_desired_output.csv)
+    COMMAND ${PROJECT_NAME}_test_with_files --data ${CMAKE_SOURCE_DIR}/test/mat_test.csv --eigen_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv --expected_result ${CMAKE_SOURCE_DIR}/test/mat_test_desired_output.csv)
   if(NOT Boost_USE_STATIC_LIBS)
     set_tests_properties(
-      robustpca_test-2 
+      ${PROJECT_NAME}_test-2
       PROPERTIES ENVIRONMENT ${TEST_DYNAMIC_LIBRARY_PATH_CMD}=${_boost_lib_env})
   endif()
 
@@ -305,50 +311,86 @@ endif()
 # adding the matlab MEX extensions
 if(NOT WITHOUT_MATLAB)
   
+  # just for convenience, does not produce any artifacts.
+  # this target is for a dynamic loader which copes with the multiple symbol clashes that may occur
+  # with matlab.
+  add_custom_target(
+    matlab_mex_dynamic_loader
+    SOURCES ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
+  set_target_properties(matlab_mex_dynamic_loader PROPERTIES FOLDER "Matlab") 
+  
+  
+  #
+  # the MEX file project
+  #
+  set(GAPCA_MEX_Project ${PROJECT_NAME}_mex)
 
   include_directories(${Matlab_INCLUDE_DIRS})
-  set(RobustPCAMEX_LIB
-      extensions/matlab.cpp)
-  add_library(robustpca_m SHARED ${RobustPCAMEX_LIB})
-  target_link_libraries(robustpca_m robustpca ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
-  #set_target_properties(robustpca_m PROPERTIES LINK_FLAGS "-t")
+  add_library(${GAPCA_MEX_Project} SHARED extensions/matlab.cpp)
+  target_link_libraries(${GAPCA_MEX_Project} ${PROJECT_NAME} ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
+  set_target_properties(${GAPCA_MEX_Project} 
+      PROPERTIES 
+        PREFIX ""
+        OUTPUT_NAME ${PROJECT_NAME}
+        SUFFIX ".${Matlab_MEX_EXTENSION}"
+        FOLDER "Matlab")
   
-  set_target_properties(robustpca_m PROPERTIES PREFIX "")
-  #set_target_properties(robustpca_m PROPERTIES INSTALL_RPATH "@loader_path/../lib")
+  # for debug
+  #set_target_properties(${GAPCA_MEX_Project} PROPERTIES LINK_FLAGS "-t")
+  
+  #set_target_properties(${GAPCA_MEX_Project} PROPERTIES INSTALL_RPATH "@loader_path/../lib")
   if(Boost_USE_STATIC_LIBS)
     set(Matlab_NEED_WRAPPER FALSE)
   else()
     set(Matlab_NEED_WRAPPER TRUE)
   endif()
 
-  # just for convenience, does not produce any artifacts.
-  add_custom_target(
-    matlab_mex_dynamic_loader
-    SOURCES ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
-  set_target_properties(matlab_mex_dynamic_loader PROPERTIES FOLDER "Matlab")
+
+  # entry point in the mex file
+  if(WIN32)
+    set_target_properties(${GAPCA_MEX_Project} 
+      PROPERTIES 
+        DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
+  else()
+    set_target_properties(${GAPCA_MEX_Project}
+      PROPERTIES
+        DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
+    )
+  endif()
 
 
-
+  #
+  # create a matlab loader to prevent some symbol crashes
+  #
   macro(create_matlab_mex_wrapper library_name)
 
     set(_matlab_wrapper_template        ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
     set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.c)
+
+    # get the previous output name
+    get_target_property(_matlab_library_output_name ${library_name} OUTPUT_NAME)
+
+    # change the suffix to avoid the possibility of matlab calling it
     set_target_properties(${library_name} 
       PROPERTIES 
         PREFIX ""
-        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") # to avoid the possibility to call it from matlab
+        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") 
     if(UNIX)
       set_target_properties(${library_name}
         PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
       )
     endif()
-    # the template contains all the necessary code. The library to load is defined by a #define
+    
+    
+    
+    # create the loader 
+    # the template contains all the necessary code. The library to load is defined by a #define MATLAB_SO_WRAP
     configure_file(${_matlab_wrapper_template} ${_matlab_wrapper_template_output} COPYONLY)
     
-
     add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
     target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"./$<TARGET_FILE_NAME:${library_name}>\"") 
-    target_link_libraries(${library_name}_matlab_loader dl)
+    target_link_libraries(${library_name}_matlab_loader dl ${Matlab_MEX_LIBRARY})
+    
     
     # this order is to be kept: we construct the loader before the real mex, since there is not link dependency here, it should work.
     # this also enables to honour the dependencies of the primary target mex file. 
@@ -356,15 +398,21 @@ if(NOT WITHOUT_MATLAB)
     set_target_properties(${library_name}_matlab_loader 
       PROPERTIES 
         PREFIX ""
-        OUTPUT_NAME ${library_name}
+        OUTPUT_NAME ${_matlab_library_output_name}
         SUFFIX ".${Matlab_MEX_EXTENSION}"
         FOLDER "Matlab")
 
     unset(_matlab_wrapper_template)
     unset(_matlab_mex_to_load)
+    unset(_matlab_library_output_name)
 
   endmacro(create_matlab_mex_wrapper)
 
+
+
+  #
+  # copies the dependency files into the target output directory
+  #
   macro(copy_dependency_with_config target_name dependency_name)
 
     set(dependency_name_debug ${${dependency_name}_DEBUG})
@@ -403,44 +451,35 @@ if(NOT WITHOUT_MATLAB)
   
   endmacro(copy_dependency_with_config)
   
+  
+  
+  
   # copying the boost dependencies
   if(NOT Boost_USE_STATIC_LIBS)
-    copy_dependency_with_config(robustpca_m Boost_SYSTEM_LIBRARY)
-    copy_dependency_with_config(robustpca_m Boost_THREAD_LIBRARY)
-    copy_dependency_with_config(robustpca_m Boost_CHRONO_LIBRARY)
-    copy_dependency_with_config(robustpca_m Boost_DATE_TIME_LIBRARY)
+    copy_dependency_with_config(${GAPCA_MEX_Project} Boost_SYSTEM_LIBRARY)
+    copy_dependency_with_config(${GAPCA_MEX_Project} Boost_THREAD_LIBRARY)
+    copy_dependency_with_config(${GAPCA_MEX_Project} Boost_CHRONO_LIBRARY)
+    copy_dependency_with_config(${GAPCA_MEX_Project} Boost_DATE_TIME_LIBRARY)
   endif()
 
   # copying the matlab documentation
-  set(robustpca_m_help_file ${CMAKE_SOURCE_DIR}/extensions/robustpca_m.m)
+  get_target_property(${GAPCA_MEX_Project}_name ${GAPCA_MEX_Project} OUTPUT_NAME)
+  set(${GAPCA_MEX_Project}_help_file ${CMAKE_SOURCE_DIR}/extensions/robustpca_m.m)
   add_custom_command(
-    TARGET robustpca_m
+    TARGET ${GAPCA_MEX_Project}
     PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo Copy Matlab wrapper documentation into target directory $<TARGET_FILE_DIR:robustpca_m>/.
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${robustpca_m_help_file} $<TARGET_FILE_DIR:robustpca_m>/.
-    COMMENT "Copy robustpca_m help into the output folder"
+    COMMAND ${CMAKE_COMMAND} -E echo Copy Matlab wrapper documentation into target directory $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/.
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${GAPCA_MEX_Project}_help_file} $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/${${GAPCA_MEX_Project}_name}.m
+    COMMENT "Copy ${GAPCA_MEX_Project} help into the output folder"
   )
 
+
+  # create wrappers if needed
   if(UNIX AND Matlab_NEED_WRAPPER)
-    create_matlab_mex_wrapper(robustpca_m)
-  else()
-    set_target_properties(robustpca_m PROPERTIES SUFFIX ".${Matlab_MEX_EXTENSION}")
-  endif()
-
-
-
-  if(WIN32)
-    set_target_properties(robustpca_m 
-      PROPERTIES 
-        DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
-  else()
-    set_target_properties(robustpca_m
-      PROPERTIES
-        DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
-    )
+    create_matlab_mex_wrapper(${GAPCA_MEX_Project})
   endif()
   
-  set_target_properties(robustpca_m PROPERTIES FOLDER "Matlab")
+  
 
 
 endif()
@@ -449,33 +488,36 @@ endif()
 
 # adding the matlab unit tests
 if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
+
+
+  set(GAPCA_MEXUnitTest_Project grassmann_average_pca_matlab_unittest_scripts)
   add_custom_target(
-    robustpca_matlab_unittest_scripts 
+    ${GAPCA_MEXUnitTest_Project} 
     SOURCES 
       test/robustpca_matlab_unit_tests.m
       test/robustpca_matlab_performance_unit_tests.m)
 
-  set_target_properties(robustpca_matlab_unittest_scripts PROPERTIES FOLDER "UnitTests")
-  add_dependencies(robustpca_matlab_unittest_scripts robustpca_m)
+  set_target_properties(${GAPCA_MEXUnitTest_Project} PROPERTIES FOLDER "UnitTests")
+  add_dependencies(${GAPCA_MEXUnitTest_Project} ${GAPCA_MEX_Project})
 
   set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
   if(WIN32)
     set(Matlab_UNIT_TESTS_CMD ${Matlab_UNIT_TESTS_CMD} -wait)
   endif()
     
-  add_test(NAME robustpca_matlabtest-1
-            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/robustpca_matlabtest_1.log 
-           -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(robustpca_matlabtest-1 PROPERTIES TIMEOUT 180)
+  add_test(NAME ${PROJECT_NAME}_matlabtest-1
+           COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_1.log 
+           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
+  set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES TIMEOUT 180)
   # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
   # check the content of the log file.
-  #set_tests_properties(robustpca_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
+  #set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
   
-  add_test(NAME robustpca_matlabtest-2
+  add_test(NAME ${PROJECT_NAME}_matlabtest-2
             CONFIGURATIONS Release
-            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/robustpca_matlabtest_2.log 
-           -r "addpath('$<TARGET_FILE_DIR:robustpca_m>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(robustpca_matlabtest-2 PROPERTIES TIMEOUT 600)
+            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_2.log 
+           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('robustpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
+  set_tests_properties(${PROJECT_NAME}_matlabtest-2 PROPERTIES TIMEOUT 600)
 
   
 endif()
