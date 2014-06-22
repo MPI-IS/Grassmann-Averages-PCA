@@ -24,20 +24,20 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       testCase.verifyEqual(size(ret, 2), size(mat, 2));
 
 
-      % we ask for the first 2 eigenvectors
+      % we ask for the first 2 basis vectors
       algorithm_config = {};
       algorithm_config.max_dimensions = 2;
 
       mat = rand(100,5);
       ret = GrassmannAveragePCA(mat, 0, algorithm_config);
       testCase.verifyEqual(size(ret, 1), size(mat, 2)); % dimension
-      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of eigenvectors
+      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of basis vectors
       display(ret);
 
       % also the case for the trimmed version
       ret = GrassmannAveragePCA(mat, 1, algorithm_config);
       testCase.verifyEqual(size(ret, 1), size(mat, 2)); % dimension
-      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of eigenvectors
+      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of basis vectors
       display(ret);
 
     end

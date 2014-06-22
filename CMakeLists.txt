@@ -296,7 +296,7 @@ if(NOT WITHOUT_TESTS)
     CONFIGURATIONS Release
     COMMAND ${PROJECT_NAME}_test_with_files 
       --data ${CMAKE_SOURCE_DIR}/test/mat_test.csv 
-      --eigen_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv 
+      --basis_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv 
       --expected_result ${CMAKE_SOURCE_DIR}/test/mat_test_desired_output.csv)
   if(NOT Boost_USE_STATIC_LIBS)
     set_tests_properties(

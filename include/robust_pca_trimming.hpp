@@ -72,7 +72,7 @@ namespace grassmann_averages_pca
    * The particularity of the Grassman average scheme is to be more stable than other algorithms against the dimension of the data.
    * 
    * The algorithm is the following:
-   * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
+   * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current basis vector being computed and @f$0@f$ is the current iteration number (0). 
    * - ensure this @f$\mu_{k, 0}@f$ is orthogonal to the previous detected @f$\mu_{k', 0},\, \forall k' \in [0, k)@f$
    * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
    *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
@@ -101,11 +101,11 @@ namespace grassmann_averages_pca
    * The number of threads can be configured through the function robust_pca_impl::set_nb_processors.
    * 
    * @note
-   * The algorithm may also perform a few "regular PCA" steps, which is the computation of the eigen-vector with highest eigen-value. This can be configured through the function
+   * The algorithm may also perform a few "regular PCA" steps, which is the computation of the basis vector with highest "eigen-value". This can be configured through the function
    * robust_pca_impl::set_nb_steps_pca.
    *
    * @tparam data_t type of vectors used for the computation. 
-   * @tparam norm_mu_t norm used to normalize the eigen-vector and project them onto the unit circle.
+   * @tparam norm_mu_t norm used to normalize the basis vectors and project them onto the unit circle.
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */
@@ -481,7 +481,7 @@ namespace grassmann_averages_pca
      *
      * @tparam it_t an input forward iterator to input vectors points. Each element pointed by the underlying iterator should be iterable and
      *   should provide a vector point.
-     * @tparam it_norm_t an output iterator on weights/norms of the vectors. The output elements should be numerical (norm output)
+     * @tparam it_o_basisvectors_t an output iterator for storing the computed basis vectors. This iterator should model a forward output iterator.
      *
      * @param[in] max_iterations the maximum number of iterations at each dimension.
      * @param[in] max_dimension_to_compute the maximum number of data_dimension to compute in the PCA (only the first max_dimension_to_compute will be
@@ -489,20 +489,20 @@ namespace grassmann_averages_pca
      * @param[in] it input iterator at the beginning of the data
      * @param[in] ite input iterator at the end of the data
      * @param[in] initial_guess if provided, the initial vectors will be initialized to this value.
-     * @param[out] it_eigenvectors an iterator on the beginning of the area where the detected eigenvectors will be stored. The space should be at least max_dimension_to_compute.
+     * @param[out] it_basisvectors an iterator on the beginning of the area where the detected basis vectors will be stored. The space should be at least max_dimension_to_compute.
      *
      * @returns true on success, false otherwise
      * @pre
      * - @c !(it >= ite)
      * - all the vectors given by the iterators pair should be of the same size (no check is performed).
      */
-    template <class it_t, class it_o_eigenvalues_t>
+    template <class it_t, class it_o_basisvectors_t>
     bool batch_process(
       const size_t max_iterations,
       size_t max_dimension_to_compute,
       it_t const it,
       it_t const ite,
-      it_o_eigenvalues_t it_eigenvectors,
+      it_o_basisvectors_t it_basisvectors,
       std::vector<data_t> const * initial_guess = 0)
     {
       // add some log information
@@ -544,27 +544,27 @@ namespace grassmann_averages_pca
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
 
 
-      // initial iterator on the output eigenvectors
-      it_o_eigenvalues_t const it_output_eigen_vector_beginning(it_eigenvectors);
-      it_o_eigenvalues_t it_output_eigen_vector_end(it_output_eigen_vector_beginning);
-      std::advance(it_output_eigen_vector_end, max_dimension_to_compute);
+      // initial iterator on the output basis vectors
+      it_o_basisvectors_t const it_output_basis_vector_beginning(it_basisvectors);
+      it_o_basisvectors_t it_output_basis_vector_end(it_output_basis_vector_beginning);
+      std::advance(it_output_basis_vector_end, max_dimension_to_compute);
 
       // the initialisation of mus
       {
-        it_o_eigenvalues_t it_eigen(it_output_eigen_vector_beginning);
-        for(int i = 0; it_eigen != it_output_eigen_vector_end; ++it_eigen, ++i)
+        it_o_basisvectors_t it_basis(it_output_basis_vector_beginning);
+        for(int i = 0; it_basis != it_output_basis_vector_end; ++it_basis, ++i)
         {
-          *it_eigen = initial_guess != 0 ? (*initial_guess)[i] : random_init_op(*it);
+          *it_basis = initial_guess != 0 ? (*initial_guess)[i] : random_init_op(*it);
         }
       }
-      if(!details::gram_schmidt_orthonormalisation(it_output_eigen_vector_beginning, it_output_eigen_vector_end, it_output_eigen_vector_beginning, norm_op))
+      if(!details::gram_schmidt_orthonormalisation(it_output_basis_vector_beginning, it_output_basis_vector_end, it_output_basis_vector_beginning, norm_op))
       {
         return false;
       }
 
 
       // preparing mu
-      data_t mu(*it_eigenvectors);
+      data_t mu(*it_basisvectors);
       assert(mu.size() == number_of_dimensions);
       
 
@@ -644,7 +644,7 @@ namespace grassmann_averages_pca
 
 
       // for each dimension
-      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
+      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_basisvectors)
       {
 
 
@@ -733,9 +733,9 @@ namespace grassmann_averages_pca
 
 
 
-        // orthogonalisation against previous eigenvectors
+        // orthogonalisation against previous basis vectors
         bool renormalise(false);
-        for(it_o_eigenvalues_t it_mus(it_output_eigen_vector_beginning); it_mus < it_eigenvectors; ++it_mus)
+        for(it_o_basisvectors_t it_mus(it_output_basis_vector_beginning); it_mus < it_basisvectors; ++it_mus)
         {
           mu -= boost::numeric::ublas::inner_prod(mu, *it_mus) * (*it_mus);
           renormalise = true;
@@ -746,8 +746,8 @@ namespace grassmann_averages_pca
         }
         
 
-        // mu is the eigenvector of the current dimension, we store it in the output vector
-        *it_eigenvectors = mu;
+        // mu is the basis vector of the current dimension, we store it in the output vector
+        *it_basisvectors = mu;
 
         // projection onto the orthogonal subspace
         if(current_dimension < max_dimension_to_compute - 1)
@@ -761,22 +761,22 @@ namespace grassmann_averages_pca
               boost::bind(
                 &async_processor_t::project_onto_orthogonal_subspace, 
                 boost::ref(v_individual_accumulators[i]), 
-                boost::cref(*it_eigenvectors))); // this is not mu, since we are changing it before the process ends here
+                boost::cref(*it_basisvectors))); // this is not mu, since we are changing it before the process ends here
           }
 
           // this is to follow the matlab implementation, but the idea is the following:
           // each time we pick a new candidate vector, we project it to the orthogonal subspace of the previously computed 
-          // eigenvectors. This can be done in two ways:
+          // basis vectors. This can be done in two ways:
           // 1. compute the projection on the orthogonal subspace of the current (or next) candidate
           // 2. compute the projection on the orthogonal subspace of the remainder elements
           //
           // in order to be consistent with the matlab implementation, the second choice is implemented here
           if(current_dimension+1 < max_dimension_to_compute)
           {
-            it_o_eigenvalues_t remainder(it_eigenvectors);
+            it_o_basisvectors_t remainder(it_basisvectors);
             ++remainder;
 
-            if(!details::gram_schmidt_orthonormalisation(it_output_eigen_vector_beginning, it_output_eigen_vector_end, remainder, norm_op))
+            if(!details::gram_schmidt_orthonormalisation(it_output_basis_vector_beginning, it_output_basis_vector_end, remainder, norm_op))
             {
               return false;
             }

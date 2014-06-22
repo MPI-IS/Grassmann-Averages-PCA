@@ -25,7 +25,7 @@
 
 
 std::string filename_data;
-std::string filename_eigen_vectors;
+std::string filename_basis_vectors;
 std::string filename_expected_result;
 
 
@@ -48,13 +48,13 @@ struct ConfigurationFiles
         }
         filename_data = argv[i+1];
       }
-      if(std::string(argv[i]) == "--eigen_vectors")
+      if(std::string(argv[i]) == "--basis_vectors")
       {
-        if(!filename_eigen_vectors.empty())
+        if(!filename_basis_vectors.empty())
         {
-          std::cerr << "Test initialisation error: eigen_vectors given several times" << std::endl;
+          std::cerr << "Test initialisation error: basis_vectors given several times" << std::endl;
         }
-        filename_eigen_vectors = argv[i+1];
+        filename_basis_vectors = argv[i+1];
       }
       if(std::string(argv[i]) == "--expected_result")
       {
@@ -154,14 +154,14 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 
 
 
-  std::cout << std::endl << "Reading init eigenvectors" << std::endl;
+  std::cout << std::endl << "Reading init basis vectors" << std::endl;
   // reading the init vectors, one vector per column
-  std::vector<data_t> v_eigenvectors_init;
+  std::vector<data_t> v_basisvectors_init;
   matrix_t mat_vectors;
-  BOOST_REQUIRE(read_matrix(filename_eigen_vectors, mat_vectors));
+  BOOST_REQUIRE(read_matrix(filename_basis_vectors, mat_vectors));
   for(int i = 0; i < mat_vectors.size2(); i++)
   {
-    v_eigenvectors_init.push_back(ub::column(mat_vectors, i));
+    v_basisvectors_init.push_back(ub::column(mat_vectors, i));
   }
 
   std::cout << std::endl << "Reading expected result" << std::endl;
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 
   const size_t max_dimensions = mat_vectors.size2();
 
-  std::vector<data_t> eigen_vectors(max_dimensions);
+  std::vector<data_t> basis_vectors(max_dimensions);
   const int max_iterations = 1000;
 
 
@@ -196,8 +196,8 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
     max_dimensions,
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
-    eigen_vectors.begin(),
-    &v_eigenvectors_init));
+    basis_vectors.begin(),
+    &v_basisvectors_init));
   elapsed = clock_type::now() - start;
   
   std::cout << "processing " << nb_elements << " elements "
@@ -205,19 +205,19 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
 
 
   // testing the output sizes
-  BOOST_REQUIRE_EQUAL(eigen_vectors.size(), max_dimensions);
+  BOOST_REQUIRE_EQUAL(basis_vectors.size(), max_dimensions);
   for(int i = 0; i < max_dimensions; i++)
   {
-    BOOST_CHECKPOINT("testing eigenvector size for vector " << i);
-    BOOST_REQUIRE_EQUAL(eigen_vectors[i].size(), dimensions);
+    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 
-  // testing orthogonality of all eigenvectors
+  // testing orthogonality of all basis vectors
   for(int i = 0; i < max_dimensions - 1; i++)
   {
     for(int j = i + 1; j < max_dimensions; j++)
     {
-      BOOST_CHECK_LE(ub::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6);
+      BOOST_CHECK_LE(ub::inner_prod(basis_vectors[i], basis_vectors[j]), 1E-6);
     }
   }
 
@@ -225,14 +225,14 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
   // testing unitarity
   for(int i = 0; i < max_dimensions; i++)
   {
-    BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
+    BOOST_CHECK_CLOSE(ub::inner_prod(basis_vectors[i], basis_vectors[i]), 1, 1E-6);
   }
 
   // testing for coherence with matlab
   for(int i = 0; i < max_dimensions; i++)
   {
     details::norm_infinity norm;
-    BOOST_CHECK_LE(norm(eigen_vectors[i] - v_known_result[i]), 1E-2);
+    BOOST_CHECK_LE(norm(basis_vectors[i] - v_known_result[i]), 1E-2);
   }
 
 }

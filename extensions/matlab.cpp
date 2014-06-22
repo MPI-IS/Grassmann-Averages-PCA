@@ -70,7 +70,7 @@ struct s_algorithm_configuration
   
   mxArray *initial_vectors;
 
-  // we should also add the initial value of the eigen vectors
+  // we should also add the initial value of the basis vectors
 };
 
 
@@ -91,7 +91,7 @@ bool grassmann_pca_dispatch(
 
   typedef external_storage_adaptor<input_array_type> output_storage_t;
   typedef ub::matrix<input_array_type, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
-                                                                               // dimension of the matrix output_eigen_vectors (we take the transpose of it)
+                                                                               // dimension of the matrix output_basis_vectors (we take the transpose of it)
 
   const size_t &dimension = algorithm_configuration.columns;
   const size_t &nb_elements = algorithm_configuration.rows;
@@ -105,7 +105,7 @@ bool grassmann_pca_dispatch(
 
   // output data matrix, also external storage for uBlas
   output_storage_t storageOutput(dimension * max_dimension, static_cast<input_array_type *>(mxGetData(outputMatrix)));
-  output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
+  output_matrix_t output_basis_vectors(max_dimension, dimension, storageOutput);
 
   size_t nb_pca_steps = algorithm_configuration.nb_pca_steps;
 
@@ -168,7 +168,7 @@ bool grassmann_pca_dispatch(
     max_dimension,
     const_input_row_iter_t(input_data, 0),
     const_input_row_iter_t(input_data, input_data.size1()),
-    output_row_iter_t(output_eigen_vectors, 0),
+    output_row_iter_t(output_basis_vectors, 0),
     algorithm_configuration.initial_vectors ? &init_vectors: 0);
 
 
@@ -191,7 +191,7 @@ bool grassmann_pca_trimming_dispatch(
 
   typedef external_storage_adaptor<input_array_type> output_storage_t;
   typedef ub::matrix<input_array_type, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
-                                                                               // dimension of the matrix output_eigen_vectors (we take the transpose of it)
+                                                                               // dimension of the matrix output_basis_vectors (we take the transpose of it)
 
 
   const size_t &dimension = algorithm_configuration.columns;
@@ -205,7 +205,7 @@ bool grassmann_pca_trimming_dispatch(
 
   // output data matrix, also external storage for uBlas
   output_storage_t storageOutput(dimension * max_dimension, static_cast<input_array_type *>(mxGetData(outputMatrix)));
-  output_matrix_t output_eigen_vectors(max_dimension, dimension, storageOutput);
+  output_matrix_t output_basis_vectors(max_dimension, dimension, storageOutput);
 
 
   size_t nb_pca_steps = algorithm_configuration.nb_pca_steps;
@@ -273,7 +273,7 @@ bool grassmann_pca_trimming_dispatch(
     max_dimension,
     const_input_row_iter_t(input_data, 0),
     const_input_row_iter_t(input_data, input_data.size1()),
-    output_row_iter_t(output_eigen_vectors, 0),
+    output_row_iter_t(output_basis_vectors, 0),
     algorithm_configuration.initial_vectors ? &init_vectors: 0);
 
 

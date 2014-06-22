@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
   typedef row_iter<const matrix_t> const_row_iter_t;
   typedef ub::vector<double> data_t;
 
-  std::vector<data_t> eigen_vectors(dimensions);
+  std::vector<data_t> basis_vectors(dimensions);
   const int max_iterations = 1000;
 
   BOOST_CHECK(!instance.batch_process(
@@ -55,14 +55,14 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
     dimensions,
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
-    eigen_vectors.begin()));
+    basis_vectors.begin()));
 
   BOOST_CHECK(!instance.batch_process(
     max_iterations,
     dimensions,
     const_row_iter_t(mat_data, 2),
     const_row_iter_t(mat_data, 0),
-    eigen_vectors.begin()));
+    basis_vectors.begin()));
 }
 
 
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   BOOST_CHECK(instance.set_nb_steps_pca(0));
 
 
-  std::vector<data_t> eigen_vectors(dimensions);
+  std::vector<data_t> basis_vectors(dimensions);
   const int max_iterations = 1000;
 
   clock_type::duration elapsed;
@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      eigen_vectors.begin(),
+      basis_vectors.begin(),
       &vec_initial_point));
     elapsed = clock_type::now() - start;
   }
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      eigen_vectors.begin()));
+      basis_vectors.begin()));
     elapsed = clock_type::now() - start;
   }
   
@@ -142,30 +142,30 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 
 
   // testing the output sizes
-  BOOST_REQUIRE_EQUAL(eigen_vectors.size(), dimensions);
+  BOOST_REQUIRE_EQUAL(basis_vectors.size(), dimensions);
   for(int i = 0; i < dimensions; i++)
   {
-    BOOST_CHECKPOINT("testing eigenvector size for vector " << i);
-    BOOST_REQUIRE_EQUAL(eigen_vectors[i].size(), dimensions);
+    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 
 
   if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("Generated eigen vectors are:");
+    BOOST_MESSAGE("Generated basis vectors are:");
 
     for(int i = 0; i < dimensions; i++)
     {
-      BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+      BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
     }
   }
 
-  // testing orthogonality of all eigenvectors
+  // testing orthogonality of all basis vectors
   for(int i = 0; i < dimensions - 1; i++)
   {
     for(int j = i + 1; j < dimensions; j++)
     {
-      BOOST_CHECK_LE(ub::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6);
+      BOOST_CHECK_LE(ub::inner_prod(basis_vectors[i], basis_vectors[j]), 1E-6);
     }
   }
 
@@ -173,14 +173,14 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   // testing unitarity
   for(int i = 0; i < dimensions; i++)
   {
-    BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
+    BOOST_CHECK_CLOSE(ub::inner_prod(basis_vectors[i], basis_vectors[i]), 1, 1E-6);
   }
 
   if(DATA_DIMENSION == 5)
   {
     // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
     // each dimension iteration being given by the vector "initial_point" above. Each column represents 
-    // an eigenvector.
+    // an basis vector.
     static const double matlab_data[] = {
       -0.0365,   -0.0529,    0.0556,    0.9964,   -0.0058,
        0.9983,   -0.0457,    0.0088,    0.0337,    0.0073,
@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
         current_matlab_vector(j) = matlab_data[i + j*dimensions];
       }
       BOOST_CHECKPOINT("iteration " << i);
-      BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 2.6E-2); 
+      BOOST_CHECK_LE(ub::norm_2(basis_vectors[i] - current_matlab_vector), 2.6E-2); 
       // there is a slight difference between the two implementation when enabling the P^2 algorithm
       // for producing the quantiles.
     }
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   typedef ub::vector<double> data_t;
 
 
-  std::vector<data_t> eigen_vectors(DATA_DIMENSION == 5 ? dimensions : 5);
+  std::vector<data_t> basis_vectors(DATA_DIMENSION == 5 ? dimensions : 5);
   const int max_iterations = 1000;
 
   BOOST_CHECK(instance.set_nb_processors(7)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
@@ -265,7 +265,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       dimensions,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      eigen_vectors.begin(),
+      basis_vectors.begin(),
       &vec_initial_point));
     elapsed = clock_type::now() - start;
   }
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       5,
       const_row_iter_t(mat_data, 0),
       const_row_iter_t(mat_data, mat_data.size1()),
-      eigen_vectors.begin()));
+      basis_vectors.begin()));
     elapsed = clock_type::now() - start;
   }
   
@@ -286,45 +286,45 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 
 
   // testing the output sizes
-  BOOST_REQUIRE_EQUAL(eigen_vectors.size(), DATA_DIMENSION == 5 ? dimensions : 5);
-  for(int i = 0; i < eigen_vectors.size(); i++)
+  BOOST_REQUIRE_EQUAL(basis_vectors.size(), DATA_DIMENSION == 5 ? dimensions : 5);
+  for(int i = 0; i < basis_vectors.size(); i++)
   {
-    BOOST_CHECKPOINT("testing eigenvector size for vector " << i);
-    BOOST_REQUIRE_EQUAL(eigen_vectors[i].size(), dimensions);
+    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 
 
   if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("Generated eigen vectors are:");
+    BOOST_MESSAGE("Generated basis vectors are:");
 
     for(int i = 0; i < dimensions; i++)
     {
-      BOOST_MESSAGE("vector " << i << " :" << eigen_vectors[i]);
+      BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
     }
   }
 
-  // testing orthogonality of all eigenvectors
-  for(int i = 0; i < eigen_vectors.size() - 1; i++)
+  // testing orthogonality of all basis vectors
+  for(int i = 0; i < basis_vectors.size() - 1; i++)
   {
-    for(int j = i + 1; j < eigen_vectors.size(); j++)
+    for(int j = i + 1; j < basis_vectors.size(); j++)
     {
-      BOOST_CHECK_LE(ub::inner_prod(eigen_vectors[i], eigen_vectors[j]), 1E-6);
+      BOOST_CHECK_LE(ub::inner_prod(basis_vectors[i], basis_vectors[j]), 1E-6);
     }
   }
 
 
   // testing unitarity
-  for(int i = 0; i < eigen_vectors.size(); i++)
+  for(int i = 0; i < basis_vectors.size(); i++)
   {
-    BOOST_CHECK_CLOSE(ub::inner_prod(eigen_vectors[i], eigen_vectors[i]), 1, 1E-6);
+    BOOST_CHECK_CLOSE(ub::inner_prod(basis_vectors[i], basis_vectors[i]), 1, 1E-6);
   }
 
   if(DATA_DIMENSION == 5)
   {
     // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
     // each dimension iteration being given by the vector "initial_point" above. Each column represents 
-    // an eigenvector.
+    // an basis vector.
     static const double matlab_data[] = {
       -0.0365,   -0.0529,    0.0556,    0.9964,   -0.0058,
        0.9983,   -0.0457,    0.0088,    0.0337,    0.0073,
@@ -342,7 +342,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
         current_matlab_vector(j) = matlab_data[i + j*dimensions];
       }
       BOOST_CHECKPOINT("iteration " << i);
-      BOOST_CHECK_LE(ub::norm_2(eigen_vectors[i] - current_matlab_vector), 2.6E-2); 
+      BOOST_CHECK_LE(ub::norm_2(basis_vectors[i] - current_matlab_vector), 2.6E-2); 
       // there is a slight difference between the two implementation when enabling the P^2 algorithm
       // for producing the quantiles.
     }

@@ -7,7 +7,7 @@
 #define GRASSMANN_AVERAGES_PCA_HPP__
 
 /*!@file
- * Robust PCA functions, following the paper of Soren Hauberg.
+ * Grassmann PCA functions, following the paper of Soren Hauberg.
  *
  * @note These implementations assume the existence of boost somewhere. 
  */
@@ -34,7 +34,7 @@ namespace grassmann_averages_pca
 
   namespace ub = boost::numeric::ublas;
 
-  /*!@brief Robust PCA with Grassmann Average algorithm
+  /*!@brief Grassmann Averages for scalable PCA algorithm
    *
    * This class implements the robust PCA using the Grassmann average. Its purpose is to compute the PCA of a dataset @f$\{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
    * D. The particularity of the Grassman average scheme is to be more stable than other algorithms.
@@ -451,7 +451,7 @@ namespace grassmann_averages_pca
     /*!@brief Performs the computation of the eigen-vectors of the provided dataset.
      *
      * @tparam it_t an input random iterator. Each element pointed by the iterator should be convertible to data_t.
-     * @tparam it_eigenvectors an output iterator for storing the computed eigenvalues. This iterator should model a forward output iterator.
+     * @tparam it_o_basisvectors_t an output iterator for storing the computed eigenvalues. This iterator should model a forward output iterator.
      *
      * @param[in] max_iterations the maximum number of iterations in order to compute each eigen-vector. 
      * @param[in] max_dimension_to_compute the maximum number of eigen-vectors to compute.
@@ -467,13 +467,13 @@ namespace grassmann_averages_pca
      * - @c std::next(it_eigenvectors, i) should yield a valid iterator pointing on a valid storage area, for @c i in [0, max_dimension_to_compute[.
      *
      */
-    template <class it_t, class it_o_eigenvalues_t>
+    template <class it_t, class it_o_basisvectors_t>
     bool batch_process(
       const size_t max_iterations,
       size_t max_dimension_to_compute,
       it_t const it, 
       it_t const ite, 
-      it_o_eigenvalues_t it_eigenvectors,
+      it_o_basisvectors_t it_basisvectors,
       std::vector<data_t> const * initial_guess = 0)
     {
 
@@ -584,7 +584,7 @@ namespace grassmann_averages_pca
 
 
       // for each dimension
-      for(size_t current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_eigenvectors)
+      for(size_t current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_basisvectors)
       {
 
 
@@ -668,7 +668,7 @@ namespace grassmann_averages_pca
         
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
-        *it_eigenvectors = mu;
+        *it_basisvectors = mu;
 
         // projection onto the orthogonal subspace
         if(current_dimension < max_dimension_to_compute - 1)
@@ -683,7 +683,7 @@ namespace grassmann_averages_pca
               boost::bind(
                 &async_processor_t::project_onto_orthogonal_subspace, 
                 boost::ref(v_individual_accumulators[i]), 
-                boost::cref(*it_eigenvectors))); // this is not mu, since we are changing it before the process ends here
+                boost::cref(*it_basisvectors))); // this is not mu, since we are changing it before the process ends here
           }
 
           mu = initial_guess != 0 ? (*initial_guess)[current_dimension+1] : random_init_op(*it);

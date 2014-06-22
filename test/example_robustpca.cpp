@@ -49,7 +49,7 @@ void example_robust_pca_impl()
 
   
   const int dimensions = 5;                   // each vector is of dimension 5
-  const int max_dimension_to_compute = 3;     // we want only the first 3 eigen-vectors
+  const int max_dimension_to_compute = 3;     // we want only the first 3 basis-vectors
   const int max_iterations = 1000;            // at most 1000 iterations before giving up for the current dimension
   
   // generating the data points
@@ -64,7 +64,7 @@ void example_robust_pca_impl()
   std::vector< data_t > v_init_points(max_dimension_to_compute, vec_initial_point);
 
   // allocate the output
-  std::vector<data_t> eigen_vectors(max_dimension_to_compute);
+  std::vector<data_t> basis_vectors(max_dimension_to_compute);
   
   // the instance
   robust_pca_t instance;
@@ -94,7 +94,7 @@ void example_robust_pca_impl()
     max_dimension_to_compute,
     const_row_iter_t(mat_data, 0),
     const_row_iter_t(mat_data, mat_data.size1()),
-    eigen_vectors.begin(),
+    basis_vectors.begin(),
     &v_init_points);
 
   if(!return_calue)

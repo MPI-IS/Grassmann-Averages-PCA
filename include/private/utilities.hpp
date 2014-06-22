@@ -7,7 +7,7 @@
 #define GRASSMANN_AVERAGES_PCA_UTILITIES_HPP__
 
 /*!@file
- * Robust PCA companion functions.
+ * Grassmann PCA companion functions.
  *
  * This file contains some utility function for multithreading, norm computation, convergence check
  * 
@@ -493,7 +493,7 @@ namespace grassmann_averages_pca
 
     } // namespace threading
   } // namespace details
-} // namespace robust_pca
+} // namespace grassmann_averages_pca
 
 
 #endif /* GRASSMANN_AVERAGES_PCA_UTILITIES_HPP__*/ 
