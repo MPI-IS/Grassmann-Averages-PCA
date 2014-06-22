@@ -113,13 +113,13 @@ bool grassmann_pca_dispatch(
 
   // this is the form of the data extracted from the storage
   typedef ub::vector<input_array_type> data_t;
-  typedef robust_pca_impl< data_t > robust_pca_t;
+  typedef grassmann_pca< data_t > grassmann_pca_t;
 
   typedef row_iter<const input_matrix_t> const_input_row_iter_t;
   typedef row_iter<output_matrix_t> output_row_iter_t;
 
   // main instance
-  robust_pca_t instance;
+  grassmann_pca_t instance;
 
   if(algorithm_configuration.nb_processors > 0)
   {
@@ -214,14 +214,14 @@ bool grassmann_pca_trimming_dispatch(
 
   // this is the form of the data extracted from the storage
   typedef ub::vector<input_array_type> data_t;
-  typedef robust_pca_with_trimming_impl< data_t > robust_pca_t;
+  typedef grassmann_pca_with_trimming< data_t > grassmann_pca_t;
 
   typedef row_iter<const input_matrix_t> const_input_row_iter_t;
   typedef row_iter<output_matrix_t> output_row_iter_t;
 
 
   // main instance
-  robust_pca_t instance(algorithm_configuration.trimming_percentage / 100);
+  grassmann_pca_t instance(algorithm_configuration.trimming_percentage / 100);
 
 
   if(algorithm_configuration.nb_processors > 0)

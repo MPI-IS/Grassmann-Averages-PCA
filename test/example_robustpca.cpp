@@ -38,7 +38,7 @@ void example_grassmann_pca_impl()
   typedef ub::vector<double> data_t;                         // type of the vectors 
   typedef ub::matrix<double> matrix_t;                       // type of the structure holding the data
 
-  typedef robust_pca_impl< data_t > robust_pca_t;            // the type of the structure for the computation of the robust pca
+  typedef grassmann_pca< data_t > grassmann_pca_t;           // the type of the structure for the computation of the robust pca
                                                              // data_t tells which kind of structure will be used for internal computations
                                                              // and will be received from the data iterators.
   
@@ -67,7 +67,7 @@ void example_grassmann_pca_impl()
   std::vector<data_t> basis_vectors(max_dimension_to_compute);
   
   // the instance
-  robust_pca_t instance;
+  grassmann_pca_t instance;
   
   // some configuration
   if(!instance.set_nb_processors(4))              // using 4 processors

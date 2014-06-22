@@ -19,8 +19,8 @@ or on the web page of [the Robust PCA](http://ps.is.tuebingen.mpg.de/project/Rob
 - the trimmed Grassmann averages PCA
 
 The code is written in C++ that should be compatible with plain C++03 compilers. The implementations is done in the following two classes:
-- @c grassmann_averages_pca::robust_pca_impl for the Grassmann average PCA
-- and @c grassmann_averages_pca::robust_pca_with_trimming_impl for the trimmed version
+- @c grassmann_averages_pca::grassmann_pca for the Grassmann average PCA
+- and @c grassmann_averages_pca::grassmann_pca_with_trimming for the trimmed version
 
 These classes are templates and you should be able to run the algorithms on different types of data quite easily. 
 The implementation uses several threads in order to do the processing. 
@@ -46,5 +46,5 @@ The code contains several examples of use:
 
 @example example_robustpca.cpp
 This is an example of how to use the non-trimmed version of the GrassmannAveragPCA. The use of the trimmed version is 
-similar to this one except for the instanciation of the class @c grassmann_averages_pca::robust_pca_with_trimming_impl, where the 
+similar to this one except for the instanciation of the class @c grassmann_averages_pca::grassmann_pca_with_trimming, where the 
 trimming percentage should be given.

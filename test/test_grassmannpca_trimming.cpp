@@ -39,9 +39,9 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
   using namespace grassmann_averages_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
-  typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
+  typedef grassmann_pca_with_trimming< ub::vector<double> > grassmann_pca_t;
 
-  robust_pca_t instance;
+  grassmann_pca_t instance;
 
 
   typedef row_iter<const matrix_t> const_row_iter_t;
@@ -74,8 +74,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   typedef boost::chrono::steady_clock clock_type;
   
 
-  typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
-  robust_pca_t instance(0.);
+  typedef grassmann_pca_with_trimming< ub::vector<double> > grassmann_pca_t;
+  grassmann_pca_t instance(0.);
   typedef row_iter<const matrix_t> const_row_iter_t;
 
   typedef ub::vector<double> data_t;
@@ -220,8 +220,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   typedef boost::chrono::steady_clock clock_type;
   
 
-  typedef robust_pca_with_trimming_impl< ub::vector<double> > robust_pca_t;
-  robust_pca_t instance(0.);
+  typedef grassmann_pca_with_trimming< ub::vector<double> > grassmann_pca_t;
+  grassmann_pca_t instance(0.);
   typedef row_iter<const matrix_t> const_row_iter_t;
 
   typedef ub::vector<double> data_t;

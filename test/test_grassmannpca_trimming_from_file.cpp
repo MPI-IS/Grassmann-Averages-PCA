@@ -141,8 +141,8 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
   BOOST_REQUIRE(!filename_data.empty());
 
   typedef ub::vector<double> data_t;
-  typedef robust_pca_with_trimming_impl< data_t > robust_pca_t;
-  robust_pca_t instance(.1);
+  typedef grassmann_pca_with_trimming< data_t > grassmann_pca_t;
+  grassmann_pca_t instance(.1);
   typedef row_iter<const matrix_t> const_row_iter_t;
 
   

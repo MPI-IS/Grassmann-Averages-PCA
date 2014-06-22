@@ -46,22 +46,22 @@ namespace grassmann_averages_pca
    *   - compute the update of @f$\mu_{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
    * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
-   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see robust_pca_impl::batch_process). 
-   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see robust_pca_impl::batch_process).
+   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see grassmann_pca::batch_process). 
+   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see grassmann_pca::batch_process).
    * The test for convergence is delegated to the class details::convergence_check.
    *
    * The computation is distributed among several threads. The multithreading strategy is 
    * - to split the computation of @f$\sum_j s_{j, t} X_j@f$ among several independant chunks. This computation involves the inner product and the sign. Each chunk addresses 
-   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function robust_pca_impl::set_max_chunk_size.
+   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function grassmann_pca::set_max_chunk_size.
    *   By default, the size of the chunk would be the size of the data divided by the number of threads.
    * - to split the computation of the projection onto the orthogonal subspace of @f$\mu_{k}@f$.
    * - to split the computation of the regular PCA algorithm (if any) into several independant chunks.
    *
-   * The number of threads can be configured through the function robust_pca_impl::set_nb_processors.
+   * The number of threads can be configured through the function grassmann_pca::set_nb_processors.
    * 
    * @note
    * The algorithm may also perform a few "regular PCA" steps, which is the computation of the eigen-vector with highest eigen-value. This can be configured through the function
-   * robust_pca_impl::set_nb_steps_pca.
+   * grassmann_pca::set_nb_steps_pca.
    *
    * @tparam data_t type of vectors used for the computation. 
    * @tparam norm_mu_t norm used to normalize the eigen-vector and project them onto the unit circle.
@@ -69,7 +69,7 @@ namespace grassmann_averages_pca
    * @author Soren Hauberg, Raffi Enficiaud
    */
   template <class data_t, class norm_mu_t = details::norm2>
-  struct robust_pca_impl
+  struct grassmann_pca
   {
   private:
     //! Random generator for initialising @f$\mu@f$ at each dimension. 
@@ -408,7 +408,7 @@ namespace grassmann_averages_pca
      * The maximum size of the chunks is "infinite": each chunk will receive in that case the size of the data
      * divided by the number of running threads.
      */
-    robust_pca_impl() : 
+    grassmann_pca() : 
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable), 
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max()),
