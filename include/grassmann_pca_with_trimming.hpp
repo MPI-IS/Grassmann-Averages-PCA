@@ -9,7 +9,7 @@
 
 
 /*!@file
- * Robust PCA functions, following the paper of Soren Hauberg.
+ * Grassmann averages for robust PCA functions, following the paper of Soren Hauberg.
  *
  * This file contains the implementation of the trimmed version. 
  */
@@ -47,7 +47,7 @@ namespace grassmann_averages_pca
     /*!@internal
      * @brief Adaptation of merger_addition concept for accumulator and count at the same time.
      * 
-     * The trimmed version of the robust pca algorithm may strip some element along each dimension. 
+     * The trimmed version of the grassmann pca algorithm may strip some element along each dimension. 
      * In order to compute the @f$\mu@f$ properly, the count should also be transfered.
      */
     template <class data_t>
@@ -66,10 +66,9 @@ namespace grassmann_averages_pca
 
   /*!@brief Grassmann Average algorithm for robust PCA computation, with trimming of outliers.
    *
-   * This class implements the robust PCA using the Grassmann average with trimming of the outliers. 
+   * This class implements the Grassmann average for computing the robust PCA, which also includes the trimming of "outliers". 
    * Its purpose is to compute the PCA of a dataset @f$\mathbf{X} = \{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
-   * D, and also by being "more" robust to outliers that might occur in the original data.
-   * The particularity of the Grassman average scheme is to be more stable than other algorithms against the dimension of the data.
+   * D, and also by being less sensitive to the outliers of the original data.
    * 
    * The algorithm is the following:
    * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current basis vector being computed and @f$0@f$ is the current iteration number (0). 

@@ -36,8 +36,9 @@ namespace grassmann_averages_pca
 
   /*!@brief Grassmann Averages for scalable PCA algorithm
    *
-   * This class implements the robust PCA using the Grassmann average. Its purpose is to compute the PCA of a dataset @f$\{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
-   * D. The particularity of the Grassman average scheme is to be more stable than other algorithms.
+   * This class implements the Grassmann average for computing the PCA in a robust manner. 
+   * Its purpose is to compute the PCA of a dataset @f$\{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
+   * D. 
    * 
    * The algorithm is the following:
    * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 

@@ -7,7 +7,7 @@
 #define GRASSMANN_AVERAGES_PCA_UTILITIES_HPP__
 
 /*!@file
- * Grassmann PCA companion functions.
+ * Grassmann averages for robust PCA, companion functions.
  *
  * This file contains some utility function for multithreading, norm computation, convergence check
  * 

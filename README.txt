@@ -5,7 +5,7 @@ GrassmannAveragePCA C++ library
 
 Homepage : http://ps.is.tuebingen.mpg.de/project/Robust_PCA
  
-The library is an implementation of the Robust PCA using Grassmann averages and presented in the paper:
+The library is an implementation of the Grassmann averages for computing a robust PCA, presented in the paper:
 
   "Grassmann averages for scalable robust PCA", S¿ren Hauberg, Aasa Feragen and Michael J. Black, CVPR 2014.
 
