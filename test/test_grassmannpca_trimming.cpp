@@ -29,7 +29,7 @@
 
 
 
-BOOST_FIXTURE_TEST_SUITE(grassmann_pca_trimmed, fixture_simple_matrix_creation)
+BOOST_FIXTURE_TEST_SUITE(grassmann_pca_with_trimming_test_suite, fixture_simple_matrix_creation)
 
 
 

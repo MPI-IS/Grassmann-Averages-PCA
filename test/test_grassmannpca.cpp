@@ -30,7 +30,7 @@
 
 
 
-BOOST_FIXTURE_TEST_SUITE(grassmann_pca, fixture_simple_matrix_creation)
+BOOST_FIXTURE_TEST_SUITE(grassmann_pca_test_suite, fixture_simple_matrix_creation)
 
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {
