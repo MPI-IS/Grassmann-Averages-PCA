@@ -464,7 +464,7 @@ if(NOT WITHOUT_MATLAB)
 
   # copying the matlab documentation
   get_target_property(${GAPCA_MEX_Project}_name ${GAPCA_MEX_Project} OUTPUT_NAME)
-  set(${GAPCA_MEX_Project}_help_file ${CMAKE_SOURCE_DIR}/extensions/robustpca_m.m)
+  set(${GAPCA_MEX_Project}_help_file ${CMAKE_SOURCE_DIR}/extensions/grassmannpca.m)
   add_custom_command(
     TARGET ${GAPCA_MEX_Project}
     PRE_BUILD
