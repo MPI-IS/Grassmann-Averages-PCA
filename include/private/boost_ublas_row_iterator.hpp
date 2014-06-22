@@ -15,7 +15,7 @@
 
 
 
-namespace robust_pca
+namespace grassmann_averages_pca
 {
   namespace details
   {

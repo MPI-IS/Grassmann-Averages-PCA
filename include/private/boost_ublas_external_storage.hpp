@@ -19,7 +19,7 @@
  */
 
 
-namespace robust_pca
+namespace grassmann_averages_pca
 {
   namespace details
   {
@@ -187,7 +187,7 @@ namespace boost { namespace numeric { namespace ublas {
    * is precisely to avoid the creation of temporaries with external_storage_adaptor allocator.
    */
   template <class T, class L>
-  struct vector_temporary_traits<matrix<T, L, robust_pca::details::ublas_helpers::external_storage_adaptor<T> > >
+  struct vector_temporary_traits<matrix<T, L, grassmann_averages_pca::details::ublas_helpers::external_storage_adaptor<T> > >
   {
     typedef vector<T> type;
   };

@@ -82,8 +82,8 @@ bool robust_pca_dispatch(
 {
   namespace ub = boost::numeric::ublas;
 
-  using namespace robust_pca;
-  using namespace robust_pca::details::ublas_helpers;
+  using namespace grassmann_averages_pca;
+  using namespace grassmann_averages_pca::details::ublas_helpers;
 
 
   typedef external_storage_adaptor<input_array_type> input_storage_t;
@@ -182,8 +182,8 @@ bool robust_pca_trimming_dispatch(
 {
   namespace ub = boost::numeric::ublas;
 
-  using namespace robust_pca;
-  using namespace robust_pca::details::ublas_helpers;
+  using namespace grassmann_averages_pca;
+  using namespace grassmann_averages_pca::details::ublas_helpers;
 
 
   typedef external_storage_adaptor<input_array_type> input_storage_t;

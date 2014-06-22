@@ -32,7 +32,7 @@
 // lock free queue, several producers, one consumer
 //#include <boost/lockfree/queue.hpp>
 
-namespace robust_pca
+namespace grassmann_averages_pca
 {
 
 

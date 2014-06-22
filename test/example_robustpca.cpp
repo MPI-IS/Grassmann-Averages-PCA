@@ -30,8 +30,8 @@ void generate_matrix(const int nb_elements, const int dimension, matrix_t& mat_d
 
 void example_robust_pca_impl()
 {
-  using namespace robust_pca;
-  using namespace robust_pca::details::ublas_helpers;
+  using namespace grassmann_averages_pca;
+  using namespace grassmann_averages_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
 
   

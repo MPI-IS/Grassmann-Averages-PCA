@@ -28,7 +28,7 @@
 #include <include/private/utilities.hpp>
 
 
-namespace robust_pca
+namespace grassmann_averages_pca
 {
 
 

@@ -34,7 +34,7 @@ BOOST_FIXTURE_TEST_SUITE(robust_pca, fixture_simple_matrix_creation)
 
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {
-  using namespace robust_pca;
+  using namespace grassmann_averages_pca;
   namespace ub = boost::numeric::ublas;
 
   typedef robust_pca_impl< ub::vector<double> > robust_pca_t;
@@ -66,8 +66,8 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 
 BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 {
-  using namespace robust_pca;
-  using namespace robust_pca::details::ublas_helpers;
+  using namespace grassmann_averages_pca;
+  using namespace grassmann_averages_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   typedef boost::chrono::steady_clock clock_type;
 
@@ -199,8 +199,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 {
   // this test uses several worker threads, but should provide exactly the same values at the previous test. 
   // its body is almost the same.
-  using namespace robust_pca;
-  using namespace robust_pca::details::ublas_helpers;
+  using namespace grassmann_averages_pca;
+  using namespace grassmann_averages_pca::details::ublas_helpers;
   namespace ub = boost::numeric::ublas;
   typedef boost::chrono::steady_clock clock_type;
 
@@ -328,8 +328,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 #if 0
 BOOST_AUTO_TEST_CASE(checking_against_matlab)
 {
-  using namespace robust_pca;
-  using namespace robust_pca::ublas_adaptor;
+  using namespace grassmann_averages_pca;
+  using namespace grassmann_averages_pca::ublas_adaptor;
   namespace ub = boost::numeric::ublas;
 
 
