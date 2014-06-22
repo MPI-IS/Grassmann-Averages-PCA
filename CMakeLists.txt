@@ -284,8 +284,8 @@ if(NOT WITHOUT_TESTS)
   endif()
 
   # second test based on files
-  add_executable(${PROJECT_NAME}_test_with_files test/test_robust_pca_trimming_from_file.cpp)
-  set_source_files_properties(test/test_robust_pca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
+  add_executable(${PROJECT_NAME}_test_with_files test/test_grassmannpca_trimming_from_file.cpp)
+  set_source_files_properties(test/test_grassmannpca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
   target_link_libraries(${PROJECT_NAME}_test_with_files ${PROJECT_NAME} ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
   if(NOT Boost_USE_STATIC_LIBS)
     set_target_properties(${PROJECT_NAME}_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
