@@ -4,7 +4,7 @@
 % http://opensource.org/licenses/BSD-3-Clause)
 
 
-classdef robustpca_matlab_performance_unit_tests < matlab.unittest.TestCase
+classdef grassmannpca_matlab_performance_unit_tests < matlab.unittest.TestCase
   
   properties
   end

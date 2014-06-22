@@ -4,8 +4,8 @@
 % http://opensource.org/licenses/BSD-3-Clause)
 
 
-classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
-  % some simple unit test for the robust pca matlab bindings
+classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
+  % some simple unit test for the grassmann pca matlab bindings
   properties
   end
     
@@ -68,10 +68,10 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
       algorithm_config.max_dimensions = 3;
       algorithm_config.initial_vectors = rand(3, 3); % 3 vectors dimension 3, should fail
       
-      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'RobustPCA:configuration');
+      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'GrassmannAveragePCA:configuration');
 
       algorithm_config.initial_vectors = rand(2, 3); % 2 vectors dimension 3, should fail
-      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'RobustPCA:configuration');
+      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'GrassmannAveragePCA:configuration');
     end    
 
     function testInitWithWrongNbElementsIsCaught(testCase)
@@ -82,7 +82,7 @@ classdef robustpca_matlab_unit_tests < matlab.unittest.TestCase
       algorithm_config.max_dimensions = 1;
       algorithm_config.initial_vectors = rand(2, 4); % two initial vectors, only one requested, correct dimension
       
-      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'RobustPCA:configuration');
+      testCase.verifyError(@() GrassmannAveragePCA(mat, 0, algorithm_config), 'GrassmannAveragePCA:configuration');
     end    
 
     
