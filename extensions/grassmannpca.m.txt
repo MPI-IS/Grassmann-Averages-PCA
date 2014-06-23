@@ -28,7 +28,7 @@
 %   Defaults to D. 0 < max_dimensions <= D.
 %
 % - "nb_iterations_max": indicates the maximum number of iterations for each basis vector that should
-%   be performed. Defaults to 1000.
+%   be performed. Defaults to the number of points in the data set (N).
 % 
 % - "nb_processing_threads": indicates the number of threads used for processing.
 %

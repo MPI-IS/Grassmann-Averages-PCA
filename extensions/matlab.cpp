@@ -361,7 +361,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
   }
 
 
-  config.max_iterations = 1000;
+  config.max_iterations = config.rows; // by default the number of points
   config.max_chunk_size = std::numeric_limits<size_t>::max();
   config.nb_processors = 1;
   config.max_dimension = dimension;
