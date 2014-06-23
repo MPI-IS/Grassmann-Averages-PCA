@@ -24,19 +24,27 @@ if(NOT WITHOUT_TESTS)
   enable_testing()
 endif()
 
+
+
+
+
 #set(CMAKE_MACOSX_RPATH 1)
 
+
+
+
+
+#
 # thirdparties
-
-# Boost, uBlas and some other header only libraries are needed in any case. The boost.test framework
-# is optional.
+#
 
 
 
+# Boost, uBlas and some other libraries are needed in any case. 
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
-#set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_LIBS ON)
 
 if(NOT Boost_USE_STATIC_LIBS)
   # link against dynamic libraries
@@ -77,7 +85,10 @@ if(NOT WITHOUT_MATLAB)
   if(NOT ${Matlab_FOUND})
     message(FATAL_ERROR "Unable to find Matlab include directory")
   else()
+    set(MATLAB_RELEASE_NAME)
+    matlab_get_release_name_from_version(${Matlab_VERSION_STRING} MATLAB_RELEASE_NAME)
     message(STATUS "[MATLAB] - version ${Matlab_VERSION_STRING}")
+    message(STATUS "[MATLAB] - release ${MATLAB_RELEASE_NAME}")
     message(STATUS "[MATLAB] - include directory ${Matlab_INCLUDE_DIRS}")
     message(STATUS "[MATLAB] - mex library ${Matlab_MEX_LIBRARY}")
     message(STATUS "[MATLAB] - mex extension ${Matlab_MEX_EXTENSION}")
@@ -110,8 +121,6 @@ else()
   if(NOT APPLE)
     set(CMAKE_INSTALL_RPATH "$ORIGIN")
   elseif(UNIX) # APPLE is Unix
-    message("tototototot loader path")
-    
     #set(CMAKE_INSTALL_RPATH "@loader_path") # to be tested on osx
     set(CMAKE_INSTALL_NAME_DIR "@loader_path") # to be tested on osx
   endif()
@@ -188,6 +197,13 @@ endif()
 
 
 
+
+
+
+#
+# the project starts here
+#
+
 include_directories(${Boost_INCLUDE_DIRS})
 
 
@@ -203,34 +219,68 @@ set(${PROJECT_NAME}_LIB
      include/private/boost_ublas_row_iterator.hpp
 
      src/grassmann_pca.cpp)
-add_library(grassman_averages ${${PROJECT_NAME}_LIB})
-target_link_libraries(grassman_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
+add_library(grassmann_averages ${${PROJECT_NAME}_LIB})
+target_link_libraries(grassmann_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
+install(
+  DIRECTORY include
+  DESTINATION "."
+  PATTERN "*bak" EXCLUDE)
+
 
 
 # examples, checks the compilation only
 set(${PROJECT_NAME}Examples_LIB
     test/example_grassmannpca.cpp)
-add_library(grassman_averages_examples ${${PROJECT_NAME}Examples_LIB})
-target_link_libraries(grassman_averages_examples grassman_averages)
+add_library(grassmann_averages_examples ${${PROJECT_NAME}Examples_LIB})
+target_link_libraries(grassmann_averages_examples grassmann_averages)
 
 
 # documentation of the main doxygen page
-add_custom_target(
-  doxygen_files
-  SOURCES 
+set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/documentation)
+configure_file(doc/Doxyfile ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured)
+set(doxygen_sources 
     doc/main.md
     doc/Doxyfile
+    ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
   )
-set_target_properties(doxygen_files PROPERTIES FOLDER "Documentation")
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
 
+  add_custom_target(
+    doxygen_documentation
+    ALL
+    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
+    COMMENT "Generating Doxygen documentation"
+    SOURCES ${doxygen_sources}
+  )
+  
+  install(
+    DIRECTORY ${CMAKE_BINARY_DIR}/documentation/html/
+    DESTINATION documentation
+    PATTERN "html/*")
+  #set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} documentation;documentation/index.html)
+else()
+  add_custom_target(
+    doxygen_documentation
+    SOURCES ${doxygen_sources}
+  )
+endif()
+set_target_properties(doxygen_documentation PROPERTIES FOLDER "Documentation")
 
 # the readme file
 add_custom_target(
   readme
   SOURCES 
     README.txt
+    LICENSE.txt
   )
 set_target_properties(readme PROPERTIES FOLDER "Documentation")
+install(
+  FILES README.txt LICENSE.txt
+  DESTINATION ".")
+#set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} readme.txt;readme.txt)
+
 
 
 
@@ -271,7 +321,7 @@ if(NOT WITHOUT_TESTS)
   endif()
 
   add_executable(${PROJECT_NAME}_test ${${PROJECT_NAME}_tests})
-  target_link_libraries(${PROJECT_NAME}_test grassman_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
+  target_link_libraries(${PROJECT_NAME}_test grassmann_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
 
   # the main definition is in there
   set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
@@ -294,7 +344,7 @@ if(NOT WITHOUT_TESTS)
   # second test based on files
   add_executable(${PROJECT_NAME}_test_with_files test/test_grassmannpca_trimming_from_file.cpp)
   set_source_files_properties(test/test_grassmannpca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
-  target_link_libraries(${PROJECT_NAME}_test_with_files grassman_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
+  target_link_libraries(${PROJECT_NAME}_test_with_files grassmann_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
   if(NOT Boost_USE_STATIC_LIBS)
     set_target_properties(${PROJECT_NAME}_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
   endif()
@@ -321,6 +371,12 @@ endif()
 
 # adding the matlab MEX extensions
 if(NOT WITHOUT_MATLAB)
+
+  if(WIN32)
+    set(MATLAB_INSTALL_DIRECTORY lib/${MATLAB_RELEASE_NAME})
+  else()
+    set(MATLAB_INSTALL_DIRECTORY lib)
+  endif()
   
   # just for convenience, does not produce any artifacts.
   # this target is for a dynamic loader which copes with the multiple symbol clashes that may occur
@@ -346,7 +402,7 @@ if(NOT WITHOUT_MATLAB)
       extensions/matlab.cpp
       ${${GAPCA_MEX_Project}_help_file})
   
-  target_link_libraries(${GAPCA_MEX_Project} grassman_averages ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
+  target_link_libraries(${GAPCA_MEX_Project} grassmann_averages ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
   set_target_properties(${GAPCA_MEX_Project} 
       PROPERTIES 
         PREFIX ""
@@ -364,9 +420,13 @@ if(NOT WITHOUT_MATLAB)
     COMMENT "Copy ${GAPCA_MEX_Project} help into the output folder"
   )
   
+  install(TARGETS ${GAPCA_MEX_Project} 
+          DESTINATION ${MATLAB_INSTALL_DIRECTORY})  
   
-  
-  
+  install(FILES ${${GAPCA_MEX_Project}_help_file}
+           DESTINATION ${MATLAB_INSTALL_DIRECTORY}
+           RENAME ${${GAPCA_MEX_Project}_name}.m)  
+          
   # for debug
   #set_target_properties(${GAPCA_MEX_Project} PROPERTIES LINK_FLAGS "-t")
   
@@ -462,6 +522,10 @@ if(NOT WITHOUT_MATLAB)
       get_filename_component(dependency_name_non_debug_dir ${dependency_name_non_debug} DIRECTORY)
       set(dependency_name_non_debug ${dependency_name_non_debug_dir}/${dependency_name_non_debug1}${CMAKE_SHARED_LIBRARY_SUFFIX})
 
+      unset(dependency_name_non_debug1)
+      unset(dependency_name_non_debug_dir)
+      unset(dependency_name_debug1)
+      unset(dependency_name_debug_dir)
     endif()
 
 
@@ -479,7 +543,17 @@ if(NOT WITHOUT_MATLAB)
         $<$<NOT:$<CONFIG:Debug>>:${dependency_name_non_debug}> 
         $<TARGET_FILE_DIR:${target_name}>/.
       COMMENT "Copy ${target_name} dependencies into the output folder"
-    )    
+    )
+    
+    install( FILES ${dependency_name_debug}
+              DESTINATION ${MATLAB_INSTALL_DIRECTORY}
+              CONFIGURATIONS Debug)
+    install( FILES ${dependency_name_non_debug}
+              DESTINATION ${MATLAB_INSTALL_DIRECTORY}
+              CONFIGURATIONS Release)
+              
+    unset(dependency_name_debug)
+    unset(dependency_name_non_debug)
   
   endmacro(copy_dependency_with_config)
   
@@ -499,6 +573,9 @@ if(NOT WITHOUT_MATLAB)
   # create wrappers if needed
   if(UNIX AND Matlab_NEED_WRAPPER)
     create_matlab_mex_wrapper(${GAPCA_MEX_Project})
+    install(TARGETS ${GAPCA_MEX_Project}_matlab_loader 
+            DESTINATION ${MATLAB_INSTALL_DIRECTORY})
+
   endif()
   
   
@@ -544,3 +621,28 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   
 endif()
 
+
+
+# CPack rules
+set(CPACK_PACKAGE_VENDOR "Max Planck Institute for Intelligent Systems")
+set(CPACK_PACKAGE_VERSION_MAJOR 1)
+set(CPACK_PACKAGE_VERSION_MINOR 0)
+set(CPACK_PACKAGE_VERSION_PATCH 0)
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.txt")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Grassmann Averages for computing a scalable and robust PCA, Matlab extensions")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
+set(CPACK_STRIP_FILES TRUE)
+set(CPACK_RESOURCE_FILE_WELCOME "${CMAKE_SOURCE_DIR}/extensions/installer_welcome.txt")
+
+if(WIN32)
+  set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+  set(CPACK_NSIS_URL_INFO_ABOUT http://ps.is.tuebingen.mpg.de/project/Robust_PCA)
+  set(CPACK_NSIS_MENU_LINKS
+       "documentation/index.html" "C++ library documentation"
+       "README.txt" "README.txt"
+        "http://ps.is.tuebingen.mpg.de/project/Robust_PCA" "Grassmann Averages Web Site")  
+else()
+  set(CPACK_GENERATOR TBZ2)
+endif()
+
+include(CPack)

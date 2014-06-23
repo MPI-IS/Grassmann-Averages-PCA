@@ -58,6 +58,7 @@
 # Defined macros
 # --------------
 # * ``matlab_get_version_from_release_name`` returns the version from the release name
+# * ``matlab_get_release_name_from_version`` returns the release name from the Matlab version
 # * ``matlab_extract_all_installed_versions_from_registry`` parses the registry for all Matlab versions. Available on Windows only. 
 #   The part of the registry parsed is dependent on the host processor 
 # * ``matlab_get_all_valid_matlab_roots_from_registry`` returns all the possible Matlab paths, according to a previously given list. Only the
@@ -115,14 +116,31 @@ endif()
 
 # get the version of Matlab (17.58) from a release name (R2017k)
 macro (matlab_get_version_from_release_name release_name version_name)
-  list(FIND MATLAB_VERSIONS_MAPPING ${release_name} index)
-  if(${index} EQUAL -1)
+  list(FIND MATLAB_VERSIONS_MAPPING ${release_name} _index)
+  if(${_index} EQUAL -1)
     message(WARNING "The release name ${release_name} is not registered")
   endif()
-  math(EXPR index "${index}+1")
-  list(GET MATLAB_VERSIONS_MAPPING ${index} version)
-  set(${version_name} ${version})
+  math(EXPR _index "${_index}+1")
+  list(GET MATLAB_VERSIONS_MAPPING ${_index} _version)
+  set(${version_name} ${_version})
+  unset(_index)
+  unset(_version)
 endmacro(matlab_get_version_from_release_name)
+
+
+# get the release name (R2017k) from the version of Matlab (17.58)
+macro (matlab_get_release_name_from_version version release_name)
+  list(FIND MATLAB_VERSIONS_MAPPING ${version} _index)
+  if(${_index} EQUAL -1)
+    message(WARNING "The version ${version} is not registered")
+  endif()
+  math(EXPR _index "${_index}-1")
+  list(GET MATLAB_VERSIONS_MAPPING ${_index} _release)
+  set(${release_name} ${_release})
+  unset(_release)
+  unset(_index)
+endmacro(matlab_get_release_name_from_version)
+
 
 # extracts all the supported release names (R2017k...) of Matlab
 macro(matlab_get_supported_releases list_releases)
