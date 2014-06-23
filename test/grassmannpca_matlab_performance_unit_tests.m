@@ -19,12 +19,12 @@ classdef grassmannpca_matlab_performance_unit_tests < matlab.unittest.TestCase
       algorithm_config.nb_processing_threads = feature('numCores');
       
       tic
-        u = GrassmannAveragesPCA(mat', 0, algorithm_config);
+        u = GrassmannAveragesPCA(mat, 0, algorithm_config);
       t1 = toc
 
       algorithm_config.nb_processing_threads = 1;
       tic
-        u = GrassmannAveragesPCA(mat', 0, algorithm_config);
+        u = GrassmannAveragesPCA(mat, 0, algorithm_config);
       t2 = toc
       
       
