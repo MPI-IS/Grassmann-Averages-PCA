@@ -1,0 +1,6 @@
+Welcome to the installer of the Grassmann Averages for scalable and robust PCA computation library. 
+
+This installer contains 
+- the C++ source code 
+- the C++ source code documentation
+- the Matlab wrapper
