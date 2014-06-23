@@ -238,16 +238,20 @@ target_link_libraries(grassmann_averages_examples grassmann_averages)
 
 
 # documentation of the main doxygen page
+set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/documentation)
+configure_file(doc/Doxyfile ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured)
 set(doxygen_sources 
     doc/main.md
     doc/Doxyfile
+    ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
   )
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
+
   add_custom_target(
     doxygen_documentation
     ALL
-    COMMAND ${DOXYGEN_EXECUTABLE}
+    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
     COMMENT "Generating Doxygen documentation"
     SOURCES ${doxygen_sources}
