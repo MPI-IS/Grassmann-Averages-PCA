@@ -7,7 +7,7 @@
 %
 %   basisvectors = GRASSMANNAVERAGESPCA(DATA)
 %   basisvectors = GRASSMANNAVERAGESPCA(DATA, trimming_percentage)
-%   basisvectors = GRASSMANNAVERAGESPCA(DATA, trimming_percentage, robustpca_configuration)
+%   basisvectors = GRASSMANNAVERAGESPCA(DATA, trimming_percentage, grassmannpca_configuration)
 %
 % DATA is always an N x D matrix, where N is the number of samples and D is the dimension of the data. 
 % 
@@ -35,7 +35,7 @@
 % - "max_chunk_size": indicates the maximum amount of data processed by each of the threads. 
 %   This allows finer tuning of the processing. 
 %
-% - "nb_pca_steps": indicates the number of PCA iterations prior to the robust pca algorithm in case
+% - "nb_pca_steps": indicates the number of PCA iterations prior to the Grassmann pca algorithm in case
 %   random initial points are generated. 
 %
 % - "initial_vectors": provides the set of vectors from which to start the computation of the basis vectors. 
@@ -58,9 +58,9 @@
 %   grassmann_pca_basis_vectors = GRASSMANNAVERAGESPCA(X, 5)
 %
 % * Getting only the first 3 basis vectors:
-%   robustpca_config = {};
-%   robustpca_config.max_dimensions = 3;
-%   grassmann_pca_basis_vectors = GRASSMANNAVERAGESPCA(X, 0, robustpca_config);
+%   grassmannpca_config = {};
+%   grassmannpca_config.max_dimensions = 3;
+%   grassmann_pca_basis_vectors = GRASSMANNAVERAGESPCA(X, 0, grassmannpca_config);
 %
 %
 %  See also the <a href="matlab:web('http://ps.is.tuebingen.mpg.de/project/Robust_PCA')">Robust PCA</a> page
