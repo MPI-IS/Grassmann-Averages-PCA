@@ -44,7 +44,7 @@ endif()
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
-#set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_LIBS ON)
 
 if(NOT Boost_USE_STATIC_LIBS)
   # link against dynamic libraries
@@ -121,8 +121,6 @@ else()
   if(NOT APPLE)
     set(CMAKE_INSTALL_RPATH "$ORIGIN")
   elseif(UNIX) # APPLE is Unix
-    message("tototototot loader path")
-    
     #set(CMAKE_INSTALL_RPATH "@loader_path") # to be tested on osx
     set(CMAKE_INSTALL_NAME_DIR "@loader_path") # to be tested on osx
   endif()
@@ -636,8 +634,6 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_STRIP_FILES TRUE)
 set(CPACK_RESOURCE_FILE_WELCOME "${CMAKE_SOURCE_DIR}/extensions/installer_welcome.txt")
 
-#set(CPACK_PACKAGE_DIRECTORY packaging)
-
 if(WIN32)
   set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
   set(CPACK_NSIS_URL_INFO_ABOUT http://ps.is.tuebingen.mpg.de/project/Robust_PCA)
@@ -645,10 +641,8 @@ if(WIN32)
        "documentation/index.html" "C++ library documentation"
        "README.txt" "README.txt"
         "http://ps.is.tuebingen.mpg.de/project/Robust_PCA" "Grassmann Averages Web Site")  
-elseif(APPLE)
-
 else()
-
+  set(CPACK_GENERATOR TBZ2)
 endif()
 
 include(CPack)
