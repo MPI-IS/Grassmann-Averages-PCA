@@ -357,7 +357,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       mexErrMsgIdAndTxt("GrassmannAveragesPCA:configuration", "Erroneous argument for the trimming percentage (not within the range [0, 100])");
     }
 
-    b_trimming = config.trimming_percentage > 0 && config.trimming_percentage < 100;
+    b_trimming = config.trimming_percentage > 0;
   }
 
 

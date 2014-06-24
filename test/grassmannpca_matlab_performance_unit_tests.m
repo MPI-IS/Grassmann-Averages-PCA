@@ -16,7 +16,7 @@ classdef grassmannpca_matlab_performance_unit_tests < matlab.unittest.TestCase
 
       algorithm_config = {};
       algorithm_config.max_dimensions = 5;
-      algorithm_config.nb_processing_threads = feature('numCores');
+      algorithm_config.nb_processing_threads = feature('numCores'); % this is the number of physical cores
       
       tic
         u = GrassmannAveragesPCA(mat, 0, algorithm_config);

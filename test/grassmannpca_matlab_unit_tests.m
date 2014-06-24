@@ -99,5 +99,27 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       testCase.verifyEqual(size(ret, 1), size(mat, 2));
       testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions);
     end
+    
+    
+    function testTrimming100Percent(testCase)
+      mat = rand(1000, 1); % 1000 elements, dimension 100 each
+
+      algorithm_config = {};
+      algorithm_config.max_dimensions = 1; % max dimension
+      algorithm_config.nb_processing_threads = 4;
+      
+      ret = GrassmannAveragesPCA(mat, 100, algorithm_config); % 100 percent
+      
+      testCase.verifyEqual(size(ret, 1), size(mat, 2));
+      testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions);
+      
+      testCase.verifyEqual(ret(1), 1);
+      
+      ret = GrassmannAveragesPCA([mat, mat], 100, algorithm_config); % 100 percent
+      testCase.verifyEqual(ret(1,1), ret(2, 1));
+      testCase.verifyEqual(abs(ret(1,1)), 1/sqrt(2), 'AbsTol', 1.E-3);
+      
+    end    
+    
   end
 end
