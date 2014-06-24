@@ -117,6 +117,50 @@ namespace grassmann_averages_pca
     }
 
 
+    /*!@brief Computes the mean of a data set after having removed the lower and upper k first elements.
+     *
+     * This function computes @f[\sum_{k \leq i < N-k} p_{o(i)}@f] where 
+     * - @f$p@f$ is the data set of size @f$N@f$, and @f$p_i@f$ is its ith element
+     * - @f$o@f$ is a function ordering the data set: @f$\forall i, p_{o(i)} \leq p_{o(i+1)}, 0 \leq i < N @f$
+
+     * @tparam T type of the data set. All internal accumulations will be performed with this type. T should not be const as
+     *         the data set will be modified in place.
+     *
+     * @param p_data the data set composed of nb_total_elements of type T. 
+     * @param nb_total_elements number of elements of the data set
+     * @param k_first_last number of elements to remove from the lower and upper distributions.
+     *
+     * @pre @f$ \text{k_first_last} \leq \frac{\text{nb_total_elements}}{2}@f$
+     */
+    template <class T>
+    T compute_mean_within_bounds(T *p_data, size_t nb_total_elements, size_t k_first_last)
+    {
+      if(k_first_last < nb_total_elements / 2)
+      {
+        std::nth_element(p_data, p_data + k_first_last, p_data + nb_total_elements);
+        std::nth_element(p_data + k_first_last+1, p_data + nb_total_elements - k_first_last-1, p_data + nb_total_elements);
+        T acc = std::accumulate(p_data + k_first_last, p_data + nb_total_elements - k_first_last, T(0));
+          
+        return acc / (nb_total_elements - 2*k_first_last);
+      }
+      else
+      {
+        assert(k_first_last == nb_total_elements / 2);
+        std::nth_element(p_data, p_data + k_first_last, p_data + nb_total_elements);
+          
+        if(nb_total_elements & 1)
+        {
+          return *(p_data + k_first_last);
+        }
+        else
+        {
+          return (*(p_data + k_first_last) + *std::max_element(p_data, p_data + k_first_last)) / 2;
+        }
+      }
+    }
+
+
+
 
     /*!@brief Checks the convergence of a sequence.
      *

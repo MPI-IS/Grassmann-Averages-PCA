@@ -154,7 +154,7 @@ namespace grassmann_averages_pca
       
       size_t nb_elements;                 //!< The size of the current dataset
       size_t data_dimension;              //!< The dimension of the data
-      size_t nb_elements_to_keep;         //!< The number of elements to keep.
+      size_t k_first_last;                //!< The number of elements to remove from the lower and upper distributions.
       
       typedef boost::function<void ()> connector_counter_t;
       connector_counter_t signal_counter;
@@ -200,7 +200,7 @@ namespace grassmann_averages_pca
       s_grassmann_averages_trimmed_processor_inner_products() : 
         nb_elements(0), 
         data_dimension(0), 
-        nb_elements_to_keep(0),
+        k_first_last(0),
         p_c_matrix(0)
       {
       }
@@ -265,11 +265,11 @@ namespace grassmann_averages_pca
         v_accumulated_per_dimension.resize(data_dimension);
       }
 
-      //! Sets the number of element to keep in the upper and lower distributions.
-      void set_nb_elements_to_keep(int nb_elements_to_keep_)
+      //! Sets the number of element to remove in the upper and lower distributions.
+      void set_nb_elements_to_remove(int k_first_last_)
       {
-        assert(nb_elements_to_keep_ >= 0);
-        nb_elements_to_keep = nb_elements_to_keep_;
+        assert(k_first_last_ >= 0);
+        k_first_last = k_first_last_;
       }
 
 
@@ -301,6 +301,7 @@ namespace grassmann_averages_pca
       }
 
       
+      //! Computes the inner products and stores the signed result where appropriate.
       void compute_data_matrix(data_t const &mu, scalar_t* p_out, size_t padding)
       {
         // updates the internal inner products
@@ -332,35 +333,13 @@ namespace grassmann_averages_pca
         signal_counter();
       }
       
-      
+      //! Computes the mean on the subset of the data where the k first and last elements are removed.
       void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, scalar_t* p_data)
       {
         accumulator_element_t &result = v_accumulated_per_dimension[dimension];
         result.dimension = dimension;
-            
-        if(nb_elements_to_keep < nb_total_elements / 2)
-        {
-          std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-          std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
-          scalar_t acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, scalar_t(0.));
-          
-          result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
-        }
-        else
-        {
-          assert(nb_elements_to_keep == nb_total_elements / 2);
-          std::nth_element(p_data, p_data + nb_elements_to_keep+1, p_data + nb_total_elements);
-          
-          if(nb_total_elements & 1)
-          {
-            result.value = *(p_data + nb_elements_to_keep);
-          }
-          else
-          {
-            result.value = (*(p_data + nb_elements_to_keep) + *std::max_element(p_data, p_data + nb_elements_to_keep)) / 2;
-          }
-          
-        }
+        result.value = details::compute_mean_within_bounds(p_data, nb_total_elements, k_first_last);
+
         // signals the update
         signal_acc_dimension(&result);
         // signals the main merger
@@ -586,7 +565,7 @@ namespace grassmann_averages_pca
       
 
 
-      // number of elements to keep, lower bound
+      // number of elements to remove, lower bound
       const int K_elements = static_cast<int>(trimming_percentage*size_data/2);
 
 
@@ -624,8 +603,8 @@ namespace grassmann_averages_pca
           // updating the dimension of the problem
           current_acc_object.set_data_dimensions(number_of_dimensions);
 
-          // setting the number of elements to keep
-          current_acc_object.set_nb_elements_to_keep(K_elements);
+          // setting the number of elements to remove
+          current_acc_object.set_nb_elements_to_remove(K_elements);
 
           b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
           if(!b_result)

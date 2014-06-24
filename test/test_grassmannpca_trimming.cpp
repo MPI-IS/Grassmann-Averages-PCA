@@ -353,37 +353,12 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 }
 
 
-// this is a copy of the function in the trimmed version.
-template <class T>
-double function_accumulation_within_bounds(T *p_data, size_t nb_elements_to_keep, size_t nb_total_elements)
-{
-  if(nb_elements_to_keep < nb_total_elements / 2)
-  {
-    std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-    std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
-    double acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, double(0.));
-          
-    return acc / (nb_total_elements - 2*nb_elements_to_keep);
-  }
-  else
-  {
-    std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-          
-    if(nb_total_elements & 1)
-    {
-      return *(p_data + nb_elements_to_keep);
-    }
-    else
-    {
-      return (*(p_data + nb_elements_to_keep) + *std::max_element(p_data, p_data + nb_elements_to_keep)) / 2;
-    }
-  }
-}
-
 
 BOOST_AUTO_TEST_CASE(simple_median_with_nth_element)
 {
+  using size_t = std::size_t;
   // basically this test is for the correctness of the computation of the median using nth_element
+  using namespace grassmann_averages_pca;
 
   double data_even[10] = {0,1,2,3,4,5,6,7,8,9};
 
@@ -395,21 +370,21 @@ BOOST_AUTO_TEST_CASE(simple_median_with_nth_element)
   data_odd_copy.push_back(10);
 
   // median
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_even_copy[0], nb_elements/2, nb_elements), 4.5, 0.001);
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_odd_copy[0], (nb_elements+1)/2, nb_elements+1), 5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_even_copy[0], nb_elements,   nb_elements/2), 4.5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_odd_copy[0],  nb_elements+1, (nb_elements+1)/2), 5, 0.001);
 
   // regular
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_even_copy[0], 1, nb_elements), 4.5, 0.001);
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_even_copy[0], 2, nb_elements), 4.5, 0.001);
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_even_copy[0], 3, nb_elements), 4.5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_even_copy[0], nb_elements, 1), 4.5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_even_copy[0], nb_elements, 2), 4.5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_even_copy[0], nb_elements, 3), 4.5, 0.001);
 
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_odd_copy[0], 1, nb_elements+1), 5, 0.001);
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_odd_copy[0], 2, nb_elements+1), 5, 0.001);
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_odd_copy[0], 3, nb_elements+1), 5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_odd_copy[0],  nb_elements+1, 1), 5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_odd_copy[0],  nb_elements+1, 2), 5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_odd_copy[0],  nb_elements+1, 3), 5, 0.001);
 
   // should work with 0
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_even_copy[0], 0, nb_elements), 4.5, 0.001);
-  BOOST_CHECK_CLOSE(function_accumulation_within_bounds(&data_odd_copy[0], 0, nb_elements+1), 5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_even_copy[0], nb_elements, 0), 4.5, 0.001);
+  BOOST_CHECK_CLOSE(details::compute_mean_within_bounds(&data_odd_copy[0],  nb_elements+1, 0), 5, 0.001);
 
 
 }
