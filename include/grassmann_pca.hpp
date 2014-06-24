@@ -514,7 +514,7 @@ namespace grassmann_averages_pca
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
-      mu /= norm_op(mu); // normalizing
+      mu *= typename data_t::value_type(1./norm_op(mu)); // normalizing
       assert(mu.size() == number_of_dimensions);
 
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
@@ -612,7 +612,7 @@ namespace grassmann_averages_pca
 
             // gathering the first mu
             mu = async_merger.get_merged_result();
-            mu /= norm_op(mu);
+            mu *= typename data_t::value_type(1./norm_op(mu));
           }
         }
 
@@ -640,7 +640,7 @@ namespace grassmann_averages_pca
         // gathering the first mu
         //data_t mu_no_norm = async_merger.get_merged_result();
         mu = async_merger.get_merged_result();
-        mu /= norm_op(mu);
+        mu *= typename data_t::value_type(1./norm_op(mu));
 
 
         // other iterations as usual
@@ -664,7 +664,7 @@ namespace grassmann_averages_pca
           // gathering the mus
           //mu_no_norm = async_merger.get_merged_result();
           mu = async_merger.get_merged_result();
-          mu /= norm_op(mu);
+          mu *= typename data_t::value_type(1./norm_op(mu));
         }
         
 

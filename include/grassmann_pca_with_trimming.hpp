@@ -143,7 +143,7 @@ namespace grassmann_averages_pca
 
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
-    struct s_robust_pca_trimmed_processor_inner_products
+    struct s_grassmann_averages_trimmed_processor_inner_products
     {
     private:
       //! Scalar type of the data
@@ -197,7 +197,7 @@ namespace grassmann_averages_pca
 
 
     public:
-      s_robust_pca_trimmed_processor_inner_products() : 
+      s_grassmann_averages_trimmed_processor_inner_products() : 
         nb_elements(0), 
         data_dimension(0), 
         nb_elements_to_keep(0),
@@ -205,7 +205,7 @@ namespace grassmann_averages_pca
       {
       }
 
-      ~s_robust_pca_trimmed_processor_inner_products()
+      ~s_grassmann_averages_trimmed_processor_inner_products()
       {
         delete [] p_c_matrix;
       }
@@ -335,14 +335,32 @@ namespace grassmann_averages_pca
       
       void compute_bounded_accumulation(size_t dimension, size_t nb_total_elements, scalar_t* p_data)
       {
-        std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
-        std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
-        scalar_t acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, scalar_t(0.));
-        
         accumulator_element_t &result = v_accumulated_per_dimension[dimension];
         result.dimension = dimension;
-
-        result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
+            
+        if(nb_elements_to_keep < nb_total_elements / 2)
+        {
+          std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
+          std::nth_element(p_data + nb_elements_to_keep+1, p_data + nb_total_elements - nb_elements_to_keep-1, p_data + nb_total_elements);
+          scalar_t acc = std::accumulate(p_data + nb_elements_to_keep, p_data + nb_total_elements - nb_elements_to_keep, scalar_t(0.));
+          
+          result.value = acc / (nb_total_elements - 2*nb_elements_to_keep);
+        }
+        else
+        {
+          assert(nb_elements_to_keep == nb_total_elements / 2);
+          std::nth_element(p_data, p_data + nb_elements_to_keep+1, p_data + nb_total_elements);
+          
+          if(nb_total_elements & 1)
+          {
+            result.value = *(p_data + nb_elements_to_keep);
+          }
+          else
+          {
+            result.value = (*(p_data + nb_elements_to_keep) + *std::max_element(p_data, p_data + nb_elements_to_keep)) / 2;
+          }
+          
+        }
         // signals the update
         signal_acc_dimension(&result);
         // signals the main merger
@@ -568,15 +586,15 @@ namespace grassmann_averages_pca
       
 
 
-      // number of elements to keep
-      const int K_elements = static_cast<int>(std::ceil(trimming_percentage*size_data/2));
+      // number of elements to keep, lower bound
+      const int K_elements = static_cast<int>(trimming_percentage*size_data/2);
 
 
       // preparing the ranges on which each processing thread will run.
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
-      typedef s_robust_pca_trimmed_processor_inner_products async_processor_t;
+      typedef s_grassmann_averages_trimmed_processor_inner_products async_processor_t;
       std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_results_merger async_merger(number_of_dimensions);
@@ -670,7 +688,7 @@ namespace grassmann_averages_pca
 
             // gathering the first mu
             mu = async_merger.get_merged_result();
-            mu /= norm_op(mu);
+            mu *= typename data_t::value_type(1./norm_op(mu));
           }
         }
 
@@ -726,7 +744,7 @@ namespace grassmann_averages_pca
           mu = async_merger.get_merged_result();
           
           // normalize mu on the sphere
-          mu /= norm_op(mu);
+          mu *= typename data_t::value_type(1./norm_op(mu));
 
         }
 
@@ -741,7 +759,7 @@ namespace grassmann_averages_pca
         }
         if(renormalise)
         {
-          mu /= norm_op(mu);
+          mu *= typename data_t::value_type(1./norm_op(mu));
         }
         
 
