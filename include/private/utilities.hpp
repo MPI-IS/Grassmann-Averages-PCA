@@ -97,7 +97,7 @@ namespace grassmann_averages_pca
       
       if(start == it)
       {
-        *start /= norm_op(*start);
+        *start *= typename it_t::value_type::value_type(1./norm_op(*start));
         ++start;
       }
 
@@ -110,7 +110,7 @@ namespace grassmann_averages_pca
         {
           current -= boost::numeric::ublas::inner_prod(current, *it_orthonormalised_element) * (*it_orthonormalised_element);
         }
-        current /= norm_op(current);
+        current *= typename it_t::value_type::value_type(1./norm_op(current));
               
       }
       return true;

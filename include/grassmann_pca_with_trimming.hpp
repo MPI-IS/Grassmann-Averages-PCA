@@ -143,7 +143,7 @@ namespace grassmann_averages_pca
 
     //!@internal
     //!@brief Contains the logic for processing part of the accumulator
-    struct s_robust_pca_trimmed_processor_inner_products
+    struct s_grassmann_averages_trimmed_processor_inner_products
     {
     private:
       //! Scalar type of the data
@@ -197,7 +197,7 @@ namespace grassmann_averages_pca
 
 
     public:
-      s_robust_pca_trimmed_processor_inner_products() : 
+      s_grassmann_averages_trimmed_processor_inner_products() : 
         nb_elements(0), 
         data_dimension(0), 
         nb_elements_to_keep(0),
@@ -205,7 +205,7 @@ namespace grassmann_averages_pca
       {
       }
 
-      ~s_robust_pca_trimmed_processor_inner_products()
+      ~s_grassmann_averages_trimmed_processor_inner_products()
       {
         delete [] p_c_matrix;
       }
@@ -594,7 +594,7 @@ namespace grassmann_averages_pca
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
-      typedef s_robust_pca_trimmed_processor_inner_products async_processor_t;
+      typedef s_grassmann_averages_trimmed_processor_inner_products async_processor_t;
       std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
 
       asynchronous_results_merger async_merger(number_of_dimensions);
@@ -688,7 +688,7 @@ namespace grassmann_averages_pca
 
             // gathering the first mu
             mu = async_merger.get_merged_result();
-            mu /= norm_op(mu);
+            mu *= typename data_t::value_type(1./norm_op(mu));
           }
         }
 
@@ -744,7 +744,7 @@ namespace grassmann_averages_pca
           mu = async_merger.get_merged_result();
           
           // normalize mu on the sphere
-          mu /= norm_op(mu);
+          mu *= typename data_t::value_type(1./norm_op(mu));
 
         }
 
@@ -759,7 +759,7 @@ namespace grassmann_averages_pca
         }
         if(renormalise)
         {
-          mu /= norm_op(mu);
+          mu *= typename data_t::value_type(1./norm_op(mu));
         }
         
 
