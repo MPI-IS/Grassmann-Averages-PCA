@@ -29,6 +29,9 @@
 #include <boost/numeric/ublas/vector_expression.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 
+#include <numeric>
+
+
 // lock free queue, several producers, one consumer
 //#include <boost/lockfree/queue.hpp>
 
