@@ -356,7 +356,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
 
 BOOST_AUTO_TEST_CASE(simple_median_with_nth_element)
 {
-  using size_t = std::size_t;
   // basically this test is for the correctness of the computation of the median using nth_element
   using namespace grassmann_averages_pca;
 

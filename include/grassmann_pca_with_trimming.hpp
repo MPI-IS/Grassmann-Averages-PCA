@@ -169,7 +169,6 @@ namespace grassmann_averages_pca
       
       //! The result of the inner products
       std::vector<scalar_t> inner_prod_results;
-      std::vector<scalar_t> current_dimension_sort;
   
       void compute_inner_products(data_t const &mu)
       {
@@ -251,7 +250,6 @@ namespace grassmann_averages_pca
         }
         
         inner_prod_results.resize(nb_elements);
-        current_dimension_sort.reserve(nb_elements);
         return true;
       }
 
