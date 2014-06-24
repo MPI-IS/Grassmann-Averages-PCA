@@ -367,7 +367,7 @@ double function_accumulation_within_bounds(T *p_data, size_t nb_elements_to_keep
   }
   else
   {
-    std::nth_element(p_data, p_data + nb_elements_to_keep+1, p_data + nb_total_elements);
+    std::nth_element(p_data, p_data + nb_elements_to_keep, p_data + nb_total_elements);
           
     if(nb_total_elements & 1)
     {
@@ -390,6 +390,7 @@ BOOST_AUTO_TEST_CASE(simple_median_with_nth_element)
   size_t nb_elements = sizeof(data_even) / sizeof(data_even[0]);
 
   std::vector<double> data_even_copy(data_even, data_even + nb_elements);
+  std::reverse(data_even_copy.begin(), data_even_copy.end());
   std::vector<double> data_odd_copy(data_even_copy);
   data_odd_copy.push_back(10);
 
