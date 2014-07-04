@@ -74,6 +74,7 @@
 #
 # Defined functions
 # --------------
+# * ``add_matlab_mex`` adds a target compiling a MEX file.
 # * ``add_matlab_unit_test`` adds a Matlab unit test file as a test to the project.
 # * ``matlab_extract_all_installed_versions_from_registry`` parses the registry for all Matlab versions. Available on Windows only. 
 #   The part of the registry parsed is dependent on the host processor 
@@ -522,17 +523,14 @@ endfunction(add_matlab_unit_test)
 #          [LINK_TO target1 target2 ...]
 #       )
 #
-#   The function arguments are:
-#   * `NAME` name of the target. 
-#   * `LINK_TO`: additional link dependencies. The target already links to libmex and libmx.
-#   * `SRC`: list of source files.
-#
-#   If OUTPUT_NAME is given, it overrides the default name defined as being the name of the target without any prefix and 
-#   with ${Matlab_MEX_EXTENSION} suffix.
-#   Use the option REDUCE_VISIBILITY to hide every symbols inside the compiled MEX file. This is useful in case their is a 
-#   symbol clash between the libraries shipped with Matlab, and the libraries to which the target is linking against. This 
+#   `NAME` name of the target. `SRC` is a list of source files. `LINK_TO` is a list of additional link dependencies. 
+#   The target already links to libmex and libmx.
+#   If `OUTPUT_NAME` is given, it overrides the default name defined as being the name of the target without any prefix and 
+#   with `${Matlab_MEX_EXTENSION}` suffix.
+#   Use the option `REDUCE_VISIBILITY` to hide every symbols inside the compiled MEX file. This is useful in case their is a 
+#   symbol collision between the libraries shipped with Matlab, and the libraries to which the target is linking with. This 
 #   option is ignored on DLL platforms.
-#   If DOCUMENTATION is given, the file documentation.m is considered as being the documentation file for the MEX file. This
+#   If `DOCUMENTATION` is given, the file documentation.m is considered as being the documentation file for the MEX file. This
 #   file is copied into the same folder with the same name as the final mex file, and with extension .m. In that case, typing
 #   `help <name>` should print the documentation contained in this file.
 #
@@ -633,7 +631,7 @@ if(WIN32)
   
     # testing if we are able to extract the needed information from the registry
     set(matlab_versions_from_registry)
-    matlab_extract_all_installed_versions_from_registry(TRUE matlab_versions_from_registry)
+    matlab_extract_all_installed_versions_from_registry(CMAKE_CL_64 matlab_versions_from_registry)
     
     # the returned list is empty, doing the search on all known versions
     if(NOT matlab_versions_from_registry)
