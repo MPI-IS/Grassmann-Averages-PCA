@@ -392,6 +392,7 @@ if(NOT WITHOUT_MATLAB)
   #
   # the MEX file project
   #
+  set(GAPCA_MEX_Project ${PROJECT_NAME}_mex)
   
   add_matlab_mex(
     NAME ${GAPCA_MEX_Project} 
