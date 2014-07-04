@@ -573,9 +573,8 @@ function(add_matlab_mex )
         OUTPUT_NAME ${${prefix}_OUTPUT_NAME}
         SUFFIX ".${Matlab_MEX_EXTENSION}")
 
-  message(STATUS "Documentaiton file ${${prefix}_DOCUMENTATION} -- BEFORE") 
+
   if(NOT ${${prefix}_DOCUMENTATION} STREQUAL "")
-    message(STATUS "Documentaiton file ${${prefix}_DOCUMENTATION}")
     get_target_property(output_name ${${prefix}_NAME} OUTPUT_NAME)
     add_custom_command(
       TARGET ${${prefix}_NAME}
