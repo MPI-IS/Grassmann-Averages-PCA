@@ -34,12 +34,6 @@ set(Matlab_SCRIPT_TO_RUN
 
 set(Matlab_LOG_FILE ${output_directory}/${test_name}.log)
 
-
-message(STATUS "FULL COMMAND IS ${Matlab_PROGRAM} 
-      ${Matlab_UNIT_TESTS_CMD}
-      -logfile ${Matlab_LOG_FILE}
-      -r ${Matlab_SCRIPT_TO_RUN}")
-
 execute_process(
   COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${Matlab_LOG_FILE} -r ${Matlab_SCRIPT_TO_RUN}
   RESULT_VARIABLE res
@@ -47,18 +41,18 @@ execute_process(
   OUTPUT_QUIET # we do not want the output twice
   )
 
+if(NOT EXISTS ${Matlab_LOG_FILE})
+  message( FATAL_ERROR "[MATLAB] ERROR: cannot find the log file ${Matlab_LOG_FILE}")
+endif()
+
+# print the output in any case.
+file(READ ${Matlab_LOG_FILE} matlab_log_content)
+message("Matlab test ${name_of_the_test} FAILED\n${matlab_log_content}") # if we put FATAL_ERROR here, the file is indented.
+
 
 if(NOT (res EQUAL 0))
-  file(READ ${Matlab_LOG_FILE} matlab_log_content)
-  message("Matlab test ${name_of_the_test} FAILED\n${matlab_log_content}") # if we put FATAL_ERROR here, the file is indented.
-  message( FATAL_ERROR "TEST FAILED" )
+  message( FATAL_ERROR "[MATLAB] TEST FAILED" )
 endif()
 
 
 
-if(FALSE)
-  add_test(NAME ${PROJECT_NAME}_matlabtest-1
-           COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_1.log 
-           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES TIMEOUT 180)
-endif()

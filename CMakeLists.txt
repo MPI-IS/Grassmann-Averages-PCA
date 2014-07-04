@@ -44,7 +44,7 @@ endif()
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
-set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_LIBS OFF)
 
 if(NOT Boost_USE_STATIC_LIBS)
   # link against dynamic libraries
@@ -99,7 +99,9 @@ if(NOT WITHOUT_MATLAB)
   # Adding a project for the script that finds Matlab, the script being under development currently
   add_custom_target(
     MatlabCMakePackage
-    SOURCES ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake)
+    SOURCES 
+      ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake
+      ${CMAKE_SOURCE_DIR}/extensions/FindMatlab_TestsRedirect.cmake)
   set_target_properties(MatlabCMakePackage PROPERTIES FOLDER "Community")
 endif()
 
@@ -161,20 +163,20 @@ if(NOT MSVC)
   # defined in the matlab process. So by default the symbols are hidden.
   # this also means that for shared libraries (like MEX), the entry point should be explicitely
   # declared with default visibility, otherwise Matlab cannot find the entry point.i
-  if(HAS_VISIBILITY_INLINE_HIDDEN)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
-  endif()
-  if(HAS_VISIBILITY_HIDDEN)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
-  endif()
+  #if(HAS_VISIBILITY_INLINE_HIDDEN)
+  #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
+  #endif()
+  #if(HAS_VISIBILITY_HIDDEN)
+  #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
+  #endif()
 
   if(Boost_USE_STATIC_LIBS)
     # does not work, libstdc++ should be compiled with -fPIC
     # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++") 
-    if(HAS_MINUS_PTHREAD AND NOT APPLE)
+    #if(HAS_MINUS_PTHREAD AND NOT APPLE)
       # Apparently, compiling with -pthread generated the proper link flags and some defines at compilation
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-    endif()
+    #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+    #endif()
 
     # update to include rt library (from chrono)
     if(NOT APPLE)
@@ -396,29 +398,39 @@ if(NOT WITHOUT_MATLAB)
   set(${GAPCA_MEX_Project}_help_file ${CMAKE_SOURCE_DIR}/extensions/grassmannpca.m.txt) 
 
 
-  include_directories(${Matlab_INCLUDE_DIRS})
-  add_library(${GAPCA_MEX_Project} 
-    SHARED 
-      extensions/matlab.cpp
-      ${${GAPCA_MEX_Project}_help_file})
+  #include_directories(${Matlab_INCLUDE_DIRS})
+  #add_library(${GAPCA_MEX_Project} 
+  #  SHARED 
+  #    extensions/matlab.cpp
+  #    ${${GAPCA_MEX_Project}_help_file})
   
-  target_link_libraries(${GAPCA_MEX_Project} grassmann_averages ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
-  set_target_properties(${GAPCA_MEX_Project} 
-      PROPERTIES 
-        PREFIX ""
-        OUTPUT_NAME ${PROJECT_NAME}
-        SUFFIX ".${Matlab_MEX_EXTENSION}"
-        FOLDER "Matlab")
+  #target_link_libraries(${GAPCA_MEX_Project} grassmann_averages ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
+  #set_target_properties(${GAPCA_MEX_Project} 
+  #    PROPERTIES 
+  #      PREFIX ""
+  #      OUTPUT_NAME ${PROJECT_NAME}
+  #      SUFFIX ".${Matlab_MEX_EXTENSION}"
+  #      FOLDER "Matlab")
   
   # copying the matlab documentation
-  get_target_property(${GAPCA_MEX_Project}_name ${GAPCA_MEX_Project} OUTPUT_NAME)
-  add_custom_command(
-    TARGET ${GAPCA_MEX_Project}
-    PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo Copy Matlab wrapper documentation into target directory $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/.
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${GAPCA_MEX_Project}_help_file} $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/${${GAPCA_MEX_Project}_name}.m
-    COMMENT "Copy ${GAPCA_MEX_Project} help into the output folder"
+  #get_target_property(${GAPCA_MEX_Project}_name ${GAPCA_MEX_Project} OUTPUT_NAME)
+  #add_custom_command(
+  #  TARGET ${GAPCA_MEX_Project}
+  #  PRE_BUILD
+  #  COMMAND ${CMAKE_COMMAND} -E echo Copy Matlab wrapper documentation into target directory $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/.
+  #  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${GAPCA_MEX_Project}_help_file} $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/${${GAPCA_MEX_Project}_name}.m
+  #  COMMENT "Copy ${GAPCA_MEX_Project} help into the output folder"
+  #)
+  
+  add_matlab_mex(
+    NAME ${GAPCA_MEX_Project} 
+    REDUCE_VISIBILITY
+    OUTPUT_NAME ${PROJECT_NAME}
+    SRC extensions/matlab.cpp
+    DOCUMENTATION ${${GAPCA_MEX_Project}_help_file}
+    LINK_TO grassmann_averages
   )
+  set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")  
   
   install(TARGETS ${GAPCA_MEX_Project} 
           DESTINATION ${MATLAB_INSTALL_DIRECTORY})  
@@ -434,21 +446,21 @@ if(NOT WITHOUT_MATLAB)
   if(Boost_USE_STATIC_LIBS)
     set(Matlab_NEED_WRAPPER FALSE)
   else()
-    set(Matlab_NEED_WRAPPER TRUE)
+    set(Matlab_NEED_WRAPPER FALSE)
   endif()
 
 
   # entry point in the mex file
-  if(WIN32)
-    set_target_properties(${GAPCA_MEX_Project} 
-      PROPERTIES 
-        DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
-  else()
-    set_target_properties(${GAPCA_MEX_Project}
-      PROPERTIES
-        DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
-    )
-  endif()
+  #if(WIN32)
+  #  set_target_properties(${GAPCA_MEX_Project} 
+  #    PROPERTIES 
+  #      DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
+  #else()
+  #  set_target_properties(${GAPCA_MEX_Project}
+  #    PROPERTIES
+  #      DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
+  #  )
+  #endif()
 
 
   #
@@ -580,50 +592,7 @@ if(NOT WITHOUT_MATLAB)
 endif()
 
 
-# Adds a Matlab unit test
-# The unit test uses the Matlab unittest framework, which is available starting Matlab 2013b+
-# * `NAME` name of the unittest in ctest.
-# * `UNITTEST_FILE` the matlab unittest file. Its path will be automatically added to the Matlab path.
-# * `TIMEOUT` the test timeout.
-# * `ADDITIONAL_PATH` a list of paths to add to the Matlab path.
-# * `MATLAB_ADDITIONAL_STARTUP_OPTIONS` a list of additional option in order to run Matlab from the command line. These options
-#    are added to the default options (eg. "CONFIGURATIONS Release")
-# * Additional options can be passed to the add_test command.
-function(add_matlab_unit_test)
-  set(options )
-  set(oneValueArgs NAME UNITTEST_FILE TIMEOUT)
-  set(multiValueArgs ADDITIONAL_PATH MATLAB_ADDITIONAL_STARTUP_OPTIONS)
-  
-  set(prefix _matlab_unittest_prefix)
-  cmake_parse_arguments(${prefix} "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
-  
-  if(NOT ${prefix}_NAME)
-    message(FATAL_ERROR "[MATLAB] The Matlab test name cannot be empty")
-  endif()
-  
-    #   -Dtest_timeout=180 
-#   -Dworking_directory="." 
-    #   -Doutput_directory=
-    #   -Dadditional_paths=""
-    #   -DMatlab_PROGRAM=matlab_exe_location 
-    #   -DMatlab_ADDITIONNAL_STARTUP_OPTIONS=""
-    #   -Dtest_name=name_of_the_test 
-    #   -Dunittest_file_to_run  
-  
-  
-  add_test(NAME ${${prefix}_NAME}
-           COMMAND ${CMAKE_COMMAND} 
-            -Dtest_name=${${prefix}_NAME}
-            -Dadditional_paths=${${prefix}_ADDITIONAL_PATH}
-            -Dtest_timeout=${${prefix}_TIMEOUT}
-            -Doutput_directory=${_matlab_temporary_folder}
-            -DMatlab_PROGRAM=${Matlab_PROGRAM}
-            -DMatlab_ADDITIONNAL_STARTUP_OPTIONS=${${prefix}_MATLAB_ADDITIONAL_STARTUP_OPTIONS}
-            -Dunittest_file_to_run=${${prefix}_UNITTEST_FILE}
-            -P ${CMAKE_SOURCE_DIR}/extensions/FindMatlab_TestsRedirect.cmake
-           ${${prefix}_UNPARSED_ARGUMENTS}
-           )
-endfunction(add_matlab_unit_test)
+
 
 
 # adding the matlab unit tests
@@ -640,40 +609,19 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   set_target_properties(${GAPCA_MEXUnitTest_Project} PROPERTIES FOLDER "UnitTests")
   add_dependencies(${GAPCA_MEXUnitTest_Project} ${GAPCA_MEX_Project})
 
-  set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
-  if(WIN32)
-    set(Matlab_UNIT_TESTS_CMD ${Matlab_UNIT_TESTS_CMD} -wait)
-  endif()
-    
-  add_test(NAME ${PROJECT_NAME}_matlabtest-1
-           COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_1.log 
-           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES TIMEOUT 180)
-  # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
-  # check the content of the log file.
-  #set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
-  
-  add_test(NAME ${PROJECT_NAME}_matlabtest-2
-            CONFIGURATIONS Release
-            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_2.log 
-           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(${PROJECT_NAME}_matlabtest-2 PROPERTIES TIMEOUT 600)
-
-
-
   add_matlab_unit_test(
-    NAME ${PROJECT_NAME}_matlabtest-X1
-    #TIMEOUT 180
+    NAME ${PROJECT_NAME}_matlabtest-1
+    TIMEOUT 180
     UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_unit_tests.m
     ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
     )
   
   add_matlab_unit_test(
-    NAME ${PROJECT_NAME}_matlabtest-X2
+    NAME ${PROJECT_NAME}_matlabtest-2
     TIMEOUT 600
     UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_performance_unit_tests.m
     ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
-    CONFIGURATIONS Release
+    TEST_ARGS CONFIGURATIONS Release
     )
   
   

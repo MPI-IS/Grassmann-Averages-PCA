@@ -38,6 +38,18 @@
 #        "R2013a" "8.1"
 #        "R2012b" "8.0")
 #
+# Starting Matlab R2013b+, it is possible to use Matlab unit test framework. The syntax is the following
+# ::
+# 
+#    add_matlab_unit_test(
+#       NAME <name>
+#       UNITTEST_FILE matlab_file_containing_unittest.m
+#       [TIMEOUT timeout]
+#       [ADDITIONAL_PATH path1 path2 ...]
+#       [TEST_ARGS additionnal_arguments1 ...]
+#    )
+#  
+# in particular, the arguments accepted by add_test can be passed through TEST_ARGS (eg. CONFIGURATION <config> ...).
 #
 # Defined variables
 # -----------------
@@ -59,18 +71,20 @@
 # --------------
 # * ``matlab_get_version_from_release_name`` returns the version from the release name
 # * ``matlab_get_release_name_from_version`` returns the release name from the Matlab version
+#
+# Defined functions
+# --------------
+# * ``add_matlab_unit_test`` adds a Matlab unit test file as a test to the project.
 # * ``matlab_extract_all_installed_versions_from_registry`` parses the registry for all Matlab versions. Available on Windows only. 
 #   The part of the registry parsed is dependent on the host processor 
 # * ``matlab_get_all_valid_matlab_roots_from_registry`` returns all the possible Matlab paths, according to a previously given list. Only the
 #   existing/accessible paths are kept. This is mainly useful for the "brute force" search of Matlab installation.
 # * ``matlab_get_mex_suffix`` returns the suffix to be used for the mex files (platform/architecture dependant)
 # * ``matlab_get_version_from_matlab_run`` returns the version of Matlab, given the full directory of the Matlab program.
-#
 # 
 # Future work
 # -----------
 # - win32:an additional variable telling that the registry is x86 or x64, maybe depending on the target build.
-# - add a unit test method for Matlab versions >= 8.1 (R2013+)
 
 #=============================================================================
 # Copyright 2009-2014 Raffi Enficiaud
@@ -452,6 +466,155 @@ function(matlab_get_version_from_matlab_run matlab_binary_program matlab_list_ve
     
 endfunction(matlab_get_version_from_matlab_run)
 
+
+# .. command:: add_matlab_unit_test
+#
+#   Adds a Matlab unit test. 
+#   The unit test uses the Matlab unittest framework, which is available starting Matlab 2013b+. The function expects
+#   one Matlab unit test file to be given.
+#   The function arguments are:
+#   * `NAME` name of the unittest in ctest.
+#   * `UNITTEST_FILE` the matlab unittest file. Its path will be automatically added to the Matlab path.
+#   * `TIMEOUT` the test timeout in seconds (optional, defaults to 180 seconds).
+#   * `ADDITIONAL_PATH` a list of paths to add to the Matlab path prior to running the unit test.
+#   * `MATLAB_ADDITIONAL_STARTUP_OPTIONS` a list of additional option in order to run Matlab from the command line. 
+#   * `TEST_ARGS` Additional options provided to the add_test command. These options are added to the default 
+#      options (eg. "CONFIGURATIONS Release")
+#
+function(add_matlab_unit_test)
+  set(options )
+  set(oneValueArgs NAME UNITTEST_FILE TIMEOUT)
+  set(multiValueArgs ADDITIONAL_PATH MATLAB_ADDITIONAL_STARTUP_OPTIONS TEST_ARGS)
+  
+  set(prefix _matlab_unittest_prefix)
+  cmake_parse_arguments(${prefix} "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+  
+  if(NOT ${prefix}_NAME)
+    message(FATAL_ERROR "[MATLAB] The Matlab test name cannot be empty")
+  endif()
+
+  add_test(NAME ${${prefix}_NAME}
+           COMMAND ${CMAKE_COMMAND} 
+            -Dtest_name=${${prefix}_NAME}
+            -Dadditional_paths=${${prefix}_ADDITIONAL_PATH}
+            -Dtest_timeout=${${prefix}_TIMEOUT}
+            -Doutput_directory=${_matlab_temporary_folder}
+            -DMatlab_PROGRAM=${Matlab_PROGRAM}
+            -DMatlab_ADDITIONNAL_STARTUP_OPTIONS=${${prefix}_MATLAB_ADDITIONAL_STARTUP_OPTIONS}
+            -Dunittest_file_to_run=${${prefix}_UNITTEST_FILE}
+            -P ${CMAKE_SOURCE_DIR}/extensions/FindMatlab_TestsRedirect.cmake
+           ${${prefix}_TEST_ARGS}
+           ${${prefix}_UNPARSED_ARGUMENTS}
+           )
+endfunction(add_matlab_unit_test)
+
+
+# .. command:: add_matlab_mex
+#
+#   Adds a Matlab MEX file. 
+#   ::
+#       add_matlab_mex(
+#          NAME <name>
+#          SRC src1 [src2 ...]
+#          [REDUCE_VISIBILITY]
+#          [OUTPUT_NAME output_name]
+#          [DOCUMENTATION documentation.m]
+#          [LINK_TO target1 target2 ...]
+#       )
+#
+#   The function arguments are:
+#   * `NAME` name of the target. 
+#   * `LINK_TO`: additional link dependencies. The target already links to libmex and libmx.
+#   * `SRC`: list of source files.
+#
+#   If OUTPUT_NAME is given, it overrides the default name defined as being the name of the target without any prefix and 
+#   with ${Matlab_MEX_EXTENSION} suffix.
+#   Use the option REDUCE_VISIBILITY to hide every symbols inside the compiled MEX file. This is useful in case their is a 
+#   symbol clash between the libraries shipped with Matlab, and the libraries to which the target is linking against. This 
+#   option is ignored on DLL platforms.
+#   If DOCUMENTATION is given, the file documentation.m is considered as being the documentation file for the MEX file. This
+#   file is copied into the same folder with the same name as the final mex file, and with extension .m. In that case, typing
+#   `help <name>` should print the documentation contained in this file.
+#
+function(add_matlab_mex )
+
+  # pthread options
+  check_cxx_compiler_flag(-pthread                    HAS_MINUS_PTHREAD)
+  # visbility options 
+  check_cxx_compiler_flag(-fvisibility=hidden         HAS_VISIBILITY_HIDDEN)
+  check_cxx_compiler_flag(-fvisibility-inlines-hidden HAS_VISIBILITY_INLINE_HIDDEN)
+
+  set(options REDUCE_VISIBILITY)
+  set(oneValueArgs NAME DOCUMENTATION OUTPUT_NAME)
+  set(multiValueArgs LINK_TO SRC)
+  
+  set(prefix _matlab_addmex_prefix)
+  cmake_parse_arguments(${prefix} "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+  
+  if(NOT ${prefix}_NAME)
+    message(FATAL_ERROR "[MATLAB] The MEX file name cannot be empty")
+  endif()
+  
+  if(NOT ${prefix}_OUTPUT_NAME)
+    set(${prefix}_OUTPUT_NAME ${${prefix}_NAME})
+  endif()
+  
+  add_library(${${prefix}_NAME}
+    SHARED 
+      ${${prefix}_SRC}
+      ${${prefix}_DOCUMENTATION}
+      ${${prefix}_UNPARSED_ARGUMENTS})
+  target_include_directories(${${prefix}_NAME} PRIVATE ${Matlab_INCLUDE_DIRS})
+  
+  target_link_libraries(${${prefix}_NAME} ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} ${${prefix}_LINK_TO})
+  set_target_properties(${${prefix}_NAME}
+      PROPERTIES 
+        PREFIX ""
+        OUTPUT_NAME ${${prefix}_OUTPUT_NAME}
+        SUFFIX ".${Matlab_MEX_EXTENSION}")
+
+  if(${${prefix}_DOCUMENTATION})
+    get_target_property(output_name ${${prefix}_NAME} OUTPUT_NAME)
+    add_custom_command(
+      TARGET ${${prefix}_NAME}
+      PRE_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${prefix}_DOCUMENTATION} $<TARGET_FILE_DIR:${${prefix}_NAME}>/${output_name}.m
+      COMMENT "Copy ${prefix}_NAME documentation file into the output folder"
+    )
+  endif() # documentation 
+  
+  # entry point in the mex file + taking care of visibility and symbol clashes.
+  if(WIN32)
+    set_target_properties(${${prefix}_NAME}
+      PROPERTIES 
+        DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
+  else()
+  
+    if(HAS_MINUS_PTHREAD AND NOT APPLE)
+      # Apparently, compiling with -pthread generated the proper link flags and some defines at compilation
+      target_compile_options(${${prefix}_NAME} PRIVATE "-pthread")
+    endif()  
+  
+    if(${prefix}_REDUCE_VISIBILITY)
+      # if we do not do that, the symbols linked from eg. boost remain weak and then clash with the ones
+      # defined in the matlab process. So by default the symbols are hidden.
+      # this also means that for shared libraries (like MEX), the entry point should be explicitely
+      # declared with default visibility, otherwise Matlab cannot find the entry point.i
+      if(HAS_VISIBILITY_INLINE_HIDDEN)
+        target_compile_options(${${prefix}_NAME} PRIVATE "-fvisibility-inlines-hidden")
+      endif()
+      if(HAS_VISIBILITY_HIDDEN)
+        target_compile_options(${${prefix}_NAME} PRIVATE "-fvisibility=hidden")
+      endif()    
+    endif()
+    
+    set_target_properties(${${prefix}_NAME} 
+      PROPERTIES
+        DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
+    )
+  endif()
+
+endfunction(add_matlab_mex)
 
 # this variable will get all Matlab installations found in the current system.
 set(_matlab_possible_roots)
