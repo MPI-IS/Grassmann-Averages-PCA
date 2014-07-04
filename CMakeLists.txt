@@ -577,12 +577,53 @@ if(NOT WITHOUT_MATLAB)
             DESTINATION ${MATLAB_INSTALL_DIRECTORY})
 
   endif()
-  
-  
-
-
 endif()
 
+
+# Adds a Matlab unit test
+# The unit test uses the Matlab unittest framework, which is available starting Matlab 2013b+
+# * `NAME` name of the unittest in ctest.
+# * `UNITTEST_FILE` the matlab unittest file. Its path will be automatically added to the Matlab path.
+# * `TIMEOUT` the test timeout.
+# * `ADDITIONAL_PATH` a list of paths to add to the Matlab path.
+# * `MATLAB_ADDITIONAL_STARTUP_OPTIONS` a list of additional option in order to run Matlab from the command line. These options
+#    are added to the default options (eg. "CONFIGURATIONS Release")
+# * Additional options can be passed to the add_test command.
+function(add_matlab_unit_test)
+  set(options )
+  set(oneValueArgs NAME UNITTEST_FILE TIMEOUT)
+  set(multiValueArgs ADDITIONAL_PATH MATLAB_ADDITIONAL_STARTUP_OPTIONS)
+  
+  set(prefix _matlab_unittest_prefix)
+  cmake_parse_arguments(${prefix} "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+  
+  if(NOT ${prefix}_NAME)
+    message(FATAL_ERROR "[MATLAB] The Matlab test name cannot be empty")
+  endif()
+  
+    #   -Dtest_timeout=180 
+#   -Dworking_directory="." 
+    #   -Doutput_directory=
+    #   -Dadditional_paths=""
+    #   -DMatlab_PROGRAM=matlab_exe_location 
+    #   -DMatlab_ADDITIONNAL_STARTUP_OPTIONS=""
+    #   -Dtest_name=name_of_the_test 
+    #   -Dunittest_file_to_run  
+  
+  
+  add_test(NAME ${${prefix}_NAME}
+           COMMAND ${CMAKE_COMMAND} 
+            -Dtest_name=${${prefix}_NAME}
+            -Dadditional_paths=${${prefix}_ADDITIONAL_PATH}
+            -Dtest_timeout=${${prefix}_TIMEOUT}
+            -Doutput_directory=${_matlab_temporary_folder}
+            -DMatlab_PROGRAM=${Matlab_PROGRAM}
+            -DMatlab_ADDITIONNAL_STARTUP_OPTIONS=${${prefix}_MATLAB_ADDITIONAL_STARTUP_OPTIONS}
+            -Dunittest_file_to_run=${${prefix}_UNITTEST_FILE}
+            -P ${CMAKE_SOURCE_DIR}/extensions/FindMatlab_TestsRedirect.cmake
+           ${${prefix}_UNPARSED_ARGUMENTS}
+           )
+endfunction(add_matlab_unit_test)
 
 
 # adding the matlab unit tests
@@ -618,6 +659,23 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
            -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
   set_tests_properties(${PROJECT_NAME}_matlabtest-2 PROPERTIES TIMEOUT 600)
 
+
+
+  add_matlab_unit_test(
+    NAME ${PROJECT_NAME}_matlabtest-X1
+    #TIMEOUT 180
+    UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_unit_tests.m
+    ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
+    )
+  
+  add_matlab_unit_test(
+    NAME ${PROJECT_NAME}_matlabtest-X2
+    TIMEOUT 600
+    UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_performance_unit_tests.m
+    ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
+    CONFIGURATIONS Release
+    )
+  
   
 endif()
 
