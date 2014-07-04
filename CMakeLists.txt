@@ -392,35 +392,6 @@ if(NOT WITHOUT_MATLAB)
   #
   # the MEX file project
   #
-  set(GAPCA_MEX_Project ${PROJECT_NAME}_mex)
-  
-  # the help file for the mex
-  set(${GAPCA_MEX_Project}_help_file ${CMAKE_SOURCE_DIR}/extensions/grassmannpca.m.txt) 
-
-
-  #include_directories(${Matlab_INCLUDE_DIRS})
-  #add_library(${GAPCA_MEX_Project} 
-  #  SHARED 
-  #    extensions/matlab.cpp
-  #    ${${GAPCA_MEX_Project}_help_file})
-  
-  #target_link_libraries(${GAPCA_MEX_Project} grassmann_averages ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
-  #set_target_properties(${GAPCA_MEX_Project} 
-  #    PROPERTIES 
-  #      PREFIX ""
-  #      OUTPUT_NAME ${PROJECT_NAME}
-  #      SUFFIX ".${Matlab_MEX_EXTENSION}"
-  #      FOLDER "Matlab")
-  
-  # copying the matlab documentation
-  #get_target_property(${GAPCA_MEX_Project}_name ${GAPCA_MEX_Project} OUTPUT_NAME)
-  #add_custom_command(
-  #  TARGET ${GAPCA_MEX_Project}
-  #  PRE_BUILD
-  #  COMMAND ${CMAKE_COMMAND} -E echo Copy Matlab wrapper documentation into target directory $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/.
-  #  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${GAPCA_MEX_Project}_help_file} $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/${${GAPCA_MEX_Project}_name}.m
-  #  COMMENT "Copy ${GAPCA_MEX_Project} help into the output folder"
-  #)
   
   add_matlab_mex(
     NAME ${GAPCA_MEX_Project} 
@@ -449,18 +420,6 @@ if(NOT WITHOUT_MATLAB)
     set(Matlab_NEED_WRAPPER FALSE)
   endif()
 
-
-  # entry point in the mex file
-  #if(WIN32)
-  #  set_target_properties(${GAPCA_MEX_Project} 
-  #    PROPERTIES 
-  #      DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
-  #else()
-  #  set_target_properties(${GAPCA_MEX_Project}
-  #    PROPERTIES
-  #      DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
-  #  )
-  #endif()
 
 
   #
