@@ -394,7 +394,7 @@ if(NOT WITHOUT_MATLAB)
   #
   set(GAPCA_MEX_Project ${PROJECT_NAME}_mex)
   
-  add_matlab_mex(
+  matlab_add_mex(
     NAME ${GAPCA_MEX_Project} 
     REDUCE_VISIBILITY
     OUTPUT_NAME ${PROJECT_NAME}
@@ -405,73 +405,12 @@ if(NOT WITHOUT_MATLAB)
   set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")  
   
   install(TARGETS ${GAPCA_MEX_Project} 
-          DESTINATION ${MATLAB_INSTALL_DIRECTORY})  
+           DESTINATION ${MATLAB_INSTALL_DIRECTORY})  
   
   install(FILES ${${GAPCA_MEX_Project}_help_file}
            DESTINATION ${MATLAB_INSTALL_DIRECTORY}
            RENAME ${${GAPCA_MEX_Project}_name}.m)  
           
-  # for debug
-  #set_target_properties(${GAPCA_MEX_Project} PROPERTIES LINK_FLAGS "-t")
-  
-  #set_target_properties(${GAPCA_MEX_Project} PROPERTIES INSTALL_RPATH "@loader_path/../lib")
-  if(Boost_USE_STATIC_LIBS)
-    set(Matlab_NEED_WRAPPER FALSE)
-  else()
-    set(Matlab_NEED_WRAPPER FALSE)
-  endif()
-
-
-
-  #
-  # create a matlab loader to prevent some symbol crashes
-  #
-  macro(create_matlab_mex_wrapper library_name)
-
-    set(_matlab_wrapper_template        ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
-    set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.c)
-
-    # get the previous output name
-    get_target_property(_matlab_library_output_name ${library_name} OUTPUT_NAME)
-
-    # change the suffix to avoid the possibility of matlab calling it
-    set_target_properties(${library_name} 
-      PROPERTIES 
-        PREFIX ""
-        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") 
-    if(UNIX)
-      set_target_properties(${library_name}
-        PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
-      )
-    endif()
-    
-    
-    
-    # create the loader 
-    # the template contains all the necessary code. The library to load is defined by a #define MATLAB_SO_WRAP
-    configure_file(${_matlab_wrapper_template} ${_matlab_wrapper_template_output} COPYONLY)
-    
-    add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
-    target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"./$<TARGET_FILE_NAME:${library_name}>\"") 
-    target_link_libraries(${library_name}_matlab_loader dl ${Matlab_MEX_LIBRARY})
-    
-    
-    # this order is to be kept: we construct the loader before the real mex, since there is not link dependency here, it should work.
-    # this also enables to honour the dependencies of the primary target mex file. 
-    add_dependencies(${library_name} ${library_name}_matlab_loader) # do not change to target_link_library here
-    set_target_properties(${library_name}_matlab_loader 
-      PROPERTIES 
-        PREFIX ""
-        OUTPUT_NAME ${_matlab_library_output_name}
-        SUFFIX ".${Matlab_MEX_EXTENSION}"
-        FOLDER "Matlab")
-
-    unset(_matlab_wrapper_template)
-    unset(_matlab_mex_to_load)
-    unset(_matlab_library_output_name)
-
-  endmacro(create_matlab_mex_wrapper)
-
 
 
   #
@@ -541,14 +480,6 @@ if(NOT WITHOUT_MATLAB)
   endif()
 
 
-
-  # create wrappers if needed
-  if(UNIX AND Matlab_NEED_WRAPPER)
-    create_matlab_mex_wrapper(${GAPCA_MEX_Project})
-    install(TARGETS ${GAPCA_MEX_Project}_matlab_loader 
-            DESTINATION ${MATLAB_INSTALL_DIRECTORY})
-
-  endif()
 endif()
 
 
@@ -569,14 +500,14 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   set_target_properties(${GAPCA_MEXUnitTest_Project} PROPERTIES FOLDER "UnitTests")
   add_dependencies(${GAPCA_MEXUnitTest_Project} ${GAPCA_MEX_Project})
 
-  add_matlab_unit_test(
+  matlab_add_unit_test(
     NAME ${PROJECT_NAME}_matlabtest-1
     TIMEOUT 180
     UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_unit_tests.m
     ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
     )
   
-  add_matlab_unit_test(
+  matlab_add_unit_test(
     NAME ${PROJECT_NAME}_matlabtest-2
     TIMEOUT 600
     UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_performance_unit_tests.m
