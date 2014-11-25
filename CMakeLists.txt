@@ -28,16 +28,12 @@ endif()
 
 
 
-#set(CMAKE_MACOSX_RPATH 1)
 
-
-
-
-
-#
-# thirdparties
+##############################################################################################
+# Thirdparties and tools
 #
 
+find_package(Doxygen)
 
 
 # Boost, uBlas and some other libraries are needed in any case. 
@@ -106,7 +102,55 @@ if(NOT WITHOUT_MATLAB)
 endif()
 
 
-# general defines
+# openCV for videos reading applications
+# openCV should be installed somewhere defined on the command line. If this is not the case, an error message is printed and 
+# the build is aborted.
+if(NOT OpenCVRoot)
+  message(WARNING "OpenCVRoot is not defined. OpenCVRoot should be defined with the option -DOpenCVRoot=<root-to-opencv> in order to benefit from the video applications")
+  set(OPENCV_AVAILABLE FALSE CACHE INTERNAL "Setting the availability of opencv")
+
+else()
+  set(opencv_root ${OpenCVRoot})
+  if(EXISTS ${opencv_root}/opencv)
+    set(opencv_root ${opencv_root}/opencv)
+  endif()
+
+  if(NOT EXISTS ${opencv_root}/include)
+    message(FATAL_ERROR "Cannot find the header directory of open cv. Please ensure you have decompressed the version for windows")
+  endif()
+
+
+  # apparently this is the way cmake works... did not know, the OpenCVConfig.cmake file is enough for the configuration
+  set(OpenCV_DIR ${opencv_root}/ CACHE PATH "Location of the OpenCV configuration directory")
+  set(OpenCV_SHARED ON)
+  set(OpenCV_STATIC OFF)
+  set(BUILD_SHARED_LIBS ON)
+  find_package(OpenCV REQUIRED)
+
+  if(NOT OpenCV_INCLUDE_DIRS)
+    message(FATAL_ERROR "Cannot add the OpenCV include directories")
+  endif()
+
+  list(REMOVE_DUPLICATES OpenCV_LIB_DIR)
+  list(LENGTH OpenCV_LIB_DIR list_lenght)
+  if(${list_lenght} GREATER 1)
+    list(GET OpenCV_LIB_DIR 0 OpenCV_LIB_DIR)
+  endif()
+  set(OpenCV_BIN_DIR ${OpenCV_LIB_DIR}/../bin)
+  get_filename_component(OpenCV_BIN_DIR ${OpenCV_BIN_DIR} ABSOLUTE)
+
+  set(OPENCV_AVAILABLE TRUE CACHE INTERNAL "Setting the availability of opencv")
+
+
+endif()
+
+
+
+
+
+
+#
+# general defines and compilation options
 if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 else()
@@ -147,37 +191,13 @@ if(NOT MSVC)
   # c++11 options
   check_cxx_compiler_flag(-std=c++11 HAS_CXX11_FLAG)
   check_cxx_compiler_flag(-std=c++0x HAS_CXX0X_FLAG)
-  # pthread options
-  check_cxx_compiler_flag(-pthread   HAS_MINUS_PTHREAD)
-  # visbility options 
-  check_cxx_compiler_flag(-fvisibility=hidden         HAS_VISIBILITY_HIDDEN)
-  check_cxx_compiler_flag(-fvisibility-inlines-hidden HAS_VISIBILITY_INLINE_HIDDEN)
   if(HAS_CXX11_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
   elseif(HAS_CXX0X_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
   endif()
 
-
-  # if we do not do that, the symbols linked from boost remain weak and then clash with the ones
-  # defined in the matlab process. So by default the symbols are hidden.
-  # this also means that for shared libraries (like MEX), the entry point should be explicitely
-  # declared with default visibility, otherwise Matlab cannot find the entry point.i
-  #if(HAS_VISIBILITY_INLINE_HIDDEN)
-  #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
-  #endif()
-  #if(HAS_VISIBILITY_HIDDEN)
-  #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
-  #endif()
-
   if(Boost_USE_STATIC_LIBS)
-    # does not work, libstdc++ should be compiled with -fPIC
-    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++") 
-    #if(HAS_MINUS_PTHREAD AND NOT APPLE)
-      # Apparently, compiling with -pthread generated the proper link flags and some defines at compilation
-    #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-    #endif()
-
     # update to include rt library (from chrono)
     if(NOT APPLE)
       set(BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS} rt)
@@ -209,8 +229,9 @@ endif()
 include_directories(${Boost_INCLUDE_DIRS})
 
 
-
-# main library
+##############################################################################################
+# Main library
+# This library is header only in fact, but we add an empty cpp file for convenience with CMake.
 include_directories(${GrassmannAveragesPCA_SOURCE_DIR})
 set(${PROJECT_NAME}_LIB
      include/grassmann_pca.hpp
@@ -236,22 +257,41 @@ set(${PROJECT_NAME}Examples_LIB
 add_library(grassmann_averages_examples ${${PROJECT_NAME}Examples_LIB})
 target_link_libraries(grassmann_averages_examples grassmann_averages)
 
+##############################################################################################
+# Applications
+
+
+if(OPENCV_AVAILABLE)
+  # Reads a full movie and runs the Grassman PCA on it
+  set(${PROJECT_NAME}_movie_runner_SRC
+      applications/video_processing.cpp)
+  add_library(${PROJECT_NAME}_movie_runner ${${PROJECT_NAME}_movie_runner_SRC})
+  target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages)
+  target_include_directories(${PROJECT_NAME}_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
+  set_target_properties(${PROJECT_NAME}_movie_runner PROPERTIES FOLDER "Applications")
+endif()
+
+##############################################################################################
+# Documentation
+
 
 # documentation of the main doxygen page
+# part of the doxygen configuration includes variables that are expanded by cmake.
 set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/documentation)
-configure_file(doc/Doxyfile ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured)
+configure_file(doc/Doxyfile ${DOXYGEN_OUTPUT_DIRECTORY}/DoxyfileConfigured)
 set(doxygen_sources 
     doc/main.md
     doc/Doxyfile
-    ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
+    ${DOXYGEN_OUTPUT_DIRECTORY}/DoxyfileConfigured
   )
-find_package(Doxygen)
-if(DOXYGEN_FOUND)
 
+
+if(DOXYGEN_FOUND)
+  # generation and "installation" of the doxygen documentation 
   add_custom_target(
     doxygen_documentation
     ALL
-    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
+    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUTPUT_DIRECTORY}/DoxyfileConfigured
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
     COMMENT "Generating Doxygen documentation"
     SOURCES ${doxygen_sources}
@@ -285,6 +325,8 @@ install(
 
 
 
+##############################################################################################
+# Tests
 
 # Unit tests using boost
 if(NOT WITHOUT_TESTS)
@@ -324,10 +366,7 @@ if(NOT WITHOUT_TESTS)
 
   add_executable(${PROJECT_NAME}_test ${${PROJECT_NAME}_tests})
   target_link_libraries(${PROJECT_NAME}_test grassmann_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
-
-  # the main definition is in there
-  set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
-
+  
   # the link is with dynamic 
   if(NOT Boost_USE_STATIC_LIBS)
     set_target_properties(${PROJECT_NAME}_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
@@ -345,7 +384,6 @@ if(NOT WITHOUT_TESTS)
 
   # second test based on files
   add_executable(${PROJECT_NAME}_test_with_files test/test_grassmannpca_trimming_from_file.cpp)
-  set_source_files_properties(test/test_grassmannpca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
   target_link_libraries(${PROJECT_NAME}_test_with_files grassmann_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
   if(NOT Boost_USE_STATIC_LIBS)
     set_target_properties(${PROJECT_NAME}_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
@@ -369,7 +407,8 @@ endif()
 
 
 
-
+##############################################################################################
+# Matlab extensions
 
 # adding the matlab MEX extensions
 if(NOT WITHOUT_MATLAB)
@@ -485,6 +524,8 @@ endif()
 
 
 
+##############################################################################################
+# Matlab unit tests
 
 # adding the matlab unit tests
 if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
@@ -519,6 +560,10 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
 endif()
 
 
+
+
+##############################################################################################
+# Installation rules
 
 # CPack rules
 set(CPACK_PACKAGE_VENDOR "Max Planck Institute for Intelligent Systems")
