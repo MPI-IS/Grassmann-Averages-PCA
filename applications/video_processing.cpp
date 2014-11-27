@@ -13,16 +13,217 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/program_options/parsers.hpp>
 
+#include <boost/iterator/iterator_facade.hpp>
+
+#include <string>
+#include <fstream>
+
+static std::string movielocation = "/is/ps/shared/users/jonas/movies/";
+static std::string eigenvectorslocation = "./";
+
 void number2filename(int file_number, char *filename)
 {
-  const char *fn_template = "/is/ps/shared/users/jonas/movies/starwars_%.3d/frame%.7d.png";
+  const char *fn_template = (movielocation + "starwars_%.3d/frame%.7d.png").c_str();
   const int dir_num = file_number / 10000;
   sprintf(filename, fn_template, dir_num, file_number);
 }
 
 
+//! An container over the content of a cvMat, addressable
+//! in a vector fashion.
+template <class T>
+struct cvMatAsVector
+{
+  cvMatAsVector(const cv::Mat& image_) : 
+    image(image_),
+    width(image_.size().width),
+    height(image_.size().height)
+  {}
+  
+  
+  T operator()(std::size_t index) const
+  {
+    int colorchannel = index % 3;
+    index /= 3;
+    int column = index % width;
+    index /= width;
+    return image.at<cv::Vec3b>(index, column)[colorchannel];
+  }
+  
+  size_t size() const
+  {
+    return width * height * 3;
+  }
+  
+  const cv::Mat& image;
+  const size_t width;
+  const size_t height;
+  
+};
 
 
+//! An iterator that will load the images on demand instead of storing everything on memory
+template <class T>
+class iterator_on_image_files : 
+  public boost::iterator_facade<
+        iterator_on_image_files<T>
+      , cvMatAsVector<T>
+      , std::random_access_iterator_tag
+    >
+{
+public:
+  typedef cvMatAsVector<T> image_vector_type;
+  iterator_on_image_files() : m_index(std::numeric_limits<size_t>::max()) 
+  {}
+
+  explicit iterator_on_image_files(size_t index)
+    : m_index(index) 
+  {}
+
+private:
+  friend class boost::iterator_core_access;
+
+  void increment() { 
+    m_index++; 
+    image.release();
+  }
+
+  bool equal(iterator_on_image_files const& other) const
+  {
+    return this->m_index == other.m_index;
+  }
+
+  image_vector_type dereference() const 
+  { 
+    if(image.empty())
+    {
+      read_image();
+    }
+    return image_vector_type(this->image); 
+  }
+  
+  
+  void read_image()
+  {
+    char filename[PATH_MAX];
+    number2filename(m_index, filename);
+    std::cout << "Reading " << filename << std::endl;
+    image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
+    if(!image.data)
+    {
+      std::ostringstream o;
+      o << "error: could not load image '" << filename << "'";
+      std::cerr << o.str() << std::endl;
+      throw std::runtime_error(o.str());
+    }
+  }
+
+  size_t m_index;
+  cv::Mat image;
+
+};
+
+//! An output vector that also writes to a file
+template <class data_iterator_t>
+class iterator_on_output_data : 
+  public boost::iterator_facade<
+        iterator_on_output_data<data_iterator_t>
+      , typename data_iterator_t::value_type
+      , std::random_access_iterator_tag
+    >
+{
+
+public:
+  typedef typename data_iterator_t::reference reference;
+  iterator_on_output_data() : 
+    m_index(std::numeric_limits<size_t>::max()), 
+    m_max_element_per_line(100),
+    internal_it()
+  {}
+
+  explicit iterator_on_output_data(size_t index, data_iterator_t it_) : 
+    m_index(index),
+    m_max_element_per_line(100),
+    internal_it(it_)
+  {}
+
+  void save_eigenvector()
+  {
+    char filename[PATH_MAX];
+    const char * eigen_vector_template = "eigenvector_%.7d.txt";
+    sprintf(filename, eigen_vector_template, m_index);
+    
+    std::ofstream f(filename);
+    if(!f.is_open())
+    {
+      std::cerr << "Cannot open the file " << filename << " for writing" << std::endl;
+      return;
+    }
+    
+    std::cout << "Writing eigenvector file " << filename << std::endl;
+    
+    typedef typename data_iterator_t::value_type::iterator element_iterator;
+    
+    element_iterator itelement(internal_it->begin());
+    for(int i = 0; i < internal_it->size(); i++, ++itelement)
+    {
+      if((i + 1) % m_max_element_per_line == 0)
+      {
+        f << std::endl;
+      }
+      
+      f << *itelement;
+    }
+    
+    f.close();
+    std::cout << "Writing eigenvector file " << filename << " -- ok " << std::endl;
+  }
+
+private:
+  friend class boost::iterator_core_access;
+
+  void increment() {
+    // here we save before going further, except if it has not been changed
+    save_eigenvector();
+    m_index++; 
+    ++internal_it;
+  }
+
+  bool equal(iterator_on_image_files<data_iterator_t> const& other) const
+  {
+    return this->internal_it == other.internal_it;
+  }
+
+  reference dereference()
+  { 
+    return *internal_it;
+  }
+  
+  
+
+
+  size_t m_index;
+  // max number of element on one line during the save
+  size_t m_max_element_per_line;
+  data_iterator_t internal_it;
+};
+
+#if 0
+template <class data_t>
+class data_and_save : data_t
+{
+  size_t index;
+  
+  //! sets the index that will determine the filename to which this eigenvector will 
+  //! be saved.
+  void set_index(size_t index_)
+  {
+    index = index_;
+  }
+  
+  data_t& operator*()
+};
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -108,50 +309,29 @@ int main(int argc, char *argv[])
 
 
 
-  char filename[100];
-  cv::Mat image;
+
   
+  size_t rows(0);
+  size_t cols(0);
+   
+  {
+    // Read first image to get image size
+    number2filename(1, filename);
 
-  // Read first image to get image size
-  number2filename(1, filename);
-  image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
-  cv::Size image_size = image.size();
-  const size_t rows = image_size.height;
-  const size_t cols = image_size.width;
-
+    cv::Mat image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
+    cv::Size image_size = image.size();
+    rows = image_size.height;
+    cols = image_size.width;
+  }
+  
   // Allocate data
   std::cout << "=== Allocate ===" << std::endl;
   std::cout << "  Number of images: " << num_frames << std::endl;
   std::cout << "  Image size:       " << cols << "x" << rows << " (RGB)" << std::endl;
   std::cout << "  Data size:        " << (num_frames*rows*cols * 3) / (1024 * 1024) << " MB" << std::endl;
-  float *data = new float[num_frames*rows*cols * 3];
-
-  size_t idx = 0;
-  for(size_t file_number = 1; file_number <= num_frames; file_number++)
-  {
-    number2filename(file_number, filename);
-    image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
-    if(!image.data)
-    {
-      std::cerr << "error: could not load image '" << filename << "'" << std::endl;
-      break;
-    }
-    else
-    {
-      for(int r = 0; r < rows; r++)
-      {
-        for(int c = 0; c < cols; c++)
-        {
-          // XXX: Is this the right way to store the data for TGA?
-          const cv::Vec3b intensity = image.at<cv::Vec3b>(r, c);
-          data[idx] = intensity.val[0]; // blue
-          data[idx + 1] = intensity.val[1]; // green
-          data[idx + 2] = intensity.val[2]; // red
-          idx += 3;
-        }
-      }
-    }
-  }
+    
+  iterator_on_image_files<float> iterator_file_begin(1);
+  iterator_on_image_files<float> iterator_file_end(num_frames + 1);
 
   // Compute trimmed Grassmann Average
   // XXX: Ask Raffi for help here
@@ -160,54 +340,31 @@ int main(int argc, char *argv[])
 
   namespace ub = boost::numeric::ublas;
 
+  // type for the final eigen vectors
+  typedef ub::vector<double> data_t;  
+
+
   using namespace grassmann_averages_pca;
   using namespace grassmann_averages_pca::details::ublas_helpers;
 
 
-  typedef float input_array_type;
-
-  typedef external_storage_adaptor<input_array_type> input_storage_t;
-  typedef ub::matrix<input_array_type, ub::column_major, input_storage_t> input_matrix_t;
-
-  typedef external_storage_adaptor<input_array_type> output_storage_t;
-  typedef ub::matrix<input_array_type, ub::row_major, output_storage_t> output_matrix_t; // this is in fact column_major, it should be in accordance with the
-                                                                               // dimension of the matrix output_basis_vectors (we take the transpose of it)
+  typedef double input_array_type;
 
   const size_t dimension = image_size.width * image_size.height;
   const size_t nb_elements = num_frames;
-
-
-  // input data matrix, external storage.
-  input_storage_t input_storage(nb_elements * dimension, static_cast<input_array_type *>(mxGetData(X)));
-  input_matrix_t input_data(nb_elements, dimension, input_storage);
-
-  // output data matrix, also external storage for uBlas
-  output_storage_t storageOutput(dimension * max_dimension, static_cast<input_array_type *>(mxGetData(outputMatrix)));
-  output_matrix_t output_basis_vectors(max_dimension, dimension, storageOutput);
-
-
-  // input data matrix, external storage.
-  input_storage_t input_storage(nb_elements*dimension, static_cast<input_array_type*>(mxGetData(X)));
-  input_matrix_t input_data(nb_elements, dimension, input_storage);
-
-  // output data matrix, also external storage for uBlas
-  output_storage_t storageOutput(dimension * max_dimension, static_cast<input_array_type *>(mxGetData(outputMatrix)));
-  output_matrix_t output_basis_vectors(max_dimension, dimension, storageOutput);
-
-
-
 
 
   // this is the form of the data extracted from the storage
   typedef ub::vector<input_array_type> data_t;
   typedef grassmann_pca_with_trimming< data_t > grassmann_pca_with_trimming_t;
 
-  typedef row_iter<const input_matrix_t> const_input_row_iter_t;
-  typedef row_iter<output_matrix_t> output_row_iter_t;
-
 
   // main instance
   grassmann_pca_with_trimming_t instance(trimming_percentage / 100);
+  
+  
+  typedef std::vector<data_t> output_eigenvector_collection_t;
+  output_eigenvector_collection_t v_output_eigenvectors(nb_elements);
 
 
   if(nb_processors > 0)
@@ -220,26 +377,6 @@ int main(int argc, char *argv[])
   }
 
 
-#if 0
-
-  // initialisation vector if given
-  std::vector<data_t> init_vectors;
-  if(algorithm_configuration.initial_vectors != 0)
-  { 
-    init_vectors.resize(max_dimension);
-    input_storage_t input_init_vector_storage(max_dimension*dimension, static_cast<input_array_type*>(mxGetData(algorithm_configuration.initial_vectors)));
-    input_matrix_t input_init_vector_data(dimension, max_dimension, input_init_vector_storage);
-    for(size_t index = 0;
-        index < max_dimension;
-        index++)
-    {
-      init_vectors[index] = ub::column(input_init_vector_data, index);
-    }
-
-    // if the initial vectors are set, we avoid the computation of the regular PCA.
-    nb_pca_steps = 0;
-  }
-#endif
 
   if(!instance.set_nb_steps_pca(nb_pca_steps))
   {
@@ -251,27 +388,14 @@ int main(int argc, char *argv[])
   bool ret = instance.batch_process(
     max_iterations,
     max_dimension,
-    const_input_row_iter_t(input_data, 0),
-    const_input_row_iter_t(input_data, input_data.size1()),
-    output_row_iter_t(output_basis_vectors, 0),
-    0);
-
-
-
-
-
-
-
-
-
-
+    iterator_file_begin,
+    iterator_file_end,
+    iterator_on_output_data<output_eigenvector_collection_t::iterator>(v_output_eigenvectors.begin(), 0));
 
 
   // Save resulting components
   // XXX: Ask Raffi for help here
 
-  // Delete data
-  delete[] data;
 
   return 0;
 }

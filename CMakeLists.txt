@@ -106,8 +106,16 @@ endif()
 # openCV should be installed somewhere defined on the command line. If this is not the case, an error message is printed and 
 # the build is aborted.
 if(NOT OpenCVRoot)
-  message(WARNING "OpenCVRoot is not defined. OpenCVRoot should be defined with the option -DOpenCVRoot=<root-to-opencv> in order to benefit from the video applications")
-  set(OPENCV_AVAILABLE FALSE CACHE INTERNAL "Setting the availability of opencv")
+  
+  find_package(OpenCV)
+
+  if(DEFINED OpenCV_INCLUDE_DIRS)
+    set(OPENCV_AVAILABLE TRUE CACHE INTERNAL "Setting the availability of opencv")
+  else()
+    set(OPENCV_AVAILABLE FALSE CACHE INTERNAL "Setting the availability of opencv")
+    message(WARNING "OpenCVRoot is not defined. OpenCVRoot should be defined with the option -DOpenCVRoot=<root-to-opencv> 
+                     in order to benefit from the video applications")
+  endif()
 
 else()
   set(opencv_root ${OpenCVRoot})
