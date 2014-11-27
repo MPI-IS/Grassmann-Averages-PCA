@@ -100,7 +100,8 @@ namespace grassmann_averages_pca
    * 
    * @note
    * The algorithm may also perform a few "regular PCA" steps, which is the computation of the basis vector with highest "eigen-value". This can be configured through the function
-   * grassmann_pca::set_nb_steps_pca.
+   * grassmann_pca_with_trimming::set_nb_steps_pca. Also, the data can be centered before applying any computation (see grassmann_pca_with_trimming::set_centering). This is 
+   * convenient especially when the input data iterator is just a stub that provides data read from the disk for instance (see the application of Grassmann applied on videos).
    *
    * @tparam data_t type of vectors used for the computation. 
    * @tparam norm_mu_t norm used to normalize the basis vectors and project them onto the unit circle.
@@ -138,6 +139,9 @@ namespace grassmann_averages_pca
     //! Type of the vector used for counting the element falling into the non-trimmed range.
     typedef boost::numeric::ublas::vector<size_t> count_vector_t;
 
+    //! Indicates that the incoming data is not centered and a centering should be performed prior
+    //! to the computation of the PCA or the trimmed grassmann average.
+    bool need_centering;
 
 
     //!@internal
@@ -174,7 +178,7 @@ namespace grassmann_averages_pca
       {
         scalar_t *out = &inner_prod_results[0];
         scalar_t mu_element = mu(0);
-        scalar_t *current_line = p_c_matrix;
+        scalar_t const * current_line = p_c_matrix;
         
         for(int column = 0; column < nb_elements; column++)
         {
@@ -269,6 +273,47 @@ namespace grassmann_averages_pca
         k_first_last = k_first_last_;
       }
 
+
+      //! Centering the data in case it was not possible to do it beforehand
+      void data_centering_first_phase(scalar_t divider)
+      {
+        scalar_t const * current_line = p_c_matrix;
+        for(size_t dimension = 0; dimension < data_dimension; dimension++)
+        {
+          scalar_t acc = 0;
+          for(size_t s = 0; s < nb_elements; s++)
+          {
+            acc += *current_line++;
+          }
+
+          // posts the new value to the listeners for the current dimension
+          accumulator_element_t &result = v_accumulated_per_dimension[dimension];
+          result.dimension = dimension;
+          result.value = acc / divider;
+          signal_acc_dimension(&result);
+        }
+
+        signal_counter();
+
+      }
+
+      //! Project the data onto the orthogonal subspace of the provided vector
+      void data_centering_second_phase(data_t const &mean_value)
+      {
+        scalar_t *current_element_ptr = p_c_matrix;
+        
+        for(int line = 0; line < data_dimension; line++)
+        {
+          const scalar_t mu_element = mean_value(line);   
+          scalar_t * const current_line_end = current_element_ptr + nb_elements;
+          for(; current_element_ptr < current_line_end; current_element_ptr++)
+          {
+            *current_element_ptr -= mu_element;
+          }               
+        }
+
+        signal_counter();
+      }
 
 
       //! PCA steps
@@ -428,7 +473,8 @@ namespace grassmann_averages_pca
       trimming_percentage(trimming_percentage_),
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max()),
-      nb_steps_pca(3)
+      nb_steps_pca(3),
+      need_centering(false)
     {
       assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }
@@ -464,7 +510,14 @@ namespace grassmann_averages_pca
       return true;
     }
 
-
+    //! Sets the centering flags.
+    //!
+    //! If set to true, a centering will be performed before applying any computation (PCA and Grassmann averages). 
+    bool set_centering(bool need_centering_)
+    {
+      need_centering = need_centering_;
+      return true;
+    }
 
     
     
@@ -634,10 +687,54 @@ namespace grassmann_averages_pca
 
 
 
+      // Centering the data if needed: 
+      // - first run the accumulation and gather all results in a multithreaded manner
+      // - second center the data with the collected mean
+      if(need_centering)
+      {
+        // Computing the accumulation
+        async_merger.init();
+
+        for(int i = 0; i < v_individual_accumulators.size(); i++)
+        {
+          ioService.post(
+            boost::bind(
+              &async_processor_t::data_centering_first_phase, 
+              boost::ref(v_individual_accumulators[i]),
+              size_data)); // size of the dataset to perform division and avoid doing accumulation over big numerical values
+        }
+
+        // waiting for completion (barrier)
+        async_merger.wait_notifications(v_individual_accumulators.size());
+
+        // gathering the accumulated, already divided by the size 
+        data_t mean_vector = async_merger.get_merged_result();
 
 
-      // for each dimension
-      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_basisvectors)
+        // centering the data
+        async_merger.init();
+
+        for(int i = 0; i < v_individual_accumulators.size(); i++)
+        {
+          ioService.post(
+            boost::bind(
+              &async_processor_t::data_centering_second_phase, 
+              boost::ref(v_individual_accumulators[i]),
+              boost::cref(mean_vector)
+              ));
+        }
+
+        // waiting for completion (barrier)
+        async_merger.wait_notifications(v_individual_accumulators.size());
+
+      }
+
+
+
+
+
+      // for each requested subspace
+      for(int current_subspace_index = 0; current_subspace_index < max_dimension_to_compute; current_subspace_index++, ++it_basisvectors)
       {
 
 
@@ -743,7 +840,7 @@ namespace grassmann_averages_pca
         *it_basisvectors = mu;
 
         // projection onto the orthogonal subspace
-        if(current_dimension < max_dimension_to_compute - 1)
+        if(current_subspace_index < max_dimension_to_compute - 1)
         {
           async_merger.init_notifications();
 
@@ -764,7 +861,7 @@ namespace grassmann_averages_pca
           // 2. compute the projection on the orthogonal subspace of the remainder elements
           //
           // in order to be consistent with the matlab implementation, the second choice is implemented here
-          if(current_dimension+1 < max_dimension_to_compute)
+          if(current_subspace_index+1 < max_dimension_to_compute)
           {
             it_o_basisvectors_t remainder(it_basisvectors);
             ++remainder;

@@ -49,6 +49,37 @@ struct cvMatAsVector
     index /= width;
     return image.at<cv::Vec3b>(index, column)[colorchannel];
   }
+
+  struct internal_iterator
+  {
+    cvMatAsVector<T> &outer_instance;
+    
+    internal_iterator() : current_index(0){}
+    internal_iterator(size_t index) : current_index(index) {}
+
+    T const& operator*() const
+    {
+      return outer_instance[current_index];
+    }
+
+    internal_iterator& operator++()
+    {
+      current_index++;
+      return *this;
+    }
+
+    size_t current_index;
+  };
+
+  internal_iterator begin() const
+  {
+    return internal_iterator(0);
+  }
+
+  internal_iterator end() const
+  {
+    return internal_iterator(size());
+  }
   
   size_t size() const
   {
@@ -67,12 +98,12 @@ template <class T>
 class iterator_on_image_files : 
   public boost::iterator_facade<
         iterator_on_image_files<T>
-      , cvMatAsVector<T>
+      , boost::numeric::ublas::vector<T>
       , std::random_access_iterator_tag
     >
 {
 public:
-  typedef cvMatAsVector<T> image_vector_type;
+  typedef boost::numeric::ublas::vector<T> image_vector_type;
   iterator_on_image_files() : m_index(std::numeric_limits<size_t>::max()) 
   {}
 
@@ -83,9 +114,10 @@ public:
 private:
   friend class boost::iterator_core_access;
 
-  void increment() { 
+  void increment() 
+  { 
     m_index++; 
-    image.release();
+    image_vector.clear();
   }
 
   bool equal(iterator_on_image_files const& other) const
@@ -93,13 +125,13 @@ private:
     return this->m_index == other.m_index;
   }
 
-  image_vector_type dereference() const 
+  const image_vector_type& dereference() const 
   { 
-    if(image.empty())
+    if(image_vector.empty())
     {
       read_image();
     }
-    return image_vector_type(this->image); 
+    return image_vector; 
   }
   
   
@@ -108,7 +140,7 @@ private:
     char filename[PATH_MAX];
     number2filename(m_index, filename);
     std::cout << "Reading " << filename << std::endl;
-    image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
+    cv::Mat image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
     if(!image.data)
     {
       std::ostringstream o;
@@ -116,11 +148,28 @@ private:
       std::cerr << o.str() << std::endl;
       throw std::runtime_error(o.str());
     }
+
+    const int w = image.size().width;
+    const int h = image.size().height;
+
+    image_vector.resize(w * h * 3);
+    boost::numeric::ublas::vector<T>::iterator it = image_vector.begin();
+
+    for(int y = 0; y < h; y++)
+    {
+      for(int x = 0; x < w; x++)
+      {
+        cv::Vec3b pixel = image.at<cv::Vec3b>(y, x);
+        *it++ = pixel[0];
+        *it++ = pixel[1];
+        *it++ = pixel[2];
+      }
+    }
+
   }
 
   size_t m_index;
-  cv::Mat image;
-
+  mutable boost::numeric::ublas::vector<T> image_vector;
 };
 
 //! An output vector that also writes to a file
@@ -315,6 +364,7 @@ int main(int argc, char *argv[])
   size_t cols(0);
    
   {
+    char filename[_MAX_PATH];
     // Read first image to get image size
     number2filename(1, filename);
 
@@ -350,7 +400,7 @@ int main(int argc, char *argv[])
 
   typedef double input_array_type;
 
-  const size_t dimension = image_size.width * image_size.height;
+  const size_t dimension = rows * cols;
   const size_t nb_elements = num_frames;
 
 
@@ -390,7 +440,7 @@ int main(int argc, char *argv[])
     max_dimension,
     iterator_file_begin,
     iterator_file_end,
-    iterator_on_output_data<output_eigenvector_collection_t::iterator>(v_output_eigenvectors.begin(), 0));
+    iterator_on_output_data<output_eigenvector_collection_t::iterator>(0, v_output_eigenvectors.begin()));
 
 
   // Save resulting components
