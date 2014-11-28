@@ -132,7 +132,7 @@ else()
   set(OpenCV_DIR ${opencv_root}/ CACHE PATH "Location of the OpenCV configuration directory")
   set(OpenCV_SHARED ON)
   set(OpenCV_STATIC OFF)
-  set(BUILD_SHARED_LIBS ON)
+  #set(BUILD_SHARED_LIBS OFF)
   find_package(OpenCV REQUIRED)
 
   if(NOT OpenCV_INCLUDE_DIRS)
@@ -524,6 +524,7 @@ if(NOT WITHOUT_MATLAB)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_THREAD_LIBRARY)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_CHRONO_LIBRARY)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_DATE_TIME_LIBRARY)
+    copy_dependency_with_config(${GAPCA_MEX_Project} Boost_PROGRAM_OPTIONS_LIBRARY)
   endif()
 
 

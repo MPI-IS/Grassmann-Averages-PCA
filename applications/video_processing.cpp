@@ -137,6 +137,7 @@ private:
   mutable boost::numeric::ublas::vector<T> image_vector;
 };
 
+#if 0
 //! An output vector that also writes to a file
 template <class data_iterator_t>
 class iterator_on_output_data : 
@@ -165,37 +166,6 @@ public:
     internal_it(it_)
   {}
 
-  void save_eigenvector()
-  {
-    char filename[MAX_PATH];
-    const char * eigen_vector_template = "eigenvector_%.7d.txt";
-    sprintf(filename, eigen_vector_template, m_index);
-    
-    std::ofstream f(filename);
-    if(!f.is_open())
-    {
-      std::cerr << "Cannot open the file " << filename << " for writing" << std::endl;
-      return;
-    }
-    
-    std::cout << "Writing eigenvector file " << filename << std::endl;
-    
-    typedef typename data_iterator_t::value_type::iterator element_iterator;
-    
-    element_iterator itelement(internal_it->begin());
-    for(int i = 0; i < internal_it->size(); i++, ++itelement)
-    {
-      if((i + 1) % m_max_element_per_line == 0)
-      {
-        f << std::endl;
-      }
-      
-      f << *itelement;
-    }
-    
-    f.close();
-    std::cout << "Writing eigenvector file " << filename << " -- ok " << std::endl;
-  }
 
 private:
   friend class boost::iterator_core_access;
@@ -243,7 +213,91 @@ private:
   size_t m_max_element_per_line;
   data_iterator_t internal_it;
 };
+#endif
 
+
+template <class data_t>
+struct grassmann_pca_observer
+{
+  size_t element_per_line_during_save;
+  std::string filename_from_template(std::string template_, size_t i) const
+  {
+    char filename[MAX_PATH];
+    sprintf(filename, template_.c_str(), i);
+    return filename;
+  }
+
+  void save_vector(const data_t& v, std::string filename) const
+  {
+    std::ofstream f(filename);
+    if(!f.is_open())
+    {
+      std::cerr << "[ERROR] Cannot open the file " << filename << " for writing" << std::endl;
+      return;
+    }
+    
+    std::cout << "-\tWriting file " << filename;
+    
+    typedef typename data_t::const_iterator element_iterator;
+    
+    element_iterator itelement(v.begin());
+    for(int i = 0; i < v.size(); i++, ++itelement)
+    {
+      if((i + 1) % element_per_line_during_save == 0)
+      {
+        f << std::endl;
+      }
+      
+      f << *itelement;
+    }
+    
+    f.close();
+    std::cout << " -- done" << std::endl;
+  }
+
+
+  grassmann_pca_observer(size_t element_per_line_during_save_) : 
+    element_per_line_during_save(element_per_line_during_save_)
+  {}
+
+
+  //! This is called after centering the data in order to keep track 
+  //! of the mean of the dataset
+  void signal_mean(const data_t& mean) const
+  {
+    std::cout << "* Mean computed" << std::endl;
+    save_vector(mean, "./mean_vector.txt");
+  }
+
+  //! Called after the computation of the PCA
+  void signal_pca(const data_t& pca,
+                  size_t current_eigenvector_dimension) const
+  {
+    std::cout << "* PCA subspace " << current_eigenvector_dimension << " computed" << std::endl;
+    save_vector(pca, filename_from_template("./vector_pca_%.7d.txt", current_eigenvector_dimension));
+  }
+
+  //! Called each time a new eigenvector is computed
+  void signal_eigenvector(const data_t& current_eigenvector, 
+                          size_t current_eigenvector_dimension) const
+  {
+    std::cout << "* Eigenvector subspace " << current_eigenvector_dimension << " computed" << std::endl;
+    save_vector(current_eigenvector, filename_from_template("./vector_subspace_%.7d.txt", current_eigenvector_dimension));
+  }
+
+  //! Called at every step of the algorithm, at the end of the step
+  void signal_intermediate_result(
+    const data_t& current_eigenvector_state, 
+    size_t current_eigenvector_dimension,
+    size_t current_iteration_step) const
+  {
+    if((current_iteration_step % 1000) == 0)
+    {
+      std::cout << "* Trimming subspace " << current_eigenvector_dimension << " @ iteration " << current_iteration_step << std::endl;
+    }
+  }
+
+};
 
 int main(int argc, char *argv[])
 {
@@ -378,7 +432,8 @@ int main(int argc, char *argv[])
 
   // this is the form of the data extracted from the storage
   typedef ub::vector<input_array_type> data_t;
-  typedef grassmann_pca_with_trimming< data_t > grassmann_pca_with_trimming_t;
+  typedef grassmann_pca_observer<data_t> observer_t;
+  typedef grassmann_pca_with_trimming< data_t, observer_t > grassmann_pca_with_trimming_t;
 
 
   // main instance
@@ -386,7 +441,7 @@ int main(int argc, char *argv[])
   
   
   typedef std::vector<data_t> output_eigenvector_collection_t;
-  output_eigenvector_collection_t v_output_eigenvectors(nb_elements);
+  output_eigenvector_collection_t v_output_eigenvectors(max_dimension);
 
 
   if(nb_processors > 0)
@@ -403,7 +458,15 @@ int main(int argc, char *argv[])
   if(!instance.set_nb_steps_pca(nb_pca_steps))
   {
     std::cerr << "[configuration]" << "Incorrect number of regular PCA steps. Please consult the documentation (was " << nb_pca_steps << ")" << std::endl;
-    return false;
+    return 1;
+  }
+
+  observer_t my_simple_observer(cols);
+
+  if(!instance.set_observer(&my_simple_observer))
+  {
+    std::cerr << "[configuration]" << "Error while setting the observer" << std::endl;
+    return 1;
   }
 
 
@@ -412,7 +475,7 @@ int main(int argc, char *argv[])
     max_dimension,
     iterator_file_begin,
     iterator_file_end,
-    iterator_on_output_data<output_eigenvector_collection_t::iterator>(0, v_output_eigenvectors.begin()));
+    v_output_eigenvectors.begin());
 
 
   // Save resulting components

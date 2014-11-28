@@ -63,6 +63,38 @@ namespace grassmann_averages_pca
   }
 
 
+  //! A callback class for monitoring the advance of the algorithm
+  //!
+  //! All calls are made in the main thread: there is no thread-safety issue.
+  template <class data_t>
+  struct grassmann_pca_with_trimming_callback
+  {
+
+    //! This is called after centering the data in order to keep track 
+    //! of the mean of the dataset
+    void signal_mean(const data_t& mean) const
+    {}
+
+    //! Called after the computation of the PCA
+    void signal_pca(const data_t& mean,
+                    size_t current_eigenvector_dimension) const
+    {}
+
+    //! Called each time a new eigenvector is computed
+    void signal_eigenvector(const data_t& current_eigenvector, 
+                            size_t current_eigenvector_dimension) const
+    {}
+
+    //! Called at every step of the algorithm, at the end of the step
+    void signal_intermediate_result(
+      const data_t& current_eigenvector_state, 
+      size_t current_eigenvector_dimension,
+      size_t current_iteration_step) const
+    {}
+
+  };
+
+
   /*!@brief Grassmann Average algorithm for robust PCA computation, with trimming of outliers.
    *
    * This class implements the Grassmann average for computing the robust PCA, which also includes the trimming of "outliers". 
@@ -105,10 +137,13 @@ namespace grassmann_averages_pca
    *
    * @tparam data_t type of vectors used for the computation. 
    * @tparam norm_mu_t norm used to normalize the basis vectors and project them onto the unit circle.
+   * @tparam observer_t an observer type following the signature of the class grassmann_pca_with_trimming_callback
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */
-  template <class data_t, class norm_mu_t = details::norm2>
+  template <class data_t, 
+            class observer_t = grassmann_pca_with_trimming_callback<data_t>,
+            class norm_mu_t = details::norm2 >
   struct grassmann_pca_with_trimming
   {
   private:
@@ -142,6 +177,10 @@ namespace grassmann_averages_pca
     //! Indicates that the incoming data is not centered and a centering should be performed prior
     //! to the computation of the PCA or the trimmed grassmann average.
     bool need_centering;
+
+
+    //! An instance observing the steps of the algorithm
+    observer_t *observer;
 
 
     //!@internal
@@ -474,10 +513,23 @@ namespace grassmann_averages_pca
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max()),
       nb_steps_pca(3),
-      need_centering(false)
+      need_centering(false),
+      observer(0)
     {
       assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }
+
+
+    //! Sets the observer of the algorithm. 
+    //!
+    //! The lifetime of the observer is not managed by this class. Set to 0 to disable
+    //! observation.
+    bool set_observer(observer_t* observer_)
+    {
+      observer = observer_;
+      return true;
+    }
+
 
     //! Sets the number of parallel tasks used for computing.
     bool set_nb_processors(size_t nb_processors_)
@@ -710,6 +762,12 @@ namespace grassmann_averages_pca
         // gathering the accumulated, already divided by the size 
         data_t mean_vector = async_merger.get_merged_result();
 
+        // sending result to observer
+        if(observer)
+        {
+          observer->signal_mean(mean_vector);
+        }
+
 
         // centering the data
         async_merger.init();
@@ -726,6 +784,7 @@ namespace grassmann_averages_pca
 
         // waiting for completion (barrier)
         async_merger.wait_notifications(v_individual_accumulators.size());
+
 
       }
 
@@ -762,6 +821,12 @@ namespace grassmann_averages_pca
             // gathering the first mu
             mu = async_merger.get_merged_result();
             mu *= typename data_t::value_type(1./norm_op(mu));
+          }
+
+          // sending result to observer
+          if(observer)
+          {
+            observer->signal_pca(mu, current_subspace_index);
           }
         }
 
@@ -819,6 +884,12 @@ namespace grassmann_averages_pca
           // normalize mu on the sphere
           mu *= typename data_t::value_type(1./norm_op(mu));
 
+          // sending result to observer
+          if(observer)
+          {
+            observer->signal_intermediate_result(mu, current_subspace_index, iterations);
+          }
+
         }
 
 
@@ -838,6 +909,14 @@ namespace grassmann_averages_pca
 
         // mu is the basis vector of the current dimension, we store it in the output vector
         *it_basisvectors = mu;
+
+
+        // sending result to observer
+        if(observer)
+        {
+          observer->signal_eigenvector(*it_basisvectors, current_subspace_index);
+        }
+
 
         // projection onto the orthogonal subspace
         if(current_subspace_index < max_dimension_to_compute - 1)
