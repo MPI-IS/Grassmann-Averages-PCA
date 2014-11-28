@@ -109,11 +109,12 @@ if(NOT OpenCVRoot)
   
   find_package(OpenCV)
 
-  if(DEFINED OpenCV_INCLUDE_DIRS)
+  if(OpenCV_INCLUDE_DIRS)
     set(OPENCV_AVAILABLE TRUE CACHE INTERNAL "Setting the availability of opencv")
+    message(STATUS "[OPENCV] Open CV found at location ${OpenCV_INCLUDE_DIRS}")
   else()
     set(OPENCV_AVAILABLE FALSE CACHE INTERNAL "Setting the availability of opencv")
-    message(WARNING "OpenCVRoot is not defined. OpenCVRoot should be defined with the option -DOpenCVRoot=<root-to-opencv> 
+    message(WARNING "[OPENCV] OpenCVRoot is not defined. OpenCVRoot should be defined with the option -DOpenCVRoot=<root-to-opencv> 
                      in order to benefit from the video applications")
   endif()
 
@@ -124,7 +125,7 @@ else()
   endif()
 
   if(NOT EXISTS ${opencv_root}/include)
-    message(FATAL_ERROR "Cannot find the header directory of open cv. Please ensure you have decompressed the version for windows")
+    message(FATAL_ERROR "[OPENCV] Cannot find the header directory of open cv. Please ensure you have decompressed the version for windows")
   endif()
 
 
@@ -136,7 +137,7 @@ else()
   find_package(OpenCV REQUIRED)
 
   if(NOT OpenCV_INCLUDE_DIRS)
-    message(FATAL_ERROR "Cannot add the OpenCV include directories")
+    message(FATAL_ERROR "[OPENCV] Cannot add the OpenCV include directories")
   endif()
 
   list(REMOVE_DUPLICATES OpenCV_LIB_DIR)
@@ -204,6 +205,10 @@ if(NOT MSVC)
   elseif(HAS_CXX0X_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
   endif()
+
+
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+
 
   if(Boost_USE_STATIC_LIBS)
     # update to include rt library (from chrono)
