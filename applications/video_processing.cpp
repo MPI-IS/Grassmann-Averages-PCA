@@ -18,6 +18,11 @@
 #include <string>
 #include <fstream>
 
+#ifndef MAX_PATH
+  // "funny" differences win32/posix
+  #define MAX_PATH PATH_MAX
+#endif
+
 static std::string movielocation = "/is/ps/shared/users/jonas/movies/";
 static std::string eigenvectorslocation = "./";
 
@@ -27,70 +32,6 @@ void number2filename(size_t file_number, char *filename)
   const size_t dir_num = file_number / 10000;
   sprintf(filename, fn_template, dir_num, file_number);
 }
-
-
-//! An container over the content of a cvMat, addressable
-//! in a vector fashion.
-template <class T>
-struct cvMatAsVector
-{
-  cvMatAsVector(const cv::Mat& image_) : 
-    image(image_),
-    width(image_.size().width),
-    height(image_.size().height)
-  {}
-  
-  
-  T operator()(std::size_t index) const
-  {
-    int colorchannel = index % 3;
-    index /= 3;
-    int column = index % width;
-    index /= width;
-    return image.at<cv::Vec3b>(index, column)[colorchannel];
-  }
-
-  struct internal_iterator
-  {
-    cvMatAsVector<T> &outer_instance;
-    
-    internal_iterator() : current_index(0){}
-    internal_iterator(size_t index) : current_index(index) {}
-
-    T const& operator*() const
-    {
-      return outer_instance[current_index];
-    }
-
-    internal_iterator& operator++()
-    {
-      current_index++;
-      return *this;
-    }
-
-    size_t current_index;
-  };
-
-  internal_iterator begin() const
-  {
-    return internal_iterator(0);
-  }
-
-  internal_iterator end() const
-  {
-    return internal_iterator(size());
-  }
-  
-  size_t size() const
-  {
-    return width * height * 3;
-  }
-  
-  const cv::Mat& image;
-  const size_t width;
-  const size_t height;
-  
-};
 
 
 //! An iterator that will load the images on demand instead of storing everything on memory
@@ -296,9 +237,6 @@ private:
   { 
     return *internal_it;
   }
-  
-  
-
 
   size_t m_index;
   // max number of element on one line during the save
@@ -306,22 +244,6 @@ private:
   data_iterator_t internal_it;
 };
 
-#if 0
-template <class data_t>
-class data_and_save : data_t
-{
-  size_t index;
-  
-  //! sets the index that will determine the filename to which this eigenvector will 
-  //! be saved.
-  void set_index(size_t index_)
-  {
-    index = index_;
-  }
-  
-  data_t& operator*()
-};
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -366,6 +288,12 @@ int main(int argc, char *argv[])
   {
     std::cout << "Nb of frames not set, setting it to" << num_frames << "\n";
   }
+  
+  if(vm.count("movie")) 
+  {
+    std::cout << "Directory of the movie #" << vm["movie"].as<std::string>() << "\n";
+    movielocation = vm["movie"].as<std::string>();
+  }   
 
   size_t max_dimension = 30; 
   if(vm.count("max-dimensions")) 
@@ -438,18 +366,13 @@ int main(int argc, char *argv[])
 
 
   namespace ub = boost::numeric::ublas;
-
-  // type for the final eigen vectors
-  typedef ub::vector<double> data_t;  
-
-
   using namespace grassmann_averages_pca;
   using namespace grassmann_averages_pca::details::ublas_helpers;
 
+  // type of the scalars manipulated by the algorithm
+  typedef float input_array_type;
 
-  typedef double input_array_type;
-
-  const size_t dimension = rows * cols;
+  //const size_t dimension = rows * cols;
   const size_t nb_elements = num_frames;
 
 
@@ -494,6 +417,12 @@ int main(int argc, char *argv[])
 
   // Save resulting components
   // XXX: Ask Raffi for help here
+
+  if(!ret)
+  {
+    std::cerr << "The process returned an error" << std::endl;
+    return 1;
+  }
 
 
   return 0;
