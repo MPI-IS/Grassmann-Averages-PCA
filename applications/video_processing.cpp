@@ -28,9 +28,11 @@ static std::string eigenvectorslocation = "./";
 
 void number2filename(size_t file_number, char *filename)
 {
-  const char *fn_template = (movielocation + "starwars_%.3u/frame%.7u.png").c_str();
   const size_t dir_num = file_number / 10000;
-  sprintf(filename, fn_template, dir_num, file_number);
+  sprintf(filename, 
+          (movielocation + "/starwars_%.3d/frame%.7d.png").c_str(), 
+          dir_num, 
+          file_number);
 }
 
 
@@ -65,7 +67,7 @@ private:
   void increment() 
   { 
     m_index++; 
-    image_vector.clear();
+    image_vector.resize(0, false);
   }
 
   bool equal(this_type const& other) const
@@ -129,7 +131,7 @@ private:
     }
     if(n != 0)
     {
-      image_vector.clear();
+      image_vector.resize(0, false);
     }
   }  
 
@@ -137,89 +139,12 @@ private:
   mutable boost::numeric::ublas::vector<T> image_vector;
 };
 
-#if 0
-//! An output vector that also writes to a file
-template <class data_iterator_t>
-class iterator_on_output_data : 
-  public boost::iterator_facade<
-        iterator_on_output_data<data_iterator_t>
-      , typename data_iterator_t::value_type
-      , std::random_access_iterator_tag
-      , typename data_iterator_t::reference
-    >
-{
-
-public:
-  typedef typename data_iterator_t::reference reference;
-  typedef iterator_on_output_data<data_iterator_t> this_type;
-  
-  
-  iterator_on_output_data() : 
-    m_index(std::numeric_limits<size_t>::max()), 
-    m_max_element_per_line(100),
-    internal_it()
-  {}
-
-  explicit iterator_on_output_data(size_t index, data_iterator_t it_) : 
-    m_index(index),
-    m_max_element_per_line(100),
-    internal_it(it_)
-  {}
-
-
-private:
-  friend class boost::iterator_core_access;
-
-  typename this_type::difference_type distance_to(this_type const& r) const
-  {
-    return typename this_type::difference_type(r.m_index) - typename this_type::difference_type(m_index); // sign promotion
-  }
-
-  void increment() {
-    // here we save before going further, except if it has not been changed
-    save_eigenvector();
-    m_index++; 
-    ++internal_it;
-  }
-  
-  void advance(typename this_type::difference_type n)
-  {
-    if(n < 0)
-    {
-      assert((-n) <= static_cast<typename this_type::difference_type>(m_index));
-      m_index -= n;
-    }
-    else
-    {
-      //assert(n + index <= matrix->size1());
-      m_index += n;
-    }
-    
-  }  
-  
-
-  bool equal(this_type const& other) const
-  {
-    return this->internal_it == other.internal_it;
-  }
-
-  reference dereference() const
-  { 
-    return *internal_it;
-  }
-
-  size_t m_index;
-  // max number of element on one line during the save
-  size_t m_max_element_per_line;
-  data_iterator_t internal_it;
-};
-#endif
-
 
 template <class data_t>
 struct grassmann_pca_observer
 {
   size_t element_per_line_during_save;
+  size_t last_nb_iteration;
   std::string filename_from_template(std::string template_, size_t i) const
   {
     char filename[MAX_PATH];
@@ -248,7 +173,7 @@ struct grassmann_pca_observer
         f << std::endl;
       }
       
-      f << *itelement;
+      f << *itelement << " ";
     }
     
     f.close();
@@ -259,6 +184,12 @@ struct grassmann_pca_observer
   grassmann_pca_observer(size_t element_per_line_during_save_) : 
     element_per_line_during_save(element_per_line_during_save_)
   {}
+
+
+  void log_error_message(const char* message) const
+  {
+    std::cout << message << std::endl;
+  }
 
 
   //! This is called after centering the data in order to keep track 
@@ -281,7 +212,7 @@ struct grassmann_pca_observer
   void signal_eigenvector(const data_t& current_eigenvector, 
                           size_t current_eigenvector_dimension) const
   {
-    std::cout << "* Eigenvector subspace " << current_eigenvector_dimension << " computed" << std::endl;
+    std::cout << "* Eigenvector subspace " << current_eigenvector_dimension << " computed in # " << last_nb_iteration << " iterations " << std::endl;
     save_vector(current_eigenvector, filename_from_template("./vector_subspace_%.7d.txt", current_eigenvector_dimension));
   }
 
@@ -289,8 +220,9 @@ struct grassmann_pca_observer
   void signal_intermediate_result(
     const data_t& current_eigenvector_state, 
     size_t current_eigenvector_dimension,
-    size_t current_iteration_step) const
+    size_t current_iteration_step) 
   {
+    last_nb_iteration = current_iteration_step;
     if((current_iteration_step % 1000) == 0)
     {
       std::cout << "* Trimming subspace " << current_eigenvector_dimension << " @ iteration " << current_iteration_step << std::endl;
@@ -469,6 +401,12 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+
+  if(!instance.set_centering(true))
+  {
+    std::cerr << "[configuration]" << "Error while configuring the centering" << std::endl;
+    return 1;
+  }
 
   bool ret = instance.batch_process(
     max_iterations,

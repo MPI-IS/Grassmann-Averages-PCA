@@ -70,6 +70,12 @@ namespace grassmann_averages_pca
   struct grassmann_pca_with_trimming_callback
   {
 
+    //! Called to provide important messages/logs
+    void log_error_message(const char* message) const
+    {
+      std::cout << message << std::endl;
+    }
+
     //! This is called after centering the data in order to keep track 
     //! of the mean of the dataset
     void signal_mean(const data_t& mean) const
@@ -343,11 +349,11 @@ namespace grassmann_averages_pca
         
         for(int line = 0; line < data_dimension; line++)
         {
-          const scalar_t mu_element = mean_value(line);   
+          const scalar_t scalar = mean_value(line);   
           scalar_t * const current_line_end = current_element_ptr + nb_elements;
           for(; current_element_ptr < current_line_end; current_element_ptr++)
           {
-            *current_element_ptr -= mu_element;
+            *current_element_ptr -= scalar;
           }               
         }
 
@@ -820,7 +826,18 @@ namespace grassmann_averages_pca
 
             // gathering the first mu
             mu = async_merger.get_merged_result();
-            mu *= typename data_t::value_type(1./norm_op(mu));
+            double norm_mu = norm_op(mu);
+            if(norm_mu < 1E-12)
+            {
+              if(observer)
+              {
+                std::ostringstream o;
+                o << "The result of the PCA is null for subspace " << current_subspace_index;
+                observer->log_error_message(o.str().c_str());
+              }
+              return false;
+            }
+            mu *= typename data_t::value_type(1./norm_mu);
           }
 
           // sending result to observer
@@ -903,7 +920,19 @@ namespace grassmann_averages_pca
         }
         if(renormalise)
         {
-          mu *= typename data_t::value_type(1./norm_op(mu));
+          double norm_mu = norm_op(mu);
+          if(norm_mu < 1E-12)
+          {
+            if(observer)
+            {
+              std::ostringstream o;
+              o << "The result of the subspace computation is null (subspace " << current_subspace_index << ")";
+              observer->log_error_message(o.str().c_str());
+            }
+            return false;
+          }
+
+          mu *= typename data_t::value_type(1./norm_mu);
         }
         
 
