@@ -103,6 +103,7 @@ class iterator_on_image_files :
     >
 {
 public:
+  typedef iterator_on_image_files<T> this_type;
   typedef boost::numeric::ublas::vector<T> image_vector_type;
   iterator_on_image_files() : m_index(std::numeric_limits<size_t>::max()) 
   {}
@@ -114,13 +115,18 @@ public:
 private:
   friend class boost::iterator_core_access;
 
+  typename this_type::difference_type distance_to(this_type const& r) const
+  {
+    return typename this_type::difference_type(r.m_index) - typename this_type::difference_type(m_index); // sign promotion
+  }
+
   void increment() 
   { 
     m_index++; 
     image_vector.clear();
   }
 
-  bool equal(iterator_on_image_files const& other) const
+  bool equal(this_type const& other) const
   {
     return this->m_index == other.m_index;
   }
@@ -135,7 +141,7 @@ private:
   }
   
   
-  void read_image()
+  void read_image() const
   {
     char filename[PATH_MAX];
     number2filename(m_index, filename);
@@ -153,7 +159,7 @@ private:
     const int h = image.size().height;
 
     image_vector.resize(w * h * 3);
-    boost::numeric::ublas::vector<T>::iterator it = image_vector.begin();
+    typename boost::numeric::ublas::vector<T>::iterator it = image_vector.begin();
 
     for(int y = 0; y < h; y++)
     {
@@ -165,8 +171,25 @@ private:
         *it++ = pixel[2];
       }
     }
-
   }
+
+  void advance(typename this_type::difference_type n)
+  {
+    if(n < 0)
+    {
+      assert((-n) <= static_cast<typename this_type::difference_type>(m_index));
+      m_index -= n;
+    }
+    else
+    {
+      //assert(n + index <= matrix->size1());
+      m_index += n;
+    }
+    if(n != 0)
+    {
+      image_vector.clear();
+    }
+  }  
 
   size_t m_index;
   mutable boost::numeric::ublas::vector<T> image_vector;
@@ -184,6 +207,9 @@ class iterator_on_output_data :
 
 public:
   typedef typename data_iterator_t::reference reference;
+  typedef iterator_on_output_data<data_iterator_t> this_type;
+  
+  
   iterator_on_output_data() : 
     m_index(std::numeric_limits<size_t>::max()), 
     m_max_element_per_line(100),
@@ -231,19 +257,40 @@ public:
 private:
   friend class boost::iterator_core_access;
 
+  typename this_type::difference_type distance_to(this_type const& r) const
+  {
+    return typename this_type::difference_type(r.m_index) - typename this_type::difference_type(m_index); // sign promotion
+  }
+
   void increment() {
     // here we save before going further, except if it has not been changed
     save_eigenvector();
     m_index++; 
     ++internal_it;
   }
+  
+  void advance(typename this_type::difference_type n)
+  {
+    if(n < 0)
+    {
+      assert((-n) <= static_cast<typename this_type::difference_type>(m_index));
+      m_index -= n;
+    }
+    else
+    {
+      //assert(n + index <= matrix->size1());
+      m_index += n;
+    }
+    
+  }  
+  
 
-  bool equal(iterator_on_image_files<data_iterator_t> const& other) const
+  bool equal(this_type const& other) const
   {
     return this->internal_it == other.internal_it;
   }
 
-  reference dereference()
+  reference dereference() const
   { 
     return *internal_it;
   }
@@ -364,7 +411,7 @@ int main(int argc, char *argv[])
   size_t cols(0);
    
   {
-    char filename[_MAX_PATH];
+    char filename[PATH_MAX];
     // Read first image to get image size
     number2filename(1, filename);
 
