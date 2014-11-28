@@ -223,7 +223,7 @@ struct grassmann_pca_observer
     size_t current_iteration_step) 
   {
     last_nb_iteration = current_iteration_step;
-    if((current_iteration_step % 1000) == 0)
+    if((current_iteration_step % 100) == 0)
     {
       std::cout << "* Trimming subspace " << current_eigenvector_dimension << " @ iteration " << current_iteration_step << std::endl;
     }
