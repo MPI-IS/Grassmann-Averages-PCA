@@ -21,10 +21,10 @@
 static std::string movielocation = "/is/ps/shared/users/jonas/movies/";
 static std::string eigenvectorslocation = "./";
 
-void number2filename(int file_number, char *filename)
+void number2filename(size_t file_number, char *filename)
 {
-  const char *fn_template = (movielocation + "starwars_%.3d/frame%.7d.png").c_str();
-  const int dir_num = file_number / 10000;
+  const char *fn_template = (movielocation + "starwars_%.3u/frame%.7u.png").c_str();
+  const size_t dir_num = file_number / 10000;
   sprintf(filename, fn_template, dir_num, file_number);
 }
 
@@ -100,6 +100,7 @@ class iterator_on_image_files :
         iterator_on_image_files<T>
       , boost::numeric::ublas::vector<T>
       , std::random_access_iterator_tag
+      , boost::numeric::ublas::vector<T> const& // const reference
     >
 {
 public:
@@ -131,7 +132,7 @@ private:
     return this->m_index == other.m_index;
   }
 
-  const image_vector_type& dereference() const 
+  image_vector_type const& dereference() const 
   { 
     if(image_vector.empty())
     {
@@ -143,7 +144,7 @@ private:
   
   void read_image() const
   {
-    char filename[PATH_MAX];
+    char filename[MAX_PATH];
     number2filename(m_index, filename);
     std::cout << "Reading " << filename << std::endl;
     cv::Mat image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
@@ -202,6 +203,7 @@ class iterator_on_output_data :
         iterator_on_output_data<data_iterator_t>
       , typename data_iterator_t::value_type
       , std::random_access_iterator_tag
+      , typename data_iterator_t::reference
     >
 {
 
@@ -224,7 +226,7 @@ public:
 
   void save_eigenvector()
   {
-    char filename[PATH_MAX];
+    char filename[MAX_PATH];
     const char * eigen_vector_template = "eigenvector_%.7d.txt";
     sprintf(filename, eigen_vector_template, m_index);
     
@@ -411,7 +413,7 @@ int main(int argc, char *argv[])
   size_t cols(0);
    
   {
-    char filename[PATH_MAX];
+    char filename[MAX_PATH];
     // Read first image to get image size
     number2filename(1, filename);
 

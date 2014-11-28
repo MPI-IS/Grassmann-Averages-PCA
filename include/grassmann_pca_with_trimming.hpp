@@ -275,7 +275,7 @@ namespace grassmann_averages_pca
 
 
       //! Centering the data in case it was not possible to do it beforehand
-      void data_centering_first_phase(scalar_t divider)
+      void data_centering_first_phase(size_t full_dataset_size)
       {
         scalar_t const * current_line = p_c_matrix;
         for(size_t dimension = 0; dimension < data_dimension; dimension++)
@@ -289,7 +289,7 @@ namespace grassmann_averages_pca
           // posts the new value to the listeners for the current dimension
           accumulator_element_t &result = v_accumulated_per_dimension[dimension];
           result.dimension = dimension;
-          result.value = acc / divider;
+          result.value = acc / full_dataset_size;
           signal_acc_dimension(&result);
         }
 
