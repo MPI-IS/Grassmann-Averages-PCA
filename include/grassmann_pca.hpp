@@ -475,6 +475,7 @@ namespace grassmann_averages_pca
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max()),
       nb_steps_pca(3),
+      need_centering(false),
       observer(0)
     {}
 
