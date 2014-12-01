@@ -130,6 +130,7 @@ namespace grassmann_averages_pca
      * @param it beginning of the collection of vectors
      * @param ite end of the collection of vectors
      * @param start first element of the collection to be orthonormalized. start should be inside the range given by it and ite. 
+     * @param norm_op the norm used to normalise the vectors
      */
     template <class it_t, class norm_t>
     bool gram_schmidt_orthonormalisation(it_t it, it_t ite, it_t start, norm_t const &norm_op)

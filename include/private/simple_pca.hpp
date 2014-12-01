@@ -3,13 +3,12 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
-#ifndef GRASSMANN_AVERAGES_PCA_HPP__
-#define GRASSMANN_AVERAGES_PCA_HPP__
+#ifndef SIMPLE_AVERAGES_PCA_HPP__
+#define SIMPLE_AVERAGES_PCA_HPP__
 
 /*!@file
- * Grassmann PCA functions, following the paper of Soren Hauberg.
+ * Simple PCA functions, for comparison with the Grassmann averages.
  *
- * @note These implementations assume the existence of boost somewhere. 
  */
 
 #include <vector>
@@ -33,7 +32,7 @@ namespace grassmann_averages_pca
 {
 
   namespace ub = boost::numeric::ublas;
-
+   
   /*!@brief PCA algorithm.
    *
    * This class is intended to be used in comparison to the Grassmann algorithms.
@@ -43,26 +42,24 @@ namespace grassmann_averages_pca
    * The algorithm is the following:
    * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
    * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
-   *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
-   *   - compute the update of @f$\mu_{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
+   *   - computes the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$
+   *   - accumulate these projections and update @f$\mu_{k, t}@f$: @f[\mu_{k, t+1} = \frac{\sum_j \left(\mu_{i, t}^T \cdot X_j \right) X_j}{\left\|\sum_j \left(\mu_{i, t}^T \cdot X_j \right) X_j\right\|}@f]
    * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
-   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see grassmann_pca::batch_process). 
-   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see grassmann_pca::batch_process).
+   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see simple_pca::batch_process). 
+   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see simple_pca::batch_process).
    * The test for convergence is delegated to the class details::convergence_check.
    *
    * The computation is distributed among several threads. The multithreading strategy is 
-   * - to split the computation of @f$\sum_j s_{j, t} X_j@f$ among several independant chunks. This computation involves the inner product and the sign. Each chunk addresses 
-   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function grassmann_pca::set_max_chunk_size.
+   * - to split the computation of @f$\left( \mu_{i, t}^T \cdot X_j \right) X_j@f$ among several independant chunks. This computation involves the inner product and the addition. Each chunk addresses 
+   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function simple_pca::set_max_chunk_size.
    *   By default, the size of the chunk would be the size of the data divided by the number of threads.
    * - to split the computation of the projection onto the orthogonal subspace of @f$\mu_{k}@f$.
-   * - to split the computation of the regular PCA algorithm (if any) into several independant chunks.
    *
-   * The number of threads can be configured through the function grassmann_pca::set_nb_processors.
+   * The number of threads can be configured through the function simple_pca::set_nb_processors.
    * 
    * @note
-   * The algorithm may also perform a few "regular PCA" steps, which is the computation of the eigen-vector with highest eigen-value. This can be configured through the function
-   * grassmann_pca::set_nb_steps_pca.
+   * The API is chosen to be the same as for the other two Grassmann implementations, in order to be able to easily switch from one implementation to the other.
    *
    * @tparam data_t type of vectors used for the computation. 
    * @tparam observer_t an observer type following the signature of the class grassmann_trivial_callback.
@@ -89,7 +86,7 @@ namespace grassmann_averages_pca
     size_t max_chunk_size;
 
     //! Indicates that the incoming data is not centered and a centering should be performed prior
-    //! to the computation of the PCA or the trimmed grassmann average.
+    //! to the computation of the PCA.
     bool need_centering;
 
     //! An instance observing the steps of the algorithm
@@ -413,7 +410,7 @@ namespace grassmann_averages_pca
 
     //! Sets the centering flags.
     //!
-    //! If set to true, a centering will be performed before applying any computation (PCA and Grassmann averages). 
+    //! If set to true, a centering will be performed before applying any computation. 
     bool set_centering(bool need_centering_)
     {
       need_centering = need_centering_;
@@ -700,4 +697,4 @@ namespace grassmann_averages_pca
 
 }
 
-#endif /* GRASSMANN_AVERAGES_PCA_HPP__ */
+#endif /* SIMPLE_AVERAGES_PCA_HPP__ */
