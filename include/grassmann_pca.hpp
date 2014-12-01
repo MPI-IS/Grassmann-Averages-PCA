@@ -257,7 +257,7 @@ namespace grassmann_averages_pca
       //! Project the data onto the orthogonal subspace of the provided vector
       void data_centering_second_phase(data_t const &mean_value)
       {
-        scalar_t const * current_line = p_c_matrix;
+        scalar_t * current_line = p_c_matrix;
         scalar_t const * const p_mean_begin = &mean_value(0);
         scalar_t const * const p_mean_end = p_mean_begin + data_dimension;
         
@@ -266,7 +266,7 @@ namespace grassmann_averages_pca
             current_element < nb_elements; 
             current_element++, current_line+= data_padding - data_dimension)
         {
-          scalar_t * p_mean = p_mean_begin;
+          const scalar_t * p_mean = p_mean_begin;
           for(; p_mean < p_mean_end; p_mean++, current_line++)
           {
             *current_line -= *p_mean;
