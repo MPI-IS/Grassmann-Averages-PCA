@@ -267,6 +267,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   std::vector<data_t> basis_vectors(DATA_DIMENSION == 5 ? dimensions : 5);
   const int max_iterations = 1000;
 
+  BOOST_CHECK(instance.set_centering(true));
 
   BOOST_CHECK(instance.set_nb_processors(7)); // each chunk is floor(1000/7) = 142. Last chunk is 148. Just to test sthg different from 10.
 
