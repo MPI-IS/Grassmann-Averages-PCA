@@ -248,6 +248,13 @@ namespace grassmann_averages_pca
           }
         }
 
+
+        for(scalar_t * p_acc = p_acc_begin; p_acc < p_acc_end; p_acc++)
+        {
+          *p_acc /= full_dataset_size;
+        }
+
+
         // posts the new value to the listeners for the current dimension
         signal_acc(&accumulator);
         signal_counter();

@@ -94,7 +94,13 @@ private:
   {
     char filename[MAX_PATH];
     number2filename(m_index, filename);
-    std::cout << "Reading " << filename << std::endl;
+    
+    if((m_index % 1000) == 0)
+    {
+      lock_t guard(internal_mutex);
+      std::cout << "[THREAD " << boost::this_thread::get_id() << "] Reading " << filename << std::endl;
+    }
+    
     cv::Mat image = cv::imread(filename, CV_LOAD_IMAGE_COLOR);
     if(!image.data)
     {
@@ -142,7 +148,18 @@ private:
 
   size_t m_index;
   mutable boost::numeric::ublas::vector<T> image_vector;
+
+  // for being able to log in a thread safe manner
+  typedef boost::recursive_mutex mutex_t;
+  typedef boost::lock_guard<mutex_t> lock_t;
+
+  static mutex_t internal_mutex;
+
+
 };
+
+template <class T>
+typename iterator_on_image_files<T>::mutex_t iterator_on_image_files<T>::internal_mutex = typename iterator_on_image_files<T>::mutex_t();
 
 
 template <class data_t>

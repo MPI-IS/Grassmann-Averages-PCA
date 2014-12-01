@@ -14,6 +14,9 @@
 
 #include <fstream>
 
+#include <include/private/utilities.hpp>
+
+
 // random number generator
 extern boost::random::mt19937 rng;
 
@@ -68,6 +71,22 @@ struct fixture_simple_matrix_creation
 
   }
 };
+
+
+template <class data_t>
+struct test_mean_observer : grassmann_averages_pca::grassmann_trivial_callback<data_t>
+{
+  struct s_signal_exception {};
+
+  data_t mean;
+  void signal_mean(const data_t& mean_)
+  {
+    mean = mean_;
+    throw s_signal_exception();
+  }
+
+};
+
 
 
 #endif /* GRASSMANN_AVERAGES_PCA_TEST_MAIN_HPP__ */

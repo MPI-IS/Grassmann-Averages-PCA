@@ -66,6 +66,90 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 }
 
 
+BOOST_AUTO_TEST_CASE(check_centering_not_called)
+{
+  // in this implementation, the centering should not be called
+  using namespace grassmann_averages_pca;
+  namespace ub = boost::numeric::ublas;
+  typedef ub::vector<double> data_t;
+
+  typedef test_mean_observer<data_t> observer_t;
+
+  typedef grassmann_pca_with_trimming< ub::vector<double>, observer_t > grassmann_pca_t;
+
+  grassmann_pca_t instance;
+
+  observer_t observer;
+
+  BOOST_CHECK(instance.set_observer(&observer));
+  BOOST_CHECK(instance.set_centering(false));
+
+
+  typedef details::ublas_helpers::row_iter<const matrix_t> const_row_iter_t;
+
+  std::vector<data_t> basis_vectors(dimensions);
+  const int max_iterations = 10;
+
+  BOOST_CHECK_NO_THROW(instance.batch_process(
+                       max_iterations,
+                       dimensions,
+                       const_row_iter_t(mat_data, 0),
+                       const_row_iter_t(mat_data, 10),
+                       basis_vectors.begin()));
+
+}
+
+
+
+BOOST_AUTO_TEST_CASE(check_centering_of_data)
+{
+  // checks that the multithreaded centering is performing well
+  using namespace grassmann_averages_pca;
+  namespace ub = boost::numeric::ublas;
+  typedef ub::vector<double> data_t;
+
+  typedef test_mean_observer<data_t> observer_t;
+
+  typedef grassmann_pca_with_trimming< ub::vector<double>, observer_t > grassmann_pca_t;
+
+  grassmann_pca_t instance;
+
+  observer_t observer;
+
+  BOOST_CHECK(instance.set_observer(&observer));
+  BOOST_CHECK(instance.set_centering(true));
+
+
+  typedef details::ublas_helpers::row_iter<const matrix_t> const_row_iter_t;
+
+  std::vector<data_t> basis_vectors(dimensions);
+  const int max_iterations = 1000;
+
+  BOOST_CHECK_THROW(instance.batch_process(
+                      max_iterations,
+                      dimensions,
+                      const_row_iter_t(mat_data, 0),
+                      const_row_iter_t(mat_data, 10),
+                      basis_vectors.begin()), 
+                    observer_t::s_signal_exception);
+
+  for(int j = 0; j < dimensions; j++)
+  {
+    double acc = 0;
+    for(int i = 0; i < 10; i++)
+    {
+      acc += mat_data(i, j);
+    }
+
+    BOOST_CHECK_CLOSE(acc / 10, observer.mean(j), 1E-3);
+  }
+
+
+}
+
+
+
+
 BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
 {
   using namespace grassmann_averages_pca;
