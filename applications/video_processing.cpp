@@ -159,7 +159,7 @@ private:
 };
 
 template <class T>
-typename iterator_on_image_files<T>::mutex_t iterator_on_image_files<T>::internal_mutex = typename iterator_on_image_files<T>::mutex_t();
+typename iterator_on_image_files<T>::mutex_t iterator_on_image_files<T>::internal_mutex;//(typename iterator_on_image_files<T>::mutex_t());
 
 
 template <class data_t>
