@@ -283,6 +283,15 @@ if(OPENCV_AVAILABLE)
   target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages ${OpenCV_LIBS} ${Boost_PROGRAM_OPTIONS_LIBRARY})
   target_include_directories(${PROJECT_NAME}_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
   set_target_properties(${PROJECT_NAME}_movie_runner PROPERTIES FOLDER "Applications")
+
+
+  # Reads a full movie and runs the EM PCA on it
+  set(${PROJECT_NAME}_pca_movie_runner_SRC
+      applications/video_processing_pca.cpp)
+  add_executable(${PROJECT_NAME}_pca_movie_runner ${${PROJECT_NAME}_pca_movie_runner_SRC})
+  target_link_libraries(${PROJECT_NAME}_pca_movie_runner  grassmann_averages ${OpenCV_LIBS} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+  target_include_directories(${PROJECT_NAME}_pca_movie_runner  PRIVATE ${OpenCV_INCLUDE_DIRS})
+  set_target_properties(${PROJECT_NAME}_pca_movie_runner  PROPERTIES FOLDER "Applications")
 endif()
 
 ##############################################################################################
