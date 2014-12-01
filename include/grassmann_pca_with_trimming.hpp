@@ -263,6 +263,8 @@ namespace grassmann_averages_pca
         }
         
         inner_prod_results.resize(nb_elements);
+        
+        signal_counter();
         return true;
       }
 
