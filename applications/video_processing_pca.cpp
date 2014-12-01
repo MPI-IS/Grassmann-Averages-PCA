@@ -235,7 +235,7 @@ struct grassmann_pca_observer
                           size_t current_eigenvector_dimension) const
   {
     std::cout << "* Eigenvector subspace " << current_eigenvector_dimension << " computed in # " << last_nb_iteration << " iterations " << std::endl;
-    save_vector(current_eigenvector, filename_from_template("./vector_subspace_%.7d.txt", current_eigenvector_dimension));
+    save_vector(current_eigenvector, filename_from_template("./vector_empca_subspace_%.7d.txt", current_eigenvector_dimension));
   }
 
   //! Called at every step of the algorithm, at the end of the step
@@ -247,7 +247,7 @@ struct grassmann_pca_observer
     last_nb_iteration = current_iteration_step;
     if((current_iteration_step % 100) == 0)
     {
-      std::cout << "* Trimming subspace " << current_eigenvector_dimension << " @ iteration " << current_iteration_step << std::endl;
+      std::cout << "* PCA subspace " << current_eigenvector_dimension << " @ iteration " << current_iteration_step << std::endl;
     }
   }
 
@@ -359,10 +359,6 @@ int main(int argc, char *argv[])
 
   // type of the scalars manipulated by the algorithm
   typedef float input_array_type;
-
-  //const size_t dimension = rows * cols;
-  const size_t nb_elements = num_frames;
-
 
   // this is the form of the data extracted from the storage
   typedef ub::vector<input_array_type> data_t;

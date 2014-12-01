@@ -481,6 +481,8 @@ namespace grassmann_averages_pca
       // number of dimensions of the data vectors
       const size_t number_of_dimensions = it->size();
       
+      // pointer to the begining of the output vectors, for orthonormalisation
+      it_o_basisvectors_t const it_basisvectors_begin(it_basisvectors);
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
@@ -638,13 +640,33 @@ namespace grassmann_averages_pca
             if(observer)
             {
               std::ostringstream o;
-              o << "The result of the PCA is null for subspace " << current_subspace_index;
+              o << "The result of the PCA is null for subspace " 
+                << current_subspace_index
+                << " at iteration @ "
+                << iterations;
               observer->log_error_message(o.str().c_str());
             }
             return false;
           }            
             
           mu *= typename data_t::value_type(1./norm_mu);
+          
+          
+#if 0
+          if(!gram_schmidt_orthonormalisation(norm_op))
+          {
+            if(observer)
+            {
+              std::ostringstream o;
+              o << "Error during the Gram-Schmidt orthonormalisation for subspace " 
+                << current_subspace_index
+                << " at iteration @ "
+                << iterations;
+              observer->log_error_message(o.str().c_str());
+            }
+            return false;
+          }
+#endif
 
           // sending result to observer
           if(observer)
@@ -679,6 +701,15 @@ namespace grassmann_averages_pca
           }
 
           mu = initial_guess != 0 ? (*initial_guess)[current_subspace_index+1] : random_init_op(*it);
+
+          // project onto the orthogonal subspace
+          for(it_o_basisvectors_t it_orthonormalised_element(it_basisvectors_begin); 
+              it_orthonormalised_element <= it_basisvectors; 
+              ++it_orthonormalised_element)
+          {
+            mu -= boost::numeric::ublas::inner_prod(mu, *it_orthonormalised_element) * (*it_orthonormalised_element);
+          }
+          mu *= typename it_t::value_type::value_type(1./norm_op(mu));
 
           async_merger.wait_notifications(v_individual_accumulators.size());
 
