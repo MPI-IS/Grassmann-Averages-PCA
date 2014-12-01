@@ -69,6 +69,7 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 BOOST_AUTO_TEST_CASE(check_centering_not_called)
 {
   // in this implementation, the centering should not be called
+  // the observer throws an exception that is intercepted by the test here.
   using namespace grassmann_averages_pca;
   namespace ub = boost::numeric::ublas;
   typedef ub::vector<double> data_t;
@@ -104,6 +105,7 @@ BOOST_AUTO_TEST_CASE(check_centering_not_called)
 BOOST_AUTO_TEST_CASE(check_centering_of_data)
 {
   // checks that the multithreaded centering is performing well
+  // the observer throws an exception that is intercepted by the test here.
   using namespace grassmann_averages_pca;
   namespace ub = boost::numeric::ublas;
   typedef ub::vector<double> data_t;

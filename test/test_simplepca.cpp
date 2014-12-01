@@ -12,7 +12,7 @@
 
 #include <test/test_main.hpp>
 
-#include <include/grassmann_pca.hpp>
+#include <include/private/simple_pca.hpp>
 #include <include/private/boost_ublas_row_iterator.hpp>
 
 // data stored into a matrix
@@ -30,16 +30,16 @@
 
 
 
-BOOST_FIXTURE_TEST_SUITE(grassmann_pca_test_suite, fixture_simple_matrix_creation)
+BOOST_FIXTURE_TEST_SUITE(simple_pca_test_suite, fixture_simple_matrix_creation)
 
 BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
 {
   using namespace grassmann_averages_pca;
   namespace ub = boost::numeric::ublas;
 
-  typedef grassmann_pca< ub::vector<double> > grassmann_pca_t;
+  typedef simple_pca< ub::vector<double> > simple_pca_t;
 
-  grassmann_pca_t instance;
+  simple_pca_t instance;
 
 
   typedef details::ublas_helpers::row_iter<const matrix_t> const_row_iter_t;
@@ -74,9 +74,9 @@ BOOST_AUTO_TEST_CASE(check_centering_not_called)
 
   typedef test_mean_observer<data_t> observer_t;
 
-  typedef grassmann_pca< ub::vector<double>, observer_t > grassmann_pca_t;
+  typedef simple_pca< ub::vector<double>, observer_t > simple_pca_t;
 
-  grassmann_pca_t instance;
+  simple_pca_t instance;
 
   observer_t observer;
 
@@ -110,9 +110,9 @@ BOOST_AUTO_TEST_CASE(check_centering_of_data)
 
   typedef test_mean_observer<data_t> observer_t;
 
-  typedef grassmann_pca< ub::vector<double>, observer_t > grassmann_pca_t;
+  typedef simple_pca< ub::vector<double>, observer_t > simple_pca_t;
 
-  grassmann_pca_t instance;
+  simple_pca_t instance;
 
   observer_t observer;
 
@@ -157,8 +157,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   typedef boost::chrono::steady_clock clock_type;
 
 
-  typedef grassmann_pca< ub::vector<double> > grassmann_pca_t;  
-  grassmann_pca_t instance;
+  typedef simple_pca< ub::vector<double> > simple_pca_t;  
+  simple_pca_t instance;
   typedef row_iter<const matrix_t> const_row_iter_t;
   
   typedef ub::vector<double> data_t;
@@ -244,39 +244,6 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
     BOOST_CHECK_CLOSE(ub::inner_prod(basis_vectors[i], basis_vectors[i]), 1, 1E-6);
   }
 
-
-
-  if(DATA_DIMENSION == 5)
-  {
-    // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
-    // each dimension iteration being given by the vector "initial_point" above. Each column represents 
-    // an basis vector.
-    static const double matlab_data[] = {
-      -0.0318,    0.0564,   -0.0290,   -0.0136,    0.9974,
-       0.0242,    0.0061,    0.9993,   -0.0013,    0.0295,
-      -0.0118,    0.9982,   -0.0041,    0.0153,   -0.0567,
-      -0.0307,   -0.0149,    0.0017,    0.9993,    0.0136,
-       0.9987,    0.0130,   -0.0252,    0.0305,    0.0308,
-    };
-
-
-    for(int i = 0; i < dimensions; i++)
-    {
-      ub::vector<double> current_matlab_vector(dimensions);
-      for(int j = 0; j < dimensions; j++)
-      {
-        current_matlab_vector(j) = matlab_data[i + j*dimensions];
-      }
-      BOOST_CHECKPOINT("iteration " << i);
-      BOOST_CHECK_LE(ub::norm_2(basis_vectors[i] - current_matlab_vector), 1E-3);
-      //std::cout << "computed = " << basis_vectors[i] << std::endl;
-      //std::cout << "matlab = " << current_matlab_vector << std::endl;
-    }
-  }
-
-
-
-
 }
 
 
@@ -290,8 +257,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   typedef boost::chrono::steady_clock clock_type;
 
 
-  typedef grassmann_pca< ub::vector<double> > grassmann_pca_t;  
-  grassmann_pca_t instance;
+  typedef simple_pca< ub::vector<double> > simple_pca_t;  
+  simple_pca_t instance;
   typedef row_iter<const matrix_t> const_row_iter_t;
   
   typedef ub::vector<double> data_t;
@@ -378,74 +345,10 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
     BOOST_CHECK_CLOSE(ub::inner_prod(basis_vectors[i], basis_vectors[i]), 1, 1E-6);
   }
 
-  if(DATA_DIMENSION == 5)
-  {
-    // testing against the matlab output, the script being given by Sorent Hauberg, and the init between
-    // each dimension iteration being given by the vector "initial_point" above. Each column represents 
-    // an basis vector.
-    static const double matlab_data[] = {
-      -0.0318,    0.0564,   -0.0290,   -0.0136,    0.9974,
-       0.0242,    0.0061,    0.9993,   -0.0013,    0.0295,
-      -0.0118,    0.9982,   -0.0041,    0.0153,   -0.0567,
-      -0.0307,   -0.0149,    0.0017,    0.9993,    0.0136,
-       0.9987,    0.0130,   -0.0252,    0.0305,    0.0308,
-    };
-
-
-    for(int i = 0; i < dimensions; i++)
-    {
-      ub::vector<double> current_matlab_vector(dimensions);
-      for(int j = 0; j < dimensions; j++)
-      {
-        current_matlab_vector(j) = matlab_data[i + j*dimensions];
-      }
-      BOOST_CHECKPOINT("iteration " << i);
-      BOOST_CHECK_LE(ub::norm_2(basis_vectors[i] - current_matlab_vector), 1E-3);
-    }
-  }  
-
-
 
 }
 
 
-
-#if 0
-BOOST_AUTO_TEST_CASE(checking_against_matlab)
-{
-  using namespace grassmann_averages_pca;
-  using namespace grassmann_averages_pca::ublas_adaptor;
-  namespace ub = boost::numeric::ublas;
-
-
-  typedef grassmann_pca< ub::vector<double> > grassmann_pca_t;  
-  grassmann_pca_t instance;
-  typedef row_iter<const matrix_t> const_row_iter_t;
-  
-  typedef boost::numeric::ublas::vector<double> data_t;
-
-  std::vector<data_t> temporary_data(nb_elements);
-  std::vector<data_t> basis_vectors(dimensions);
-  const int max_iterations = 1000;
-
-
-  BOOST_CHECK(instance.batch_process(
-    max_iterations,
-    dimensions,
-    const_row_iter_t(mat_data, 0),
-    const_row_iter_t(mat_data, mat_data.size1()),
-    temporary_data.begin(),
-    basis_vectors.begin()));
-
-
-  BOOST_MESSAGE("Generated basis vectors are:");
-
-  for(int i = 0; i < dimensions; i++)
-  {
-    BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
-  }
-}
-#endif
 
 BOOST_AUTO_TEST_SUITE_END();
 

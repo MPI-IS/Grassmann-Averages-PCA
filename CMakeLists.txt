@@ -250,6 +250,7 @@ set(${PROJECT_NAME}_LIB
      include/grassmann_pca.hpp
      include/grassmann_pca_with_trimming.hpp
      include/private/utilities.hpp
+     include/private/simple_pca.hpp
 
      include/private/boost_ublas_external_storage.hpp
      include/private/boost_ublas_row_iterator.hpp
@@ -370,6 +371,7 @@ if(NOT WITHOUT_TESTS)
 
       test/test_grassmannpca.cpp
       test/test_grassmannpca_trimming.cpp
+      test/test_simplepca.cpp
       test/test_row_proxy.cpp)
 
   # this file is used for some internal tests related to ordering
