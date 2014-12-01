@@ -63,42 +63,6 @@ namespace grassmann_averages_pca
   }
 
 
-  //! A callback class for monitoring the advance of the algorithm
-  //!
-  //! All calls are made in the main thread: there is no thread-safety issue.
-  template <class data_t>
-  struct grassmann_pca_with_trimming_callback
-  {
-
-    //! Called to provide important messages/logs
-    void log_error_message(const char* message) const
-    {
-      std::cout << message << std::endl;
-    }
-
-    //! This is called after centering the data in order to keep track 
-    //! of the mean of the dataset
-    void signal_mean(const data_t& mean) const
-    {}
-
-    //! Called after the computation of the PCA
-    void signal_pca(const data_t& mean,
-                    size_t current_eigenvector_dimension) const
-    {}
-
-    //! Called each time a new eigenvector is computed
-    void signal_eigenvector(const data_t& current_eigenvector, 
-                            size_t current_eigenvector_dimension) const
-    {}
-
-    //! Called at every step of the algorithm, at the end of the step
-    void signal_intermediate_result(
-      const data_t& current_eigenvector_state, 
-      size_t current_eigenvector_dimension,
-      size_t current_iteration_step) const
-    {}
-
-  };
 
 
   /*!@brief Grassmann Average algorithm for robust PCA computation, with trimming of outliers.
@@ -143,12 +107,12 @@ namespace grassmann_averages_pca
    *
    * @tparam data_t type of vectors used for the computation. 
    * @tparam norm_mu_t norm used to normalize the basis vectors and project them onto the unit circle.
-   * @tparam observer_t an observer type following the signature of the class grassmann_pca_with_trimming_callback
+   * @tparam observer_t an observer type following the signature of the class grassmann_trivial_callback
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */
   template <class data_t, 
-            class observer_t = grassmann_pca_with_trimming_callback<data_t>,
+            class observer_t = grassmann_trivial_callback<data_t>,
             class norm_mu_t = details::norm2 >
   struct grassmann_pca_with_trimming
   {
@@ -688,7 +652,6 @@ namespace grassmann_averages_pca
 
 
       {
-        bool b_result;
         it_t it_current_begin(it);
         for(int i = 0; i < nb_chunks; i++)
         {
@@ -714,12 +677,6 @@ namespace grassmann_averages_pca
           // setting the number of elements to remove
           current_acc_object.set_nb_elements_to_remove(K_elements);
 
-          b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
-          if(!b_result)
-          {
-            return b_result;
-          }
-          
           // attaching the update object callbacks
           current_acc_object.connector_accumulator() = boost::bind(
               &asynchronous_results_merger::update, 
@@ -728,9 +685,27 @@ namespace grassmann_averages_pca
 
           current_acc_object.connector_counter() = boost::bind(&asynchronous_results_merger::notify, &async_merger);
 
+
+          //bool b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
+          //if(!b_result)
+          //{
+          //  return b_result;
+          //}
+          
+          // pushing the asynchronous copy, which saves a lot of time when loading 
+          // data lazily from disk
+          ioService.post(
+            boost::bind(
+              &async_processor_t::template set_data_range<it_t>, 
+              boost::ref(v_individual_accumulators[i]), 
+              it_current_begin, it_current_end));
+
           // updating the next 
           it_current_begin = it_current_end;
         }
+        
+        // waiting for completion (barrier)
+        async_merger.wait_notifications(v_individual_accumulators.size());
       }
 
 

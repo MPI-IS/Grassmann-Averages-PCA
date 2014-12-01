@@ -38,6 +38,43 @@
 namespace grassmann_averages_pca
 {
 
+  //! A callback class for monitoring the advance of the algorithm
+  //!
+  //! All calls are made in the main thread: there is no thread-safety issue.
+  template <class data_t>
+  struct grassmann_trivial_callback
+  {
+
+    //! Called to provide important messages/logs
+    void log_error_message(const char* message) const
+    {
+      std::cout << message << std::endl;
+    }
+
+    //! This is called after centering the data in order to keep track 
+    //! of the mean of the dataset
+    void signal_mean(const data_t& mean) const
+    {}
+
+    //! Called after the computation of the PCA
+    void signal_pca(const data_t& mean,
+                    size_t current_eigenvector_dimension) const
+    {}
+
+    //! Called each time a new eigenvector is computed
+    void signal_eigenvector(const data_t& current_eigenvector, 
+                            size_t current_eigenvector_dimension) const
+    {}
+
+    //! Called at every step of the algorithm, at the end of the step
+    void signal_intermediate_result(
+      const data_t& current_eigenvector_state, 
+      size_t current_eigenvector_dimension,
+      size_t current_iteration_step) const
+    {}
+
+  };
+
 
   namespace details
   {
