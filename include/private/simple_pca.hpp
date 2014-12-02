@@ -46,17 +46,17 @@ namespace grassmann_averages_pca
    *   - accumulate these projections and update @f$\mu_{k, t}@f$: @f[\mu_{k, t+1} = \frac{\sum_j \left(\mu_{i, t}^T \cdot X_j \right) X_j}{\left\|\sum_j \left(\mu_{i, t}^T \cdot X_j \right) X_j\right\|}@f]
    * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
-   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see simple_pca::batch_process). 
-   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see simple_pca::batch_process).
+   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see em_pca::batch_process). 
+   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see em_pca::batch_process).
    * The test for convergence is delegated to the class details::convergence_check.
    *
    * The computation is distributed among several threads. The multithreading strategy is 
    * - to split the computation of @f$\left( \mu_{i, t}^T \cdot X_j \right) X_j@f$ among several independant chunks. This computation involves the inner product and the addition. Each chunk addresses 
-   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function simple_pca::set_max_chunk_size.
+   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function em_pca::set_max_chunk_size.
    *   By default, the size of the chunk would be the size of the data divided by the number of threads.
    * - to split the computation of the projection onto the orthogonal subspace of @f$\mu_{k}@f$.
    *
-   * The number of threads can be configured through the function simple_pca::set_nb_processors.
+   * The number of threads can be configured through the function em_pca::set_nb_processors.
    * 
    * @note
    * The API is chosen to be the same as for the other two Grassmann implementations, in order to be able to easily switch from one implementation to the other.
@@ -70,7 +70,7 @@ namespace grassmann_averages_pca
   template <class data_t, 
             class observer_t = grassmann_trivial_callback<data_t>,
             class norm_mu_t = details::norm2>
-  struct simple_pca
+  struct em_pca
   {
   private:
     //! Random generator for initialising @f$\mu@f$ at each dimension. 
@@ -223,7 +223,7 @@ namespace grassmann_averages_pca
       {
         scalar_t const * current_line = p_c_matrix;
         accumulator = data_t(data_dimension, 0);
-        scalar_t * const p_acc_begin = &accumulator(0);
+        scalar_t * const p_acc_begin = &accumulator.data()[0];
         scalar_t const * const p_acc_end = p_acc_begin + data_dimension;
         
         
@@ -255,7 +255,7 @@ namespace grassmann_averages_pca
       void data_centering_second_phase(data_t const &mean_value)
       {
         scalar_t * current_line = p_c_matrix;
-        scalar_t const * const p_mean_begin = &mean_value(0);
+        scalar_t const * const p_mean_begin = &mean_value.data()[0];
         scalar_t const * const p_mean_end = p_mean_begin + data_dimension;
         
         
@@ -367,7 +367,7 @@ namespace grassmann_averages_pca
      * The maximum size of the chunks is "infinite": each chunk will receive in that case the size of the data
      * divided by the number of running threads.
      */
-    simple_pca() : 
+    em_pca() : 
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable), 
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max()),
@@ -650,23 +650,7 @@ namespace grassmann_averages_pca
           }            
             
           mu *= typename data_t::value_type(1./norm_mu);
-          
-          
-#if 0
-          if(!gram_schmidt_orthonormalisation(norm_op))
-          {
-            if(observer)
-            {
-              std::ostringstream o;
-              o << "Error during the Gram-Schmidt orthonormalisation for subspace " 
-                << current_subspace_index
-                << " at iteration @ "
-                << iterations;
-              observer->log_error_message(o.str().c_str());
-            }
-            return false;
-          }
-#endif
+
 
           // sending result to observer
           if(observer)

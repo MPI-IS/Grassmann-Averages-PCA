@@ -3,6 +3,17 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
+
+/*!@file
+ * This file contains an application of the Trimmed Grassmann Average to the frames of a movie, in order to compute
+ * the meaningful first basis components in a robust manner. You may adapt the code to your needs/data by modifying
+ * the function @c number2filename, which from the index of the frame returns a full path of the file of this frame.
+ * To limit the memory footprint, the data is stored directly in the temporary memory of the algorithm as it is loaded
+ * (see @c iterator_on_image_files). An observer flushes the results to the disk as they arrive from the algorithm (see 
+ * @c grassmann_pca_observer).
+ */
+
+
 #include <cstdio>
 #include <iostream>
 #include <opencv2/core/core.hpp>

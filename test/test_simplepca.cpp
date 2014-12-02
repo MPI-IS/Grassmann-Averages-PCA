@@ -12,7 +12,7 @@
 
 #include <test/test_main.hpp>
 
-#include <include/private/simple_pca.hpp>
+#include <include/private/em_pca.hpp>
 #include <include/private/boost_ublas_row_iterator.hpp>
 
 // data stored into a matrix
@@ -37,9 +37,9 @@ BOOST_AUTO_TEST_CASE(returns_false_for_inapropriate_inputs)
   using namespace grassmann_averages_pca;
   namespace ub = boost::numeric::ublas;
 
-  typedef simple_pca< ub::vector<double> > simple_pca_t;
+  typedef em_pca< ub::vector<double> > em_pca_t;
 
-  simple_pca_t instance;
+  em_pca_t instance;
 
 
   typedef details::ublas_helpers::row_iter<const matrix_t> const_row_iter_t;
@@ -74,9 +74,9 @@ BOOST_AUTO_TEST_CASE(check_centering_not_called)
 
   typedef test_mean_observer<data_t> observer_t;
 
-  typedef simple_pca< ub::vector<double>, observer_t > simple_pca_t;
+  typedef em_pca< ub::vector<double>, observer_t > em_pca_t;
 
-  simple_pca_t instance;
+  em_pca_t instance;
 
   observer_t observer;
 
@@ -110,9 +110,9 @@ BOOST_AUTO_TEST_CASE(check_centering_of_data)
 
   typedef test_mean_observer<data_t> observer_t;
 
-  typedef simple_pca< ub::vector<double>, observer_t > simple_pca_t;
+  typedef em_pca< ub::vector<double>, observer_t > em_pca_t;
 
-  simple_pca_t instance;
+  em_pca_t instance;
 
   observer_t observer;
 
@@ -157,8 +157,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   typedef boost::chrono::steady_clock clock_type;
 
 
-  typedef simple_pca< ub::vector<double> > simple_pca_t;  
-  simple_pca_t instance;
+  typedef em_pca< ub::vector<double> > em_pca_t;  
+  em_pca_t instance;
   typedef row_iter<const matrix_t> const_row_iter_t;
   
   typedef ub::vector<double> data_t;
@@ -257,8 +257,8 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   typedef boost::chrono::steady_clock clock_type;
 
 
-  typedef simple_pca< ub::vector<double> > simple_pca_t;  
-  simple_pca_t instance;
+  typedef em_pca< ub::vector<double> > em_pca_t;  
+  em_pca_t instance;
   typedef row_iter<const matrix_t> const_row_iter_t;
   
   typedef ub::vector<double> data_t;

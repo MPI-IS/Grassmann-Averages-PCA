@@ -3,13 +3,23 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
+
+/*!@file
+ * This file contains an application of the EM-PCA to the frames of a movie, in order to compare the results
+ * with the Grassmann average or the trimmed grassmann average. You may adapt the code to your needs by modifying
+ * the function @c number2filename, which from the index of the frame returns a full path of the file of this frame.
+ * To limit the memory footprint, the data is stored directly in the temporary memory of the algorithm as it is loaded
+ * (see @c iterator_on_image_files). An observer flushes the results to the disk as they arrive from the algorithm (see 
+ * @c grassmann_pca_observer).
+ */
+
 #include <cstdio>
 #include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 
-#include <include/private/simple_pca.hpp>
+#include <include/private/em_pca.hpp>
 #include <include/private/boost_ublas_external_storage.hpp>
 #include <include/private/boost_ublas_row_iterator.hpp>
 
@@ -363,11 +373,11 @@ int main(int argc, char *argv[])
   // this is the form of the data extracted from the storage
   typedef ub::vector<input_array_type> data_t;
   typedef grassmann_pca_observer<data_t> observer_t;
-  typedef simple_pca< data_t, observer_t > simple_pca_t;
+  typedef em_pca< data_t, observer_t > em_pca_t;
 
 
   // main instance
-  simple_pca_t instance;
+  em_pca_t instance;
   
   
   typedef std::vector<data_t> output_eigenvector_collection_t;

@@ -25,6 +25,8 @@ The code is written in C++ that should be compatible with plain C++03 compilers.
 These classes are templates and you should be able to run the algorithms on different types of data quite easily. 
 The implementation uses several threads in order to do the processing. 
 
+@note an C++ multithreaded implementation of EM-PCA is also provided, mainly for comparison
+
 License
 -------
 All the code is licensed under the terms of the BSD-3 Clause license. 
@@ -42,6 +44,7 @@ Example code
 The code contains several examples of use:
 - the unit test files in C++ and in Matlab may give valuable information
 - the examples attached to this documentation
+- an application of the algorithm to the computation of the basis vectors of a full movie. 
 
 
 @example example_grassmannpca.cpp
