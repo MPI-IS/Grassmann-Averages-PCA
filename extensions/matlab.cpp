@@ -214,14 +214,14 @@ bool grassmann_pca_trimming_dispatch(
 
   // this is the form of the data extracted from the storage
   typedef ub::vector<input_array_type> data_t;
-  typedef grassmann_pca_with_trimming< data_t > grassmann_pca_t;
+  typedef grassmann_pca_with_trimming< data_t > grassmann_pca_with_trimming_t;
 
   typedef row_iter<const input_matrix_t> const_input_row_iter_t;
   typedef row_iter<output_matrix_t> output_row_iter_t;
 
 
   // main instance
-  grassmann_pca_t instance(algorithm_configuration.trimming_percentage / 100);
+  grassmann_pca_with_trimming_t instance(algorithm_configuration.trimming_percentage / 100);
 
 
   if(algorithm_configuration.nb_processors > 0)

@@ -7,6 +7,8 @@
  * This file includes an acceptance tests for the trimmed version of the grassmann pca
  */
 
+#define BOOST_TEST_MAIN
+
 #include <boost/test/unit_test.hpp>
 // data stored into a matrix
 #include <boost/numeric/ublas/matrix.hpp>

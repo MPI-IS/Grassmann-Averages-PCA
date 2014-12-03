@@ -3,6 +3,7 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
+#define BOOST_TEST_MAIN
 #include <boost/test/unit_test.hpp>
 #include <test/test_main.hpp>
 

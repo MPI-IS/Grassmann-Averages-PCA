@@ -63,6 +63,8 @@ namespace grassmann_averages_pca
   }
 
 
+
+
   /*!@brief Grassmann Average algorithm for robust PCA computation, with trimming of outliers.
    *
    * This class implements the Grassmann average for computing the robust PCA, which also includes the trimming of "outliers". 
@@ -100,14 +102,18 @@ namespace grassmann_averages_pca
    * 
    * @note
    * The algorithm may also perform a few "regular PCA" steps, which is the computation of the basis vector with highest "eigen-value". This can be configured through the function
-   * grassmann_pca::set_nb_steps_pca.
+   * grassmann_pca_with_trimming::set_nb_steps_pca. Also, the data can be centered before applying any computation (see grassmann_pca_with_trimming::set_centering). This is 
+   * convenient especially when the input data iterator is just a stub that provides data read from the disk for instance (see the application of Grassmann applied on videos).
    *
    * @tparam data_t type of vectors used for the computation. 
    * @tparam norm_mu_t norm used to normalize the basis vectors and project them onto the unit circle.
+   * @tparam observer_t an observer type following the signature of the class grassmann_trivial_callback
    *
    * @author Soren Hauberg, Raffi Enficiaud
    */
-  template <class data_t, class norm_mu_t = details::norm2>
+  template <class data_t, 
+            class observer_t = grassmann_trivial_callback<data_t>,
+            class norm_mu_t = details::norm2 >
   struct grassmann_pca_with_trimming
   {
   private:
@@ -138,6 +144,13 @@ namespace grassmann_averages_pca
     //! Type of the vector used for counting the element falling into the non-trimmed range.
     typedef boost::numeric::ublas::vector<size_t> count_vector_t;
 
+    //! Indicates that the incoming data is not centered and a centering should be performed prior
+    //! to the computation of the PCA or the trimmed grassmann average.
+    bool need_centering;
+
+
+    //! An instance observing the steps of the algorithm
+    observer_t *observer;
 
 
     //!@internal
@@ -174,7 +187,7 @@ namespace grassmann_averages_pca
       {
         scalar_t *out = &inner_prod_results[0];
         scalar_t mu_element = mu(0);
-        scalar_t *current_line = p_c_matrix;
+        scalar_t const * current_line = p_c_matrix;
         
         for(int column = 0; column < nb_elements; column++)
         {
@@ -250,6 +263,8 @@ namespace grassmann_averages_pca
         }
         
         inner_prod_results.resize(nb_elements);
+        
+        signal_counter();
         return true;
       }
 
@@ -269,6 +284,47 @@ namespace grassmann_averages_pca
         k_first_last = k_first_last_;
       }
 
+
+      //! Centering the data in case it was not possible to do it beforehand
+      void data_centering_first_phase(size_t full_dataset_size)
+      {
+        scalar_t const * current_line = p_c_matrix;
+        for(size_t dimension = 0; dimension < data_dimension; dimension++)
+        {
+          scalar_t acc = 0;
+          for(size_t s = 0; s < nb_elements; s++)
+          {
+            acc += *current_line++;
+          }
+
+          // posts the new value to the listeners for the current dimension
+          accumulator_element_t &result = v_accumulated_per_dimension[dimension];
+          result.dimension = dimension;
+          result.value = acc / full_dataset_size;
+          signal_acc_dimension(&result);
+        }
+
+        signal_counter();
+
+      }
+
+      //! Project the data onto the orthogonal subspace of the provided vector
+      void data_centering_second_phase(data_t const &mean_value)
+      {
+        scalar_t *current_element_ptr = p_c_matrix;
+        
+        for(int line = 0; line < data_dimension; line++)
+        {
+          const scalar_t scalar = mean_value(line);   
+          scalar_t * const current_line_end = current_element_ptr + nb_elements;
+          for(; current_element_ptr < current_line_end; current_element_ptr++)
+          {
+            *current_element_ptr -= scalar;
+          }               
+        }
+
+        signal_counter();
+      }
 
 
       //! PCA steps
@@ -428,10 +484,24 @@ namespace grassmann_averages_pca
       trimming_percentage(trimming_percentage_),
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max()),
-      nb_steps_pca(3)
+      nb_steps_pca(3),
+      need_centering(false),
+      observer(0)
     {
       assert(trimming_percentage_ >= 0 && trimming_percentage_ <= 1);
     }
+
+
+    //! Sets the observer of the algorithm. 
+    //!
+    //! The lifetime of the observer is not managed by this class. Set to 0 to disable
+    //! observation.
+    bool set_observer(observer_t* observer_)
+    {
+      observer = observer_;
+      return true;
+    }
+
 
     //! Sets the number of parallel tasks used for computing.
     bool set_nb_processors(size_t nb_processors_)
@@ -464,7 +534,14 @@ namespace grassmann_averages_pca
       return true;
     }
 
-
+    //! Sets the centering flags.
+    //!
+    //! If set to true, a centering will be performed before applying any computation (PCA and Grassmann averages). 
+    bool set_centering(bool need_centering_)
+    {
+      need_centering = need_centering_;
+      return true;
+    }
 
     
     
@@ -577,7 +654,6 @@ namespace grassmann_averages_pca
 
 
       {
-        bool b_result;
         it_t it_current_begin(it);
         for(int i = 0; i < nb_chunks; i++)
         {
@@ -603,12 +679,6 @@ namespace grassmann_averages_pca
           // setting the number of elements to remove
           current_acc_object.set_nb_elements_to_remove(K_elements);
 
-          b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
-          if(!b_result)
-          {
-            return b_result;
-          }
-          
           // attaching the update object callbacks
           current_acc_object.connector_accumulator() = boost::bind(
               &asynchronous_results_merger::update, 
@@ -617,9 +687,27 @@ namespace grassmann_averages_pca
 
           current_acc_object.connector_counter() = boost::bind(&asynchronous_results_merger::notify, &async_merger);
 
+
+          //bool b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
+          //if(!b_result)
+          //{
+          //  return b_result;
+          //}
+          
+          // pushing the asynchronous copy, which saves a lot of time when loading 
+          // data lazily from disk
+          ioService.post(
+            boost::bind(
+              &async_processor_t::template set_data_range<it_t>, 
+              boost::ref(v_individual_accumulators[i]), 
+              it_current_begin, it_current_end));
+
           // updating the next 
           it_current_begin = it_current_end;
         }
+        
+        // waiting for completion (barrier)
+        async_merger.wait_notifications(v_individual_accumulators.size());
       }
 
 
@@ -634,10 +722,61 @@ namespace grassmann_averages_pca
 
 
 
+      // Centering the data if needed: 
+      // - first run the accumulation and gather all results in a multithreaded manner
+      // - second center the data with the collected mean
+      if(need_centering)
+      {
+        // Computing the accumulation
+        async_merger.init();
+
+        for(int i = 0; i < v_individual_accumulators.size(); i++)
+        {
+          ioService.post(
+            boost::bind(
+              &async_processor_t::data_centering_first_phase, 
+              boost::ref(v_individual_accumulators[i]),
+              size_data)); // size of the dataset to perform division and avoid doing accumulation over big numerical values
+        }
+
+        // waiting for completion (barrier)
+        async_merger.wait_notifications(v_individual_accumulators.size());
+
+        // gathering the accumulated, already divided by the size 
+        data_t mean_vector = async_merger.get_merged_result();
+
+        // sending result to observer
+        if(observer)
+        {
+          observer->signal_mean(mean_vector);
+        }
 
 
-      // for each dimension
-      for(int current_dimension = 0; current_dimension < max_dimension_to_compute; current_dimension++, ++it_basisvectors)
+        // centering the data
+        async_merger.init();
+
+        for(int i = 0; i < v_individual_accumulators.size(); i++)
+        {
+          ioService.post(
+            boost::bind(
+              &async_processor_t::data_centering_second_phase, 
+              boost::ref(v_individual_accumulators[i]),
+              boost::cref(mean_vector)
+              ));
+        }
+
+        // waiting for completion (barrier)
+        async_merger.wait_notifications(v_individual_accumulators.size());
+
+
+      }
+
+
+
+
+
+      // for each requested subspace
+      for(int current_subspace_index = 0; current_subspace_index < max_dimension_to_compute; current_subspace_index++, ++it_basisvectors)
       {
 
 
@@ -664,7 +803,24 @@ namespace grassmann_averages_pca
 
             // gathering the first mu
             mu = async_merger.get_merged_result();
-            mu *= typename data_t::value_type(1./norm_op(mu));
+            double norm_mu = norm_op(mu);
+            if(norm_mu < 1E-12)
+            {
+              if(observer)
+              {
+                std::ostringstream o;
+                o << "The result of the PCA is null for subspace " << current_subspace_index;
+                observer->log_error_message(o.str().c_str());
+              }
+              return false;
+            }
+            mu *= typename data_t::value_type(1./norm_mu);
+          }
+
+          // sending result to observer
+          if(observer)
+          {
+            observer->signal_pca(mu, current_subspace_index);
           }
         }
 
@@ -722,6 +878,12 @@ namespace grassmann_averages_pca
           // normalize mu on the sphere
           mu *= typename data_t::value_type(1./norm_op(mu));
 
+          // sending result to observer
+          if(observer)
+          {
+            observer->signal_intermediate_result(mu, current_subspace_index, iterations);
+          }
+
         }
 
 
@@ -735,15 +897,35 @@ namespace grassmann_averages_pca
         }
         if(renormalise)
         {
-          mu *= typename data_t::value_type(1./norm_op(mu));
+          double norm_mu = norm_op(mu);
+          if(norm_mu < 1E-12)
+          {
+            if(observer)
+            {
+              std::ostringstream o;
+              o << "The result of the subspace computation is null (subspace " << current_subspace_index << ")";
+              observer->log_error_message(o.str().c_str());
+            }
+            return false;
+          }
+
+          mu *= typename data_t::value_type(1./norm_mu);
         }
         
 
         // mu is the basis vector of the current dimension, we store it in the output vector
         *it_basisvectors = mu;
 
+
+        // sending result to observer
+        if(observer)
+        {
+          observer->signal_eigenvector(*it_basisvectors, current_subspace_index);
+        }
+
+
         // projection onto the orthogonal subspace
-        if(current_dimension < max_dimension_to_compute - 1)
+        if(current_subspace_index < max_dimension_to_compute - 1)
         {
           async_merger.init_notifications();
 
@@ -764,7 +946,7 @@ namespace grassmann_averages_pca
           // 2. compute the projection on the orthogonal subspace of the remainder elements
           //
           // in order to be consistent with the matlab implementation, the second choice is implemented here
-          if(current_dimension+1 < max_dimension_to_compute)
+          if(current_subspace_index+1 < max_dimension_to_compute)
           {
             it_o_basisvectors_t remainder(it_basisvectors);
             ++remainder;

@@ -99,6 +99,6 @@ void example_grassmann_pca_impl()
 
   if(!return_calue)
   {
-    std::cerr << "Error during the computation of the RobustPCA" << std::endl;  
+    std::cerr << "Error during the computation of the GrassmannAveragesPCA" << std::endl;  
   }
 }

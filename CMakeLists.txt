@@ -28,23 +28,19 @@ endif()
 
 
 
-#set(CMAKE_MACOSX_RPATH 1)
 
-
-
-
-
-#
-# thirdparties
+##############################################################################################
+# Thirdparties and tools
 #
 
+find_package(Doxygen)
 
 
 # Boost, uBlas and some other libraries are needed in any case. 
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
-set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_LIBS OFF)
 
 if(NOT Boost_USE_STATIC_LIBS)
   # link against dynamic libraries
@@ -63,9 +59,9 @@ endif()
 set(Boost_NO_BOOST_CMAKE ON)
 
 if(NOT WITHOUT_TESTS)
-  find_package(Boost COMPONENTS unit_test_framework system thread chrono date_time)
+  find_package(Boost COMPONENTS unit_test_framework system thread chrono date_time program_options)
 else()
-  find_package(Boost COMPONENTS system thread chrono date_time)
+  find_package(Boost COMPONENTS system thread chrono date_time program_options)
 endif()
 
 if(NOT ${Boost_FOUND})
@@ -99,12 +95,77 @@ if(NOT WITHOUT_MATLAB)
   # Adding a project for the script that finds Matlab, the script being under development currently
   add_custom_target(
     MatlabCMakePackage
-    SOURCES ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake)
+    SOURCES 
+      ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake
+      ${CMAKE_SOURCE_DIR}/extensions/FindMatlab_TestsRedirect.cmake)
   set_target_properties(MatlabCMakePackage PROPERTIES FOLDER "Community")
 endif()
 
 
-# general defines
+# openCV for videos reading applications
+# openCV should be installed somewhere defined on the command line. If this is not the case, an error message is printed and 
+# the build is aborted.
+set(OpenCV_LIB_COMPONENTS opencv_core)
+if(NOT OpenCVRoot)
+  
+  set(OpenCV_CUDA OFF)
+  set(OpenCV_STATIC OFF)
+
+ 
+  find_package(OpenCV)
+
+  if(OpenCV_INCLUDE_DIRS)
+    set(OPENCV_AVAILABLE TRUE CACHE INTERNAL "Setting the availability of opencv")
+    message(STATUS "[OPENCV] Open CV found at location ${OpenCV_INCLUDE_DIRS}")
+  else()
+    set(OPENCV_AVAILABLE FALSE CACHE INTERNAL "Setting the availability of opencv")
+    message(WARNING "[OPENCV] OpenCVRoot is not defined. OpenCVRoot should be defined with the option -DOpenCVRoot=<root-to-opencv> 
+                     in order to benefit from the video applications")
+  endif()
+
+else()
+  set(opencv_root ${OpenCVRoot})
+  if(EXISTS ${opencv_root}/opencv)
+    set(opencv_root ${opencv_root}/opencv)
+  endif()
+
+  if(NOT EXISTS ${opencv_root}/include)
+    message(FATAL_ERROR "[OPENCV] Cannot find the header directory of open cv. Please ensure you have decompressed the version for windows")
+  endif()
+
+
+  # apparently this is the way cmake works... did not know, the OpenCVConfig.cmake file is enough for the configuration
+  set(OpenCV_DIR ${opencv_root}/ CACHE PATH "Location of the OpenCV configuration directory")
+  set(OpenCV_SHARED ON)
+  set(OpenCV_STATIC OFF)
+  set(OpenCV_CUDA OFF)
+  #set(BUILD_SHARED_LIBS OFF)
+  find_package(OpenCV REQUIRED)
+
+  if(NOT OpenCV_INCLUDE_DIRS)
+    message(FATAL_ERROR "[OPENCV] Cannot add the OpenCV include directories")
+  endif()
+
+  list(REMOVE_DUPLICATES OpenCV_LIB_DIR)
+  list(LENGTH OpenCV_LIB_DIR list_lenght)
+  if(${list_lenght} GREATER 1)
+    list(GET OpenCV_LIB_DIR 0 OpenCV_LIB_DIR)
+  endif()
+  set(OpenCV_BIN_DIR ${OpenCV_LIB_DIR}/../bin)
+  get_filename_component(OpenCV_BIN_DIR ${OpenCV_BIN_DIR} ABSOLUTE)
+
+  set(OPENCV_AVAILABLE TRUE CACHE INTERNAL "Setting the availability of opencv")
+
+
+endif()
+
+
+
+
+
+
+#
+# general defines and compilation options
 if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0501)
 else()
@@ -145,11 +206,6 @@ if(NOT MSVC)
   # c++11 options
   check_cxx_compiler_flag(-std=c++11 HAS_CXX11_FLAG)
   check_cxx_compiler_flag(-std=c++0x HAS_CXX0X_FLAG)
-  # pthread options
-  check_cxx_compiler_flag(-pthread   HAS_MINUS_PTHREAD)
-  # visbility options 
-  check_cxx_compiler_flag(-fvisibility=hidden         HAS_VISIBILITY_HIDDEN)
-  check_cxx_compiler_flag(-fvisibility-inlines-hidden HAS_VISIBILITY_INLINE_HIDDEN)
   if(HAS_CXX11_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
   elseif(HAS_CXX0X_FLAG)
@@ -157,25 +213,10 @@ if(NOT MSVC)
   endif()
 
 
-  # if we do not do that, the symbols linked from boost remain weak and then clash with the ones
-  # defined in the matlab process. So by default the symbols are hidden.
-  # this also means that for shared libraries (like MEX), the entry point should be explicitely
-  # declared with default visibility, otherwise Matlab cannot find the entry point.i
-  if(HAS_VISIBILITY_INLINE_HIDDEN)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
-  endif()
-  if(HAS_VISIBILITY_HIDDEN)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
-  endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+
 
   if(Boost_USE_STATIC_LIBS)
-    # does not work, libstdc++ should be compiled with -fPIC
-    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++") 
-    if(HAS_MINUS_PTHREAD AND NOT APPLE)
-      # Apparently, compiling with -pthread generated the proper link flags and some defines at compilation
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-    endif()
-
     # update to include rt library (from chrono)
     if(NOT APPLE)
       set(BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS} rt)
@@ -186,7 +227,7 @@ else()
 endif()
 
 if(MSVC)
-  add_definitions(-D_SCL_SECURE_NO_WARNINGS)
+  add_definitions(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)
   set(MSVC_Additional_flags "/fp:fast /GF /Oy /GT /Ox /Ob2 /Oi /Os")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${MSVC_Additional_flags}")
   if(HAS_SSE41_INSTRINSICS AND HAS_AVX)
@@ -207,13 +248,15 @@ endif()
 include_directories(${Boost_INCLUDE_DIRS})
 
 
-
-# main library
+##############################################################################################
+# Main library
+# This library is header only in fact, but we add an empty cpp file for convenience with CMake.
 include_directories(${GrassmannAveragesPCA_SOURCE_DIR})
 set(${PROJECT_NAME}_LIB
      include/grassmann_pca.hpp
      include/grassmann_pca_with_trimming.hpp
      include/private/utilities.hpp
+     include/private/em_pca.hpp
 
      include/private/boost_ublas_external_storage.hpp
      include/private/boost_ublas_row_iterator.hpp
@@ -234,22 +277,53 @@ set(${PROJECT_NAME}Examples_LIB
 add_library(grassmann_averages_examples ${${PROJECT_NAME}Examples_LIB})
 target_link_libraries(grassmann_averages_examples grassmann_averages)
 
+##############################################################################################
+# Applications
+
+
+if(OPENCV_AVAILABLE)
+  # Reads a full movie and runs the Grassman PCA on it
+  set(${PROJECT_NAME}_movie_runner_SRC
+      applications/video_processing.cpp)
+  add_executable(${PROJECT_NAME}_movie_runner ${${PROJECT_NAME}_movie_runner_SRC})
+ 
+  # not linking against everything in opencv 
+  set(opencv_core_library "opencv_core" "opencv_highgui")
+  target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY}) # ${OpenCV_LIBS}
+  target_include_directories(${PROJECT_NAME}_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
+  set_target_properties(${PROJECT_NAME}_movie_runner PROPERTIES FOLDER "Applications")
+
+
+  # Reads a full movie and runs the EM PCA on it
+  set(${PROJECT_NAME}_pca_movie_runner_SRC
+      applications/video_processing_pca.cpp)
+  add_executable(${PROJECT_NAME}_pca_movie_runner ${${PROJECT_NAME}_pca_movie_runner_SRC})
+  target_link_libraries(${PROJECT_NAME}_pca_movie_runner  grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+  target_include_directories(${PROJECT_NAME}_pca_movie_runner  PRIVATE ${OpenCV_INCLUDE_DIRS})
+  set_target_properties(${PROJECT_NAME}_pca_movie_runner  PROPERTIES FOLDER "Applications")
+endif()
+
+##############################################################################################
+# Documentation
+
 
 # documentation of the main doxygen page
+# part of the doxygen configuration includes variables that are expanded by cmake.
 set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/documentation)
-configure_file(doc/Doxyfile ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured)
+configure_file(doc/Doxyfile ${DOXYGEN_OUTPUT_DIRECTORY}/DoxyfileConfigured)
 set(doxygen_sources 
     doc/main.md
     doc/Doxyfile
-    ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
+    ${DOXYGEN_OUTPUT_DIRECTORY}/DoxyfileConfigured
   )
-find_package(Doxygen)
-if(DOXYGEN_FOUND)
 
+
+if(DOXYGEN_FOUND)
+  # generation and "installation" of the doxygen documentation 
   add_custom_target(
     doxygen_documentation
     ALL
-    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_BINARY_DIR}/documentation/DoxyfileConfigured
+    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUTPUT_DIRECTORY}/DoxyfileConfigured
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc
     COMMENT "Generating Doxygen documentation"
     SOURCES ${doxygen_sources}
@@ -283,6 +357,8 @@ install(
 
 
 
+##############################################################################################
+# Tests
 
 # Unit tests using boost
 if(NOT WITHOUT_TESTS)
@@ -313,6 +389,7 @@ if(NOT WITHOUT_TESTS)
 
       test/test_grassmannpca.cpp
       test/test_grassmannpca_trimming.cpp
+      test/test_simplepca.cpp
       test/test_row_proxy.cpp)
 
   # this file is used for some internal tests related to ordering
@@ -322,10 +399,7 @@ if(NOT WITHOUT_TESTS)
 
   add_executable(${PROJECT_NAME}_test ${${PROJECT_NAME}_tests})
   target_link_libraries(${PROJECT_NAME}_test grassmann_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS})
-
-  # the main definition is in there
-  set_source_files_properties(test/test_main.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
-
+  
   # the link is with dynamic 
   if(NOT Boost_USE_STATIC_LIBS)
     set_target_properties(${PROJECT_NAME}_test PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
@@ -343,7 +417,6 @@ if(NOT WITHOUT_TESTS)
 
   # second test based on files
   add_executable(${PROJECT_NAME}_test_with_files test/test_grassmannpca_trimming_from_file.cpp)
-  set_source_files_properties(test/test_grassmannpca_trimming_from_file.cpp PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_MAIN")
   target_link_libraries(${PROJECT_NAME}_test_with_files grassmann_averages ${BOOST_ADDITIONAL_LIBRARIES_FOR_TESTS}) 
   if(NOT Boost_USE_STATIC_LIBS)
     set_target_properties(${PROJECT_NAME}_test_with_files PROPERTIES COMPILE_DEFINITIONS "BOOST_TEST_DYN_LINK")
@@ -367,7 +440,8 @@ endif()
 
 
 
-
+##############################################################################################
+# Matlab extensions
 
 # adding the matlab MEX extensions
 if(NOT WITHOUT_MATLAB)
@@ -392,114 +466,23 @@ if(NOT WITHOUT_MATLAB)
   #
   set(GAPCA_MEX_Project ${PROJECT_NAME}_mex)
   
-  # the help file for the mex
-  set(${GAPCA_MEX_Project}_help_file ${CMAKE_SOURCE_DIR}/extensions/grassmannpca.m.txt) 
-
-
-  include_directories(${Matlab_INCLUDE_DIRS})
-  add_library(${GAPCA_MEX_Project} 
-    SHARED 
-      extensions/matlab.cpp
-      ${${GAPCA_MEX_Project}_help_file})
-  
-  target_link_libraries(${GAPCA_MEX_Project} grassmann_averages ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
-  set_target_properties(${GAPCA_MEX_Project} 
-      PROPERTIES 
-        PREFIX ""
-        OUTPUT_NAME ${PROJECT_NAME}
-        SUFFIX ".${Matlab_MEX_EXTENSION}"
-        FOLDER "Matlab")
-  
-  # copying the matlab documentation
-  get_target_property(${GAPCA_MEX_Project}_name ${GAPCA_MEX_Project} OUTPUT_NAME)
-  add_custom_command(
-    TARGET ${GAPCA_MEX_Project}
-    PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo Copy Matlab wrapper documentation into target directory $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/.
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${GAPCA_MEX_Project}_help_file} $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>/${${GAPCA_MEX_Project}_name}.m
-    COMMENT "Copy ${GAPCA_MEX_Project} help into the output folder"
+  matlab_add_mex(
+    NAME ${GAPCA_MEX_Project} 
+    REDUCE_VISIBILITY
+    OUTPUT_NAME ${PROJECT_NAME}
+    SRC extensions/matlab.cpp
+    DOCUMENTATION ${${GAPCA_MEX_Project}_help_file}
+    LINK_TO grassmann_averages
   )
+  set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")  
   
   install(TARGETS ${GAPCA_MEX_Project} 
-          DESTINATION ${MATLAB_INSTALL_DIRECTORY})  
+           DESTINATION ${MATLAB_INSTALL_DIRECTORY})  
   
   install(FILES ${${GAPCA_MEX_Project}_help_file}
            DESTINATION ${MATLAB_INSTALL_DIRECTORY}
            RENAME ${${GAPCA_MEX_Project}_name}.m)  
           
-  # for debug
-  #set_target_properties(${GAPCA_MEX_Project} PROPERTIES LINK_FLAGS "-t")
-  
-  #set_target_properties(${GAPCA_MEX_Project} PROPERTIES INSTALL_RPATH "@loader_path/../lib")
-  if(Boost_USE_STATIC_LIBS)
-    set(Matlab_NEED_WRAPPER FALSE)
-  else()
-    set(Matlab_NEED_WRAPPER TRUE)
-  endif()
-
-
-  # entry point in the mex file
-  if(WIN32)
-    set_target_properties(${GAPCA_MEX_Project} 
-      PROPERTIES 
-        DEFINE_SYMBOL "DLL_EXPORT_SYM=__declspec(dllexport)")
-  else()
-    set_target_properties(${GAPCA_MEX_Project}
-      PROPERTIES
-        DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
-    )
-  endif()
-
-
-  #
-  # create a matlab loader to prevent some symbol crashes
-  #
-  macro(create_matlab_mex_wrapper library_name)
-
-    set(_matlab_wrapper_template        ${CMAKE_SOURCE_DIR}/extensions/matlab_wrapper.c.template)
-    set(_matlab_wrapper_template_output ${CMAKE_BINARY_DIR}/Matlab/matlab_wrapper_${library_name}.c)
-
-    # get the previous output name
-    get_target_property(_matlab_library_output_name ${library_name} OUTPUT_NAME)
-
-    # change the suffix to avoid the possibility of matlab calling it
-    set_target_properties(${library_name} 
-      PROPERTIES 
-        PREFIX ""
-        SUFFIX ".${Matlab_MEX_EXTENSION}_wrapped") 
-    if(UNIX)
-      set_target_properties(${library_name}
-        PROPERTIES DEFINE_SYMBOL "DLL_EXPORT_SYM=__attribute__ ((visibility (\"default\")))"
-      )
-    endif()
-    
-    
-    
-    # create the loader 
-    # the template contains all the necessary code. The library to load is defined by a #define MATLAB_SO_WRAP
-    configure_file(${_matlab_wrapper_template} ${_matlab_wrapper_template_output} COPYONLY)
-    
-    add_library(${library_name}_matlab_loader SHARED ${_matlab_wrapper_template_output})
-    target_compile_definitions(${library_name}_matlab_loader PUBLIC "MATLAB_SO_WRAP=\"./$<TARGET_FILE_NAME:${library_name}>\"") 
-    target_link_libraries(${library_name}_matlab_loader dl ${Matlab_MEX_LIBRARY})
-    
-    
-    # this order is to be kept: we construct the loader before the real mex, since there is not link dependency here, it should work.
-    # this also enables to honour the dependencies of the primary target mex file. 
-    add_dependencies(${library_name} ${library_name}_matlab_loader) # do not change to target_link_library here
-    set_target_properties(${library_name}_matlab_loader 
-      PROPERTIES 
-        PREFIX ""
-        OUTPUT_NAME ${_matlab_library_output_name}
-        SUFFIX ".${Matlab_MEX_EXTENSION}"
-        FOLDER "Matlab")
-
-    unset(_matlab_wrapper_template)
-    unset(_matlab_mex_to_load)
-    unset(_matlab_library_output_name)
-
-  endmacro(create_matlab_mex_wrapper)
-
 
 
   #
@@ -566,24 +549,17 @@ if(NOT WITHOUT_MATLAB)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_THREAD_LIBRARY)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_CHRONO_LIBRARY)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_DATE_TIME_LIBRARY)
+    copy_dependency_with_config(${GAPCA_MEX_Project} Boost_PROGRAM_OPTIONS_LIBRARY)
   endif()
-
-
-
-  # create wrappers if needed
-  if(UNIX AND Matlab_NEED_WRAPPER)
-    create_matlab_mex_wrapper(${GAPCA_MEX_Project})
-    install(TARGETS ${GAPCA_MEX_Project}_matlab_loader 
-            DESTINATION ${MATLAB_INSTALL_DIRECTORY})
-
-  endif()
-  
-  
 
 
 endif()
 
 
+
+
+##############################################################################################
+# Matlab unit tests
 
 # adding the matlab unit tests
 if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
@@ -599,29 +575,29 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
   set_target_properties(${GAPCA_MEXUnitTest_Project} PROPERTIES FOLDER "UnitTests")
   add_dependencies(${GAPCA_MEXUnitTest_Project} ${GAPCA_MEX_Project})
 
-  set(Matlab_UNIT_TESTS_CMD -nosplash -nojvm -nodesktop -nodisplay)
-  if(WIN32)
-    set(Matlab_UNIT_TESTS_CMD ${Matlab_UNIT_TESTS_CMD} -wait)
-  endif()
-    
-  add_test(NAME ${PROJECT_NAME}_matlabtest-1
-           COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_1.log 
-           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES TIMEOUT 180)
-  # check to see if the returned error works on windows. The line below does definitely not work on windows, a driver should
-  # check the content of the log file.
-  #set_tests_properties(${PROJECT_NAME}_matlabtest-1 PROPERTIES FAIL_REGULAR_EXPRESSION "[1-9][0-9]*[\r\n\t ]*[fF]ailed")
+  matlab_add_unit_test(
+    NAME ${PROJECT_NAME}_matlabtest-1
+    TIMEOUT 180
+    UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_unit_tests.m
+    ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
+    )
   
-  add_test(NAME ${PROJECT_NAME}_matlabtest-2
-            CONFIGURATIONS Release
-            COMMAND ${Matlab_PROGRAM} ${Matlab_UNIT_TESTS_CMD} -logfile ${CMAKE_BINARY_DIR}/Matlab/${PROJECT_NAME}_matlabtest_2.log 
-           -r "addpath('$<TARGET_FILE_DIR:${GAPCA_MEX_Project}>', '${CMAKE_SOURCE_DIR}/test'); path, runtests('grassmannpca_matlab_performance_unit_tests'), exit(max([ans(1,:).Failed]))")
-  set_tests_properties(${PROJECT_NAME}_matlabtest-2 PROPERTIES TIMEOUT 600)
-
+  matlab_add_unit_test(
+    NAME ${PROJECT_NAME}_matlabtest-2
+    TIMEOUT 600
+    UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_performance_unit_tests.m
+    ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
+    TEST_ARGS CONFIGURATIONS Release
+    )
+  
   
 endif()
 
 
+
+
+##############################################################################################
+# Installation rules
 
 # CPack rules
 set(CPACK_PACKAGE_VENDOR "Max Planck Institute for Intelligent Systems")

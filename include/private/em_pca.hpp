@@ -3,13 +3,12 @@
 // (See accompanying file LICENSE.txt or copy at
 // http://opensource.org/licenses/BSD-3-Clause)
 
-#ifndef GRASSMANN_AVERAGES_PCA_HPP__
-#define GRASSMANN_AVERAGES_PCA_HPP__
+#ifndef SIMPLE_AVERAGES_PCA_HPP__
+#define SIMPLE_AVERAGES_PCA_HPP__
 
 /*!@file
- * Grassmann PCA functions, following the paper of Soren Hauberg.
+ * Simple PCA functions, for comparison with the Grassmann averages.
  *
- * @note These implementations assume the existence of boost somewhere. 
  */
 
 #include <vector>
@@ -33,36 +32,34 @@ namespace grassmann_averages_pca
 {
 
   namespace ub = boost::numeric::ublas;
-
-  /*!@brief Grassmann Averages for scalable PCA algorithm
+   
+  /*!@brief PCA algorithm.
    *
-   * This class implements the Grassmann average for computing the PCA in a robust manner. 
+   * This class is intended to be used in comparison to the Grassmann algorithms.
    * Its purpose is to compute the PCA of a dataset @f$\{X_i\}@f$, where each @f$X_i@f$ is a vector of dimension
    * D. 
    * 
    * The algorithm is the following:
    * - pick a random or a given @f$\mu_{k, 0}@f$, where @f$k@f$ is the current eigen-vector being computed and @f$0@f$ is the current iteration number (0). 
    * - until the sequence @f$(\mu_{k, t})_t@f$ converges, do:
-   *   - computes the sign @f$s_{j, t}@f$ of the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$. We have @f[s_{j, t} = X_j \cdot \mu_{k, t} \geq 0@f]
-   *   - compute the update of @f$\mu_{k, .}@f$: @f[\mu_{k, t+1} = \frac{\sum_j s_{j, t} X_j}{\left\|\sum_j s_{j, t} X_j\right\|}@f]
+   *   - computes the projection of the input vectors @f$X_j@f$ onto @f$\mu_{i, t}@f$
+   *   - accumulate these projections and update @f$\mu_{k, t}@f$: @f[\mu_{k, t+1} = \frac{\sum_j \left(\mu_{i, t}^T \cdot X_j \right) X_j}{\left\|\sum_j \left(\mu_{i, t}^T \cdot X_j \right) X_j\right\|}@f]
    * - project the @f$X_j@f$'s onto the orthogonal subspace of @f$\mu_{k} = \lim_{t \rightarrow +\infty} \mu_{k, t}@f$: @f[\forall j, X_{j} = X_{j} - X_{j}\cdot\mu_{k} @f]
    *
-   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see grassmann_pca::batch_process). 
-   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see grassmann_pca::batch_process).
+   * The range taken by @f$k@f$ is a parameter of the algorithm: @c max_dimension_to_compute (see em_pca::batch_process). 
+   * The range taken by @f$t@f$ is also a parameter of the algorithm: @c max_iterations (see em_pca::batch_process).
    * The test for convergence is delegated to the class details::convergence_check.
    *
    * The computation is distributed among several threads. The multithreading strategy is 
-   * - to split the computation of @f$\sum_j s_{j, t} X_j@f$ among several independant chunks. This computation involves the inner product and the sign. Each chunk addresses 
-   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function grassmann_pca::set_max_chunk_size.
+   * - to split the computation of @f$\left( \mu_{i, t}^T \cdot X_j \right) X_j@f$ among several independant chunks. This computation involves the inner product and the addition. Each chunk addresses 
+   *   a subset of the data @f$\{X_j\}@f$ without any overlap with other chunks. The maximal size of a chunk can be configured through the function em_pca::set_max_chunk_size.
    *   By default, the size of the chunk would be the size of the data divided by the number of threads.
    * - to split the computation of the projection onto the orthogonal subspace of @f$\mu_{k}@f$.
-   * - to split the computation of the regular PCA algorithm (if any) into several independant chunks.
    *
-   * The number of threads can be configured through the function grassmann_pca::set_nb_processors.
+   * The number of threads can be configured through the function em_pca::set_nb_processors.
    * 
    * @note
-   * The algorithm may also perform a few "regular PCA" steps, which is the computation of the eigen-vector with highest eigen-value. This can be configured through the function
-   * grassmann_pca::set_nb_steps_pca.
+   * The API is chosen to be the same as for the other two Grassmann implementations, in order to be able to easily switch from one implementation to the other.
    *
    * @tparam data_t type of vectors used for the computation. 
    * @tparam observer_t an observer type following the signature of the class grassmann_trivial_callback.
@@ -73,7 +70,7 @@ namespace grassmann_averages_pca
   template <class data_t, 
             class observer_t = grassmann_trivial_callback<data_t>,
             class norm_mu_t = details::norm2>
-  struct grassmann_pca
+  struct em_pca
   {
   private:
     //! Random generator for initialising @f$\mu@f$ at each dimension. 
@@ -88,11 +85,8 @@ namespace grassmann_averages_pca
     //! Maximal size of a chunk (infinity by default).
     size_t max_chunk_size;
 
-    //! Number of steps for the initial PCA like algorithm (default to 3).
-    size_t nb_steps_pca;
-
     //! Indicates that the incoming data is not centered and a centering should be performed prior
-    //! to the computation of the PCA or the trimmed grassmann average.
+    //! to the computation of the PCA.
     bool need_centering;
 
     //! An instance observing the steps of the algorithm
@@ -116,9 +110,6 @@ namespace grassmann_averages_pca
       //! Should live beyond the scope of update and init, as required by the merger.
       data_t accumulator;
 
-      //! Signs stored for decreasing the number of updates
-      std::vector<bool> v_signs;
-      
       // this is to send an update of the value of mu to one listener
       // the connexion should be managed externally
       typedef boost::function<void (data_t const*)> connector_accumulator_t;
@@ -184,7 +175,6 @@ namespace grassmann_averages_pca
       {
         nb_elements = std::distance(b, e);
         assert(nb_elements > 0);
-        v_signs.resize(nb_elements);
 
         // aligning on 32 bytes = 1 << 5
         data_padding = (data_dimension*sizeof(scalar_t) + (1<<5) - 1) & (~((1<<5)-1));
@@ -233,7 +223,7 @@ namespace grassmann_averages_pca
       {
         scalar_t const * current_line = p_c_matrix;
         accumulator = data_t(data_dimension, 0);
-        scalar_t * const p_acc_begin = &accumulator(0);
+        scalar_t * const p_acc_begin = &accumulator.data()[0];
         scalar_t const * const p_acc_end = p_acc_begin + data_dimension;
         
         
@@ -265,7 +255,7 @@ namespace grassmann_averages_pca
       void data_centering_second_phase(data_t const &mean_value)
       {
         scalar_t * current_line = p_c_matrix;
-        scalar_t const * const p_mean_begin = &mean_value(0);
+        scalar_t const * const p_mean_begin = &mean_value.data()[0];
         scalar_t const * const p_mean_end = p_mean_begin + data_dimension;
         
         
@@ -306,106 +296,6 @@ namespace grassmann_averages_pca
 
         // posts the new value to the listeners
         signal_acc(&accumulator);
-        signal_counter();
-      }
-
-
-
-      //! Initialises the accumulator and the signs vector from the first mu
-      void initial_accumulation(data_t const &mu)
-      {
-        accumulator = data_t(data_dimension, 0);
-        std::vector<bool>::iterator itb(v_signs.begin());
-
-        scalar_t const * const p_mu = &mu.data()[0];
-        scalar_t * const p_acc = &accumulator.data()[0];
-
-        // first iteration, we store the signs
-        for(size_t s = 0; s < nb_elements; ++itb, s++)
-        {
-          bool sign = inner_product(p_mu, s) >= 0;
-
-          *itb = sign;
-          scalar_t *p(p_acc);
-          scalar_t const * current_line = p_c_matrix + s * data_padding;
-          scalar_t const * const current_line_end = current_line + data_dimension;
-          if(sign)
-          {
-            for(; current_line < current_line_end; ++current_line, ++p)
-            {
-              *p += *current_line;              
-            }
-          }
-          else 
-          {
-            for(; current_line < current_line_end; ++current_line, ++p)
-            {
-              *p -= *current_line;              
-            }
-          }
-        }
-
-
-        // posts the new value to the listeners
-        signal_acc(&accumulator);
-        signal_counter();
-      }
-
-
-      //! Update the accumulator and the signs vector from an upated mu
-      void update_accumulation(data_t const& mu)
-      {
-        accumulator = data_t(data_dimension, 0);
-
-        bool update = false;
-
-        scalar_t const * const p_mu = &mu.data()[0];
-        scalar_t * const p_acc = &accumulator.data()[0];
-        scalar_t const * current_line = p_c_matrix;
-
-
-        std::vector<bool>::iterator itb(v_signs.begin());
-        for(size_t s = 0; s < nb_elements; ++itb, s++, current_line += data_padding)
-        {
-          bool sign = inner_product(p_mu, current_line) >= 0;
-          if(sign != *itb)
-          {
-            update = true;
-
-            // update the value of the accumulator according to sign change
-            *itb = sign;
-            
-            scalar_t *p(p_acc);
-            scalar_t const * current_line_copy= current_line;
-            scalar_t const * const current_line_end = current_line + data_dimension;
-            
-            if(sign)
-            {
-              for(; current_line_copy < current_line_end; ++current_line_copy, ++p)
-              {
-                *p += *current_line_copy;
-              }
-            }
-            else 
-            {
-              for(; current_line_copy < current_line_end; ++current_line_copy, ++p)
-              {
-                *p -= *current_line_copy;
-              }
-            }
-          }
-        }
-
-        // posts the new value to the listeners
-        if(update)
-        {
-          scalar_t *p(p_acc);
-          for(size_t d = 0; d < data_dimension; d++, ++p)
-          {
-            *p *= 2;
-          }          
-          signal_acc(&accumulator);
-        }
         signal_counter();
       }
 
@@ -477,11 +367,10 @@ namespace grassmann_averages_pca
      * The maximum size of the chunks is "infinite": each chunk will receive in that case the size of the data
      * divided by the number of running threads.
      */
-    grassmann_pca() : 
+    em_pca() : 
       random_init_op(details::fVerySmallButStillComputable, details::fVeryBigButStillComputable), 
       nb_processors(1),
       max_chunk_size(std::numeric_limits<size_t>::max()),
-      nb_steps_pca(3),
       need_centering(false),
       observer(0)
     {}
@@ -519,16 +408,9 @@ namespace grassmann_averages_pca
       return true;
     }
 
-    //! Sets the number of iterations for the "regular PCA" algorithm. 
-    bool set_nb_steps_pca(size_t nb_steps)
-    {
-      nb_steps_pca = nb_steps;
-      return true;
-    }
-
     //! Sets the centering flags.
     //!
-    //! If set to true, a centering will be performed before applying any computation (PCA and Grassmann averages). 
+    //! If set to true, a centering will be performed before applying any computation. 
     bool set_centering(bool need_centering_)
     {
       need_centering = need_centering_;
@@ -599,6 +481,8 @@ namespace grassmann_averages_pca
       // number of dimensions of the data vectors
       const size_t number_of_dimensions = it->size();
       
+      // pointer to the begining of the output vectors, for orthonormalisation
+      it_o_basisvectors_t const it_basisvectors_begin(it_basisvectors);
 
       // the first element is used for the init guess because for dynamic std::vector like element, the size is needed.
       data_t mu(initial_guess != 0 ? (*initial_guess)[0] : random_init_op(*it));
@@ -720,110 +604,53 @@ namespace grassmann_averages_pca
       }
 
 
-
-
-
       // for each dimension
       for(size_t current_subspace_index = 0; 
           current_subspace_index < max_dimension_to_compute; 
           current_subspace_index++, ++it_basisvectors)
       {
 
-
-        // PCA like initial steps
-        if(nb_steps_pca)
-        {
-          for(size_t pca_it = 0; pca_it < nb_steps_pca; pca_it++)
-          {
-            // reseting the final accumulator
-            async_merger.init();
-
-            // pushing the initialisation of the mu and sign vectors to the pool
-            for(int i = 0; i < v_individual_accumulators.size(); i++)
-            {
-              ioService.post(
-                boost::bind(
-                  &async_processor_t::pca_accumulation, 
-                  boost::ref(v_individual_accumulators[i]), 
-                  boost::cref(mu)));
-            }
-
-            // waiting for completion (barrier)
-            async_merger.wait_notifications(v_individual_accumulators.size());
-
-            // gathering the first mu
-            mu = async_merger.get_merged_result();
-            
-            double norm_mu = norm_op(mu);
-            if(norm_mu < 1E-12)
-            {
-              if(observer)
-              {
-                std::ostringstream o;
-                o << "The result of the PCA is null for subspace " << current_subspace_index;
-                observer->log_error_message(o.str().c_str());
-              }
-              return false;
-            }            
-            
-            mu *= typename data_t::value_type(1./norm_mu);
-          }
-          
-          // sending result to observer
-          if(observer)
-          {
-            observer->signal_pca(mu, current_subspace_index);
-          }          
-        }
-
-
-
         details::convergence_check<data_t> convergence_op(mu);
 
-        // reseting the accumulator and the notifications
-        async_merger.init();
-
-        // pushing the initialisation of the mu and sign vectors to the pool
-        for(int i = 0; i < v_individual_accumulators.size(); i++)
-        {
-          ioService.post(
-            boost::bind(
-              &async_processor_t::initial_accumulation, 
-              boost::ref(v_individual_accumulators[i]), 
-              boost::cref(mu)));
-        }
-
-        
-        // waiting for completion (barrier)
-        async_merger.wait_notifications(v_individual_accumulators.size());
-
-        // gathering the first mu
-        mu = async_merger.get_merged_result();
-        mu *= typename data_t::value_type(1./norm_op(mu));
-
-
         // other iterations as usual
-        for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
+        for(iterations = 0; (!convergence_op(mu) && (iterations < max_iterations)) || (iterations == 0); iterations++)
         {
-
           // reseting the final accumulator
-          async_merger.init_notifications();
-          //async_merger.init();
-          //async_merger.get_merged_result() = mu_no_norm;
+          async_merger.init();
 
-          // pushing the update of the mu (and signs)
+          // pushing the initialisation of the mu and sign vectors to the pool
           for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            ioService.post(boost::bind(&async_processor_t::update_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(mu)));
+            ioService.post(
+              boost::bind(
+                &async_processor_t::pca_accumulation, 
+                boost::ref(v_individual_accumulators[i]), 
+                boost::cref(mu)));
           }
 
           // waiting for completion (barrier)
           async_merger.wait_notifications(v_individual_accumulators.size());
 
-          // gathering the mus
-          //mu_no_norm = async_merger.get_merged_result();
+          // gathering the first mu
           mu = async_merger.get_merged_result();
-          mu *= typename data_t::value_type(1./norm_op(mu));
+            
+          double norm_mu = norm_op(mu);
+          if(norm_mu < 1E-12)
+          {
+            if(observer)
+            {
+              std::ostringstream o;
+              o << "The result of the PCA is null for subspace " 
+                << current_subspace_index
+                << " at iteration @ "
+                << iterations;
+              observer->log_error_message(o.str().c_str());
+            }
+            return false;
+          }            
+            
+          mu *= typename data_t::value_type(1./norm_mu);
+
 
           // sending result to observer
           if(observer)
@@ -831,7 +658,7 @@ namespace grassmann_averages_pca
             observer->signal_intermediate_result(mu, current_subspace_index, iterations);
           }
         }
-
+          
         // mu is the eigenvector of the current dimension, we store it in the output vector
         *it_basisvectors = mu;
 
@@ -859,6 +686,15 @@ namespace grassmann_averages_pca
 
           mu = initial_guess != 0 ? (*initial_guess)[current_subspace_index+1] : random_init_op(*it);
 
+          // project onto the orthogonal subspace
+          for(it_o_basisvectors_t it_orthonormalised_element(it_basisvectors_begin); 
+              it_orthonormalised_element <= it_basisvectors; 
+              ++it_orthonormalised_element)
+          {
+            mu -= boost::numeric::ublas::inner_prod(mu, *it_orthonormalised_element) * (*it_orthonormalised_element);
+          }
+          mu *= typename it_t::value_type::value_type(1./norm_op(mu));
+
           async_merger.wait_notifications(v_individual_accumulators.size());
 
         }
@@ -876,4 +712,4 @@ namespace grassmann_averages_pca
 
 }
 
-#endif /* GRASSMANN_AVERAGES_PCA_HPP__ */
+#endif /* SIMPLE_AVERAGES_PCA_HPP__ */

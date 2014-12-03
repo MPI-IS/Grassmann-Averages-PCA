@@ -39,7 +39,6 @@ classdef grassmannpca_matlab_unit_tests < matlab.unittest.TestCase
       testCase.verifyEqual(size(ret, 1), size(mat, 2)); % dimension
       testCase.verifyEqual(size(ret, 2), algorithm_config.max_dimensions); % number of basis vectors
       display(ret);
-
     end
 
     function testSizesReturnMaxDimension(testCase)
