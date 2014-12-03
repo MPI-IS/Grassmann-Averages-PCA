@@ -105,9 +105,13 @@ endif()
 # openCV for videos reading applications
 # openCV should be installed somewhere defined on the command line. If this is not the case, an error message is printed and 
 # the build is aborted.
+set(OpenCV_LIB_COMPONENTS opencv_core)
 if(NOT OpenCVRoot)
   
   set(OpenCV_CUDA OFF)
+  set(OpenCV_STATIC OFF)
+
+ 
   find_package(OpenCV)
 
   if(OpenCV_INCLUDE_DIRS)
@@ -282,7 +286,10 @@ if(OPENCV_AVAILABLE)
   set(${PROJECT_NAME}_movie_runner_SRC
       applications/video_processing.cpp)
   add_executable(${PROJECT_NAME}_movie_runner ${${PROJECT_NAME}_movie_runner_SRC})
-  target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages ${OpenCV_LIBS} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+ 
+  # not linking against everything in opencv 
+  set(opencv_core_library "opencv_core" "opencv_highgui")
+  target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY}) # ${OpenCV_LIBS}
   target_include_directories(${PROJECT_NAME}_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
   set_target_properties(${PROJECT_NAME}_movie_runner PROPERTIES FOLDER "Applications")
 
@@ -291,7 +298,7 @@ if(OPENCV_AVAILABLE)
   set(${PROJECT_NAME}_pca_movie_runner_SRC
       applications/video_processing_pca.cpp)
   add_executable(${PROJECT_NAME}_pca_movie_runner ${${PROJECT_NAME}_pca_movie_runner_SRC})
-  target_link_libraries(${PROJECT_NAME}_pca_movie_runner  grassmann_averages ${OpenCV_LIBS} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+  target_link_libraries(${PROJECT_NAME}_pca_movie_runner  grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY})
   target_include_directories(${PROJECT_NAME}_pca_movie_runner  PRIVATE ${OpenCV_INCLUDE_DIRS})
   set_target_properties(${PROJECT_NAME}_pca_movie_runner  PROPERTIES FOLDER "Applications")
 endif()
