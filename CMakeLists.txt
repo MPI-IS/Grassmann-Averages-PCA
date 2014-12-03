@@ -107,6 +107,7 @@ endif()
 # the build is aborted.
 if(NOT OpenCVRoot)
   
+  set(OpenCV_CUDA OFF)
   find_package(OpenCV)
 
   if(OpenCV_INCLUDE_DIRS)
@@ -133,6 +134,7 @@ else()
   set(OpenCV_DIR ${opencv_root}/ CACHE PATH "Location of the OpenCV configuration directory")
   set(OpenCV_SHARED ON)
   set(OpenCV_STATIC OFF)
+  set(OpenCV_CUDA OFF)
   #set(BUILD_SHARED_LIBS OFF)
   find_package(OpenCV REQUIRED)
 
