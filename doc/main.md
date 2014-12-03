@@ -48,6 +48,12 @@ The code contains several examples of use:
 
 
 @example example_grassmannpca.cpp
-This is an example of how to use the non-trimmed version of the GrassmannAveragPCA. The use of the trimmed version is 
+This is an example on how to use the non-trimmed version of the GrassmannAveragPCA. The use of the trimmed version is 
 similar to this one except for the instanciation of the class @c grassmann_averages_pca::grassmann_pca_with_trimming, where the 
 trimming percentage should be given.
+
+@example video_processing.cpp
+This is an example on how to adapt the GrassmannAveragPCA for subspace computation of a video sequence:
+
+* An additional iterator class is implemented for reading the image files. This avoids having everything in memory before the algorithm starts
+* An observer class that saves the subspaces as they are computed. 
