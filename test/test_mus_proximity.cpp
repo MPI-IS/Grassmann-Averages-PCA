@@ -125,7 +125,7 @@ struct mus_proximity
     
     
     
-    for(it_t it(mus.begin()), ite(mus.end()); it != ite; ++it)
+    for(typename mu_container_t::iterator it(mus.begin()), ite(mus.end()); it != ite; ++it)
     {
       // computing the inner product and storing into the appropriate place of
       // the "distance" matrix
