@@ -18,7 +18,6 @@
 #include <boost/numeric/ublas/vector_expression.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 
-
 // for the thread pools
 #include <boost/asio/io_service.hpp>
 #include <boost/bind.hpp>
@@ -535,6 +534,10 @@ namespace grassmann_averages_pca
       need_centering = need_centering_;
       return true;
     }
+    
+    
+    
+
 
 
 
@@ -609,8 +612,7 @@ namespace grassmann_averages_pca
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
       
       size_t iterations = 0;
-
-
+      
       // preparing the ranges on which each processing thread will run.
       // the number of objects can be much more than the current number of processors, in order to
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
@@ -653,12 +655,6 @@ namespace grassmann_averages_pca
               &async_processor_t::template set_data_range<it_t>, 
               boost::ref(v_individual_accumulators[i]), 
               it_current_begin, it_current_end));
-
-          //bool b_result = current_acc_object.set_data_range(it_current_begin, it_current_end);
-          //if(!b_result)
-          //{
-          //  return b_result;
-          //}
 
 
           // updating the next 
