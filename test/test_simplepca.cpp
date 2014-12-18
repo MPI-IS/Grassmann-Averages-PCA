@@ -4,12 +4,11 @@
 // http://opensource.org/licenses/BSD-3-Clause)
 
 /*!@file
- * This file includes the tests for the grassmann pca
+ * This file contains the tests for the empca
  */
 
 
 #include <boost/test/unit_test.hpp>
-
 #include <test/test_main.hpp>
 
 #include <include/private/em_pca.hpp>
@@ -20,14 +19,6 @@
 
 // boost chrono
 #include <boost/chrono/include.hpp>
-
-
-
-#include <fstream>
-
-
-
-
 
 
 BOOST_FIXTURE_TEST_SUITE(simple_pca_test_suite, fixture_simple_matrix_creation)
