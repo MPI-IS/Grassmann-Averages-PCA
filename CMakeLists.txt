@@ -390,7 +390,9 @@ if(NOT WITHOUT_TESTS)
       test/test_grassmannpca.cpp
       test/test_grassmannpca_trimming.cpp
       test/test_empca.cpp
-      test/test_row_proxy.cpp)
+      test/test_row_proxy.cpp
+      test/test_mus_proximity.cpp
+      )
 
   # this file is used for some internal tests related to ordering
   if(${Boost_MINOR_VERSION} GREATER 48)
