@@ -17,6 +17,7 @@
 #include <boost/numeric/ublas/io.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 
+#include <set>
 
 /*!brief Handles the changes between two consecutive estimations of mus.
  *
@@ -81,11 +82,12 @@ struct mus_proximity
     //
     {
       size_t index(0);
-      for(typename mu_container_t::const_iterator it(mus.begin()), ite(mus.end()); it != ite; ++it, index++)
+      for(typename mu_container_t::iterator it(mus.begin()), ite(mus.end()); it != ite; ++it, index++)
       {
         if(!it->count)
         {
           index_to_remove.insert(index);
+          it = mus.erase(it);
         }
       }
     }
@@ -167,6 +169,21 @@ struct mus_proximity
 };
 
 
+template <class matrix_t>
+void print_matrix(const matrix_t& mat)
+{
+  std::cout.precision(std::numeric_limits<double>::digits10);
+  for(size_t i = 0; i < mat.size1(); i++)
+  {
+    for(size_t j = 0; j < mat.size2(); j++)
+    {
+      std::cout << std::fixed << mat(i, j) << " ";
+    }
+    std::cout << std::endl;
+  }
+
+}
+
 BOOST_AUTO_TEST_CASE(test_prune)
 {
   namespace ub = boost::numeric::ublas;
@@ -187,14 +204,20 @@ BOOST_AUTO_TEST_CASE(test_prune)
     }
 
     instance.add_mu(current, (i + 3) % nb_elements); // the 3rd should be pruned
+    print_matrix(instance.get_angle_matrix());
   }
 
 
-  std::cout << instance.get_angle_matrix() << std::endl;
+
+
+  //std::cout << instance.get_angle_matrix() << std::endl;
   BOOST_CHECK_EQUAL(instance.prune(), 1);
 
   // checking the removal
   mu_angle_helper_t::mu_container_t const& mus = instance.get_mus();
+
+  BOOST_CHECK_EQUAL(mus.size(), nb_elements-1);
+
 
   // checking the first element
   size_t value = 0;
@@ -210,8 +233,12 @@ BOOST_AUTO_TEST_CASE(test_prune)
     }
   }
 
+  mu_angle_helper_t::mu_angles_t const& mu_angles = instance.get_angle_matrix();
+  BOOST_CHECK_EQUAL(mu_angles.size1(), nb_elements-1);
+  BOOST_CHECK_EQUAL(mu_angles.size2(), nb_elements-1);
 
-  // checking the inner product
+
+  // checking the angles
   value = 0;
   index = 0;
   for(size_t i = 0, to_skip = 0; i < instance.get_nb_mus(); i++)
