@@ -14,6 +14,8 @@
 #include <boost/numeric/ublas/symmetric.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/io.hpp>
+#include <boost/numeric/ublas/matrix_proxy.hpp>
 
 
 /*!brief Handles the changes between two consecutive estimations of mus.
@@ -24,12 +26,15 @@ struct mus_proximity
 {
   struct mu_reference
   {
-    size_t count; //!< the number of vectors referencing the mu
-    size_t index; //!< the index of the mu in the matrix
-    data_t mu;    //!< the data
+    size_t count;         //!< the number of vectors referencing the mu
+    size_t index_matrix;  //!< the index of the mu in the matrix
+    size_t index_list;    //!< the index of the mu in the list
+    data_t mu;            //!< the data
     
     mu_reference(const data_t& mu_) : mu(mu_) {}
   };
+
+  typedef typename data_t::value_type scalar_t;
 
   // we need to keep the mus in order to compute the inner product
   typedef std::list<mu_reference> mu_container_t;
@@ -46,18 +51,24 @@ struct mus_proximity
   {}
   
   // may be optimized
-  double inner_product(const data_t& left, const data_t& right) const
+  double angle(const data_t& left, const data_t& right) const
   {
     typedef typename data_t::value_type scalar_t;
     double out(0);
+    double norm_l(0), norm_r(0);
     
-    scalar_t const *const left_p = left.data()[0];
-    scalar_t const *const right_p= right.data()[0];
+    scalar_t const *const left_p = &left.data()[0];
+    scalar_t const *const right_p= &right.data()[0];
     for(size_t i = 0, j = left.size(); i < j; i++)
     {
       out += left_p[i] * right_p[i];
+      norm_l += left_p[i]*left_p[i];
+      norm_r += right_p[i]*right_p[i];
     }
-    return out;
+    
+    if(norm_l < 1E-10 || norm_r < 1E-10)
+      return acos(0); // pi/2
+    return acos(out / (sqrt(norm_l) * sqrt(norm_r)));
   }
   
   //! Removes any unnecessary element from the list of mus
@@ -81,13 +92,22 @@ struct mus_proximity
     
     mu_angles_t new_matrix(mu_angles.size1() - index_to_remove.size());
     
-    for(size_t index = 0, index2 = 0; index < mu_angles.size1(); index++)
+    for(size_t index = 0, index_to_copy_to = 0; index < mu_angles.size1(); index++)
     {
       if(index_to_remove.count(index))
         continue;
       
+      for(size_t index2 = index, index_to_copy_to2 = index_to_copy_to; index2 < mu_angles.size1(); index2++)
+      {
+        if(index_to_remove.count(index2))
+          continue;
+        
+        new_matrix(index_to_copy_to, index_to_copy_to2) = mu_angles(index, index2);
+        index_to_copy_to2++;
+      }
       
-      index2++;
+      
+      index_to_copy_to++;
       
     }
     
@@ -120,17 +140,27 @@ struct mus_proximity
     
     mus.push_back(mu_reference(new_mu));
     mu_reference &last = mus.back();
-    last.index = mu_angles.size1();
-    last.count = 0; // todo: count
+    last.index_matrix = mu_angles.size1();
+    last.index_list   = mus.size()-1;
+    last.count = nb_references;
     
     
+    // here we can test if there is something to prune, if so, replace the 
+    // first available column by this vector and do not forget to remove it from
+    // the list
     
-    for(typename mu_container_t::iterator it(mus.begin()), ite(mus.end()); it != ite; ++it)
+    
+    // adding a row / column
+    mu_angles.resize(mu_angles.size1() + 1, true);
+    mu_angles(mu_angles.size1()-1, mu_angles.size1()-1) = 0;
+    
+    typename mu_container_t::iterator it(mus.begin()), ite(mus.end());
+    --ite;
+    for(; it != ite; ++it)
     {
       // computing the inner product and storing into the appropriate place of
       // the "distance" matrix
-      double inner = inner_product(last.mu, it->mu);
-      mu_angles(it->index, last.index) = acos(inner);
+      mu_angles(it->index_matrix, last.index_matrix) = angle(last.mu, it->mu);
     }
   }
 
@@ -159,6 +189,8 @@ BOOST_AUTO_TEST_CASE(test_prune)
     instance.add_mu(current, (i + 3) % nb_elements); // the 3rd should be pruned
   }
 
+
+  std::cout << instance.get_angle_matrix() << std::endl;
   BOOST_CHECK_EQUAL(instance.prune(), 1);
 
   // checking the removal
