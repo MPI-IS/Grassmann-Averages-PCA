@@ -11,7 +11,7 @@
 #include <boost/test/unit_test.hpp>
 #include <test/test_main.hpp>
 
-#include <boost/numeric/ublas/symmetric.hpp>
+
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/io.hpp>
