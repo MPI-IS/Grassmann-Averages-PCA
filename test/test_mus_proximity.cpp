@@ -41,37 +41,48 @@ void print_matrix(const matrix_t& mat)
 template <class data_t>
 struct mus_proximity
 {
+
+private:
+  //! Structure intended to store the mus and the number 
+  //! of vectors referencing them. 
   struct mu_reference_count_data
   {
-    size_t count;         //!< the number of vectors referencing the mu
-    size_t iteration_index;    //!< the index of the iteration on which this mu appeared
-    data_t mu;            //!< the data
+    size_t count;               //!< the number of vectors referencing the mu
+    size_t iteration_index;     //!< the index of the iteration on which this mu appeared
+    data_t mu;                  //!< the data
     
     mu_reference_count_data(const data_t& mu_) : mu(mu_) {}
   };
 
   typedef typename data_t::value_type scalar_t;
 
-  // we need to keep the mus in order to compute the inner product
+  // we need to keep the mus for computing the inner product
   typedef std::list<mu_reference_count_data> mu_container_t;
   mu_container_t mus;
   
-  // This will map the index of the algorithm to the index of the list above
+  // This will map the index of the mu from the algorithm to the index of the list @c mus
   typedef std::map<size_t, size_t> map_index_to_list_index_t;
   map_index_to_list_index_t mapping_indices;
   
   // The matrix containing the angles between the vectors stored in the mu container. 
-  // This is a symetric matrix and the indices follow the one of the container.
+  // This is a symetric matrix and the indices follow the one of the list @c mus
   typedef boost::numeric::ublas::symmetric_matrix<double, boost::numeric::ublas::lower> mu_angles_t;
   mu_angles_t mu_angles;
  
 
-  mus_proximity() : mus(), mu_angles()
+public:
+
+  mus_proximity() : mus(), mapping_indices(), mu_angles()
   {}
   
-  // may be optimized
+  //! Computes the angles between two vectors. 
+  //!
+  //! This function is meant to be used by general vectors (non normalized). If the vectors are 
+  //! normalised already, consider using angle_normalized_vectors. 
   double angle(const data_t& left, const data_t& right) const
   {
+    using namespace std; // bringing acos
+
     typedef typename data_t::value_type scalar_t;
     double out(0);
     double norm_l(0), norm_r(0);
@@ -100,10 +111,14 @@ struct mus_proximity
     return acos(out);
   }
   
-  // This version supposes the vectors are already normalized
-  // and the corresponding computations are simplified compared to @ref angle
+  //! Computes the angles between two vectors. 
+  //!
+  //! This version supposes the vectors are already normalized
+  //! and the corresponding computations are simplified compared to @ref angle
   double angle_normalized_vectors(const data_t& left, const data_t& right) const
   {
+    using namespace std; // bringing acos
+
     typedef typename data_t::value_type scalar_t;
     double out(0);
     
@@ -133,7 +148,7 @@ struct mus_proximity
   {
     std::set<size_t> index_to_remove;
 
-    //
+    // identifies the rows/columns to be pruned
     {
       size_t index(0);
       for(typename mu_container_t::iterator it(mus.begin()), ite(mus.end()); it != ite; ++it, index++)
@@ -171,6 +186,7 @@ struct mus_proximity
     
     new_matrix.swap(mu_angles);
 
+
     // reconstruct the mapping index
     mapping_indices.clear();
     {
@@ -191,11 +207,17 @@ struct mus_proximity
     return mu_angles.size1();
   }
 
+  //! Returns the angles matrix. 
+  //!
+  //! This should not be used for accessing the angles directly as the indices of the elements
+  //! do not follow the indices of the algorithm. The mapping provided by mu_reference_count_data::iteration_index
+  //! should be used jointly to the access to this matrix.
   mu_angles_t const& get_angle_matrix() const
   {
     return mu_angles;
   }
 
+  //! Returns the list of elements that are stored into this container. 
   mu_container_t const& get_mus() const
   {
     return mus;
@@ -212,6 +234,8 @@ struct mus_proximity
   
   //! Updates the count of a particular mu
   //!
+  //! @param[in] iteration_index index manipulated by the algorithm, indicating the time of arrival of the mu that
+  //!            is targetted by the update.
   //! @param[in] delta_count positive count means added reference, while negative count means
   //!            removed reference. 
   //! 
@@ -231,10 +255,17 @@ struct mus_proximity
 
   //! Adds a mu to the managed list of mus
   //!
-  //! The mu is stored in the first available place
+  //! The mu is stored in the first available place. 
+  //!
+  //! @param[in] new_mu new value of mu to be stored
+  //! @param[in] iteration_index iteration on the algorithm side at which new_mu arrived. This is the value that should
+  //!            be consecutevely used for accessing the angles. 
+  //! @param[in] nb_references number of references to this mu
+  //! 
+  //! @note 
+  //! It is possible to have a nb_references equal to 0 since this is what happens for a newly computed mu. 
   mu_reference_count_data const& add_mu(const data_t& new_mu, size_t iteration_index, size_t nb_references)
   {
-    using namespace std; // bringing acos
     
     // finding the first available place to put this new mu:
     size_t index_in_list(0);
