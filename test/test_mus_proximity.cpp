@@ -89,9 +89,19 @@ struct mus_proximity
     
     if(norm_l < 1E-10 || norm_r < 1E-10)
       return acos(0); // pi/2
-    std::cout << " -- before acos " << out / (sqrt(norm_l) * sqrt(norm_r)) << std::endl;
-    std::cout << " -- bigger than one? " << (out / (sqrt(norm_l) * sqrt(norm_r)) > 1 ? "yes" : "no") << std::endl;
-    return acos(out / (sqrt(norm_l) * sqrt(norm_r)));
+
+    out /= sqrt(norm_l) * sqrt(norm_r);
+    if(out > 1) 
+    {
+      out = 1;
+    }
+    else if(out < -1)
+    {
+      out = -1;
+    }
+    //std::cout << " -- before acos " << out  << std::endl;
+    //std::cout << " -- bigger than one? " << (out > 1 ? "yes" : "no") << std::endl;
+    return acos(out);
   }
   
   // This version supposes the vectors are already normalized
@@ -107,8 +117,18 @@ struct mus_proximity
     {
       out += left_p[i] * right_p[i];
     }
-    std::cout << " -- before acos " << out << std::endl;
-    std::cout << " -- bigger than one? " << (out > 1 ? "yes" : "no") << std::endl;
+
+    if(out > 1) 
+    {
+      out = 1;
+    }
+    else if(out < -1)
+    {
+      out = -1;
+    }
+
+    //std::cout << " -- before acos " << out << std::endl;
+    //std::cout << " -- bigger than one? " << (out > 1 ? "yes" : "no") << std::endl;
     return acos(out);  
   }
   
@@ -132,6 +152,8 @@ struct mus_proximity
       }
     }
     
+
+    // reconstructs the matrix
     mu_angles_t new_matrix(mu_angles.size1() - index_to_remove.size());
     
     for(size_t index = 0, index_to_copy_to = 0; index < mu_angles.size1(); index++)
@@ -154,6 +176,19 @@ struct mus_proximity
     }
     
     new_matrix.swap(mu_angles);
+
+    // reconstructs the mapping from matrix index (column or row) to list index
+
+
+    // reconstruct the mapping index
+    mapping_indices.clear();
+    {
+      size_t index(0);
+      for(typename mu_container_t::iterator it(mus.begin()), ite(mus.end()); it != ite; ++it, index++)
+      {
+        mapping_indices[it->iteration_index] = index;
+      }
+    }
 
     return index_to_remove.size();
   }
@@ -178,7 +213,10 @@ struct mus_proximity
   //! Updates the count of a particular mu
   //!
   //! @param[in] delta_count positive count means added reference, while negative count means
-  //!            removed reference
+  //!            removed reference. 
+  //! 
+  //! @pre 
+  //! This value of delta_count + current_count should be positive.
   void update_count(size_t iteration_index, int delta_count)
   {
     assert(mapping_indices.count(iteration_index) > 0);
@@ -186,6 +224,7 @@ struct mus_proximity
     
     typename mu_container_t::iterator it(mus.begin());
     std::advance(it, index_in_list);
+    assert(it->count + delta_count >= 0);
     it->count += delta_count;
   }
 
@@ -215,7 +254,7 @@ struct mus_proximity
       it->mu = new_mu;
       it->count= nb_references;
       it->iteration_index = iteration_index;
-      // the position in the matrix stays the same
+      // it->index_matrix: the position in the matrix stays the same
     }
     else
     {
@@ -229,20 +268,16 @@ struct mus_proximity
       index_in_list    = mus.size()-1;
       it->count = nb_references;      
       
-      // adding a row / column
-      std::cout << "before" << std::endl;
-      print_matrix(this->get_angle_matrix());
+      // adding a row / column with preservation of the content
       mu_angles.resize(mu_angles.size1() + 1, true);
       mu_angles(mu_angles.size1()-1, mu_angles.size1()-1) = 0;
-      std::cout << "after" << std::endl;
-      print_matrix(this->get_angle_matrix());
             
     }
     
     mapping_indices[iteration_index] = index_in_list;
     
     
-    for(typename mu_container_t::const_iterator it2(mus.begin()); it != ite; ++it)
+    for(typename mu_container_t::const_iterator it2(mus.begin()); it2 != ite; ++it2)
     {
       // computing the inner product and storing into the appropriate place of
       // the "distance" matrix
@@ -255,7 +290,7 @@ struct mus_proximity
         continue;
     
       mu_angles(it2->index_matrix, it->index_matrix) = angle(it->mu, it2->mu);
-      std::cout << " -- " << mu_angles(it2->index_matrix, it->index_matrix) << std::endl;
+      //std::cout << " -- " << mu_angles(it2->index_matrix, it->index_matrix) << std::endl;
     }
     
     return *it;
@@ -266,8 +301,9 @@ struct mus_proximity
 
 
 
-BOOST_AUTO_TEST_CASE(test_add_mu)
+BOOST_AUTO_TEST_CASE(test_add_mu_all_similar_gives_null_matrix)
 {
+  // mainly testing some numerical stability of the computations, as acos is surprisingly sensitive
   namespace ub = boost::numeric::ublas;
   namespace ga = grassmann_averages_pca;
 
@@ -288,12 +324,151 @@ BOOST_AUTO_TEST_CASE(test_add_mu)
     
     current /= ga::details::norm2()(current);
 
-    instance.add_mu(current, i+1, 10);
+    instance.add_mu(current, i, 10);
   }
+
+  // the max of the abs should be close to 0 since all vectors are the same
+  double norm_matrix = ub::norm_1(instance.get_angle_matrix());
+  BOOST_CHECK_SMALL(norm_matrix, 1E-5);
+
   
-  print_matrix(instance.get_angle_matrix());
+  //print_matrix(instance.get_angle_matrix());
   
 }
+
+
+BOOST_AUTO_TEST_CASE(test_add_mu_update_first_available)
+{
+  namespace ub = boost::numeric::ublas;
+  namespace ga = grassmann_averages_pca;
+
+  typedef ub::vector<double> data_t;
+  typedef mus_proximity<data_t> mu_angle_helper_t;
+  mu_angle_helper_t instance;
+
+  const int nb_elements = 3;
+  const int dimensions = 5;
+
+  int i = 0;
+  for(; i < nb_elements; i++)
+  {
+    data_t current(dimensions);
+    for(int j = 0; j < dimensions; j++)
+    {
+      current(j) = (i + j + 1) % 17;
+    }
+    
+    current /= ga::details::norm2()(current);
+
+    instance.add_mu(current, i, 10);
+  }
+  //print_matrix(instance.get_angle_matrix());
+
+  // should not prune
+  instance.update_count(2, -9);
+
+  {
+    data_t current(dimensions);
+    for(int j = 0; j < dimensions; j++)
+    {
+      current(j) = (i + j + 1) % 17;
+    }
+    
+    current /= ga::details::norm2()(current);
+
+    instance.add_mu(current, i, 10);
+  }
+  i++;
+
+  BOOST_CHECK_EQUAL(instance.get_mus().size(), nb_elements + 1);
+  //print_matrix(instance.get_angle_matrix());
+  const double first_element_column_added = instance.get_angle_matrix()(0, instance.get_angle_matrix().size1() - 1);
+  const double first_element_column2 = instance.get_angle_matrix()(0, 2);
+
+
+
+  // should prune
+  instance.update_count(2, -1);
+  {
+    data_t current(dimensions);
+    for(int j = 0; j < dimensions; j++)
+    {
+      current(j) = (i + j + 1) % 17;
+    }
+    
+    current /= ga::details::norm2()(current);
+
+    instance.add_mu(current, i, 10);
+  }
+  i++;
+
+  BOOST_CHECK_EQUAL(instance.get_mus().size(), nb_elements + 1);
+  BOOST_CHECK_EQUAL(first_element_column_added, instance.get_angle_matrix()(0, instance.get_angle_matrix().size1() - 1));
+  BOOST_CHECK_NE(first_element_column2, instance.get_angle_matrix()(0, 2));
+
+
+
+  
+  //print_matrix(instance.get_angle_matrix());
+  
+}
+
+
+BOOST_AUTO_TEST_CASE(test_prune)
+{
+  namespace ub = boost::numeric::ublas;
+  namespace ga = grassmann_averages_pca;
+
+  typedef ub::vector<double> data_t;
+  typedef mus_proximity<data_t> mu_angle_helper_t;
+  mu_angle_helper_t instance;
+  mu_angle_helper_t instance2;
+
+  const int nb_elements = 5;
+  const int dimensions = 5;
+
+  int table_count[nb_elements] = {0,1,13,10,10};
+
+  
+  for(int i = 0; i < nb_elements; i++)
+  {
+    data_t current(dimensions);
+    for(int j = 0; j < dimensions; j++)
+    {
+      current(j) = (i + j + 1) % 17;
+    }
+    
+    current /= ga::details::norm2()(current);
+
+    instance.add_mu(current, i, 10);
+    if(table_count[i])
+    {
+      instance2.add_mu(current, i, 10);
+    }
+  }
+  print_matrix(instance.get_angle_matrix());
+
+  for(int i = 0; i <  nb_elements; i++)
+  {
+    instance.update_count(i, table_count[i] - 10);
+  }
+
+  // only one gets pruned
+  BOOST_CHECK_EQUAL(instance.prune(), 1);
+  BOOST_CHECK_EQUAL(instance.get_angle_matrix().size1(), nb_elements - 1);
+  BOOST_REQUIRE_EQUAL(instance.get_angle_matrix().size1(), instance2.get_angle_matrix().size1());
+
+  double norm_difference = ub::norm_1(instance.get_angle_matrix() - instance2.get_angle_matrix());
+  BOOST_CHECK_SMALL(norm_difference, 1E-8);
+
+
+  // this one checks the mapping of the indexes are correct
+  instance.update_count(1, -1); // should be 0 now
+  BOOST_CHECK_EQUAL(instance.prune(), 1);
+
+  print_matrix(instance.get_angle_matrix());
+}
+
 
 
 #if 0
