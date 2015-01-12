@@ -41,32 +41,30 @@ void print_matrix(const matrix_t& mat)
 template <class data_t>
 struct mus_proximity
 {
-  struct mu_reference
+  struct mu_reference_count_data
   {
     size_t count;         //!< the number of vectors referencing the mu
-    size_t index_matrix;  //!< the index of the mu in the matrix
-    size_t iteration_index;    //!< the index of the mu in the list @todo check if relevant
+    size_t iteration_index;    //!< the index of the iteration on which this mu appeared
     data_t mu;            //!< the data
     
-    mu_reference(const data_t& mu_) : mu(mu_) {}
+    mu_reference_count_data(const data_t& mu_) : mu(mu_) {}
   };
 
   typedef typename data_t::value_type scalar_t;
 
   // we need to keep the mus in order to compute the inner product
-  typedef std::list<mu_reference> mu_container_t;
+  typedef std::list<mu_reference_count_data> mu_container_t;
   mu_container_t mus;
   
   // This will map the index of the algorithm to the index of the list above
   typedef std::map<size_t, size_t> map_index_to_list_index_t;
   map_index_to_list_index_t mapping_indices;
   
+  // The matrix containing the angles between the vectors stored in the mu container. 
+  // This is a symetric matrix and the indices follow the one of the container.
   typedef boost::numeric::ublas::symmetric_matrix<double, boost::numeric::ublas::lower> mu_angles_t;
   mu_angles_t mu_angles;
-  
-
-
-
+ 
 
   mus_proximity() : mus(), mu_angles()
   {}
@@ -99,8 +97,6 @@ struct mus_proximity
     {
       out = -1;
     }
-    //std::cout << " -- before acos " << out  << std::endl;
-    //std::cout << " -- bigger than one? " << (out > 1 ? "yes" : "no") << std::endl;
     return acos(out);
   }
   
@@ -127,8 +123,6 @@ struct mus_proximity
       out = -1;
     }
 
-    //std::cout << " -- before acos " << out << std::endl;
-    //std::cout << " -- bigger than one? " << (out > 1 ? "yes" : "no") << std::endl;
     return acos(out);  
   }
   
@@ -177,9 +171,6 @@ struct mus_proximity
     
     new_matrix.swap(mu_angles);
 
-    // reconstructs the mapping from matrix index (column or row) to list index
-
-
     // reconstruct the mapping index
     mapping_indices.clear();
     {
@@ -209,6 +200,15 @@ struct mus_proximity
   {
     return mus;
   }
+
+
+  //! Gets the value of the angle between two iteration index vectors
+  double get_angle_from_indices(size_t index1, size_t index2) const
+  {
+    assert(mapping_indices.count(index1) > 0);
+    assert(mapping_indices.count(index2) > 0);
+    return mu_angles(mapping_indices.at(index1), mapping_indices.at(index2));
+  }
   
   //! Updates the count of a particular mu
   //!
@@ -232,7 +232,7 @@ struct mus_proximity
   //! Adds a mu to the managed list of mus
   //!
   //! The mu is stored in the first available place
-  mu_reference const& add_mu(const data_t& new_mu, size_t iteration_index, size_t nb_references)
+  mu_reference_count_data const& add_mu(const data_t& new_mu, size_t iteration_index, size_t nb_references)
   {
     using namespace std; // bringing acos
     
@@ -254,16 +254,14 @@ struct mus_proximity
       it->mu = new_mu;
       it->count= nb_references;
       it->iteration_index = iteration_index;
-      // it->index_matrix: the position in the matrix stays the same
     }
     else
     {
       // there is nothing to prune here anyway, so we add a new column/row to the 
       // matrix
       
-      mus.push_back(mu_reference(new_mu));
+      mus.push_back(mu_reference_count_data(new_mu));
       it = --mus.end();
-      it->index_matrix = mu_angles.size1();
       it->iteration_index   = iteration_index;
       index_in_list    = mus.size()-1;
       it->count = nb_references;      
@@ -277,20 +275,20 @@ struct mus_proximity
     mapping_indices[iteration_index] = index_in_list;
     
     
-    for(typename mu_container_t::const_iterator it2(mus.begin()); it2 != ite; ++it2)
+    size_t current_index(0);
+    for(typename mu_container_t::const_iterator it2(mus.begin()); it2 != ite; ++it2, current_index++)
     {
       // computing the inner product and storing into the appropriate place of
       // the "distance" matrix
-      // we avoid the computation of these angles for the elements that will get pruned
     
       if(it2 == it)
         continue;
-        
+       
+      // not updating against the one that will be pruned
       if(it2->count == 0)
         continue;
     
-      mu_angles(it2->index_matrix, it->index_matrix) = angle(it->mu, it2->mu);
-      //std::cout << " -- " << mu_angles(it2->index_matrix, it->index_matrix) << std::endl;
+      mu_angles(current_index, index_in_list) = angle(it->mu, it2->mu);
     }
     
     return *it;
@@ -446,12 +444,16 @@ BOOST_AUTO_TEST_CASE(test_prune)
       instance2.add_mu(current, i, 10);
     }
   }
-  print_matrix(instance.get_angle_matrix());
+  //print_matrix(instance.get_angle_matrix());
 
   for(int i = 0; i <  nb_elements; i++)
   {
     instance.update_count(i, table_count[i] - 10);
   }
+
+  double angle_between_indices_3_and_4 = instance.get_angle_from_indices(3, 4);
+  //std::cout << "angle_between_indices_3_and_4 = " << angle_between_indices_3_and_4 << std::endl;
+  //print_matrix(instance.get_angle_matrix());
 
   // only one gets pruned
   BOOST_CHECK_EQUAL(instance.prune(), 1);
@@ -462,57 +464,35 @@ BOOST_AUTO_TEST_CASE(test_prune)
   BOOST_CHECK_SMALL(norm_difference, 1E-8);
 
 
-  // this one checks the mapping of the indexes are correct
+  // checks the mapping of the indexes are correct after a prune
   instance.update_count(1, -1); // should be 0 now
   BOOST_CHECK_EQUAL(instance.prune(), 1);
 
-  print_matrix(instance.get_angle_matrix());
+  //std::cout << "angle_between_indices_3_and_4 = " << instance.get_angle_from_indices(3, 4) << std::endl;
+
+  // this vectors did not move, so the angle should remain equal
+  BOOST_CHECK_EQUAL(angle_between_indices_3_and_4, instance.get_angle_from_indices(3, 4));
+
+  //print_matrix(instance.get_angle_matrix());
+
+
+  // now should add the new element at position 4
+  instance.update_count(2, -13);
+  {
+    data_t current(dimensions);
+    for(int j = 0; j < dimensions; j++)
+    {
+      current(j) = (nb_elements + j + 1) % 17;
+    }
+    
+    current /= ga::details::norm2()(current);
+
+    instance.add_mu(current, nb_elements, 10);
+  }
+  
+  // this vectors did not move, so the angle should remain equal
+  BOOST_CHECK_EQUAL(angle_between_indices_3_and_4, instance.get_angle_from_indices(3, 4));
+
+
 }
 
-
-
-#if 0
-
-
-
-  //std::cout << instance.get_angle_matrix() << std::endl;
-  BOOST_CHECK_EQUAL(instance.prune(), 1);
-
-  // checking the removal
-  mu_angle_helper_t::mu_container_t const& mus = instance.get_mus();
-
-  BOOST_CHECK_EQUAL(mus.size(), nb_elements-1);
-
-
-  // checking the first element
-  size_t value = 0;
-  size_t index = 0;
-  for(mu_angle_helper_t::mu_container_t::const_iterator it(mus.begin()), ite(mus.end()); 
-      it != ite;
-      ++it, index++)
-  {
-    BOOST_CHECK_EQUAL(it->mu(0), value);
-    if(index != 3)
-    {
-      value++;
-    }
-  }
-
-  mu_angle_helper_t::mu_angles_t const& mu_angles = instance.get_angle_matrix();
-  BOOST_CHECK_EQUAL(mu_angles.size1(), nb_elements-1);
-  BOOST_CHECK_EQUAL(mu_angles.size2(), nb_elements-1);
-
-
-  // checking the angles
-  value = 0;
-  index = 0;
-  for(size_t i = 0, to_skip = 0; i < instance.get_nb_mus(); i++)
-  {
-    for(size_t j = i, to_skip = 0; i < instance.get_nb_mus(); i++)
-    {
-      //instance.get_angle_matrix()(i, 0) = 
-    }
-  }
-
-}
-#endif
