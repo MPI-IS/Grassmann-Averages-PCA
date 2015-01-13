@@ -174,7 +174,6 @@ namespace grassmann_averages_pca
         p_c_matrix = new scalar_t[data_padding*nb_elements];
         
         container_iterator_t bb(b);
-
         scalar_t *current_line = p_c_matrix;
         for(int line = 0; line < nb_elements; line ++, current_line += data_padding, ++bb)
         {
@@ -305,7 +304,7 @@ namespace grassmann_averages_pca
         v_mu_reference_indices.assign(v_mu_reference_indices.size(), 0); // all vectors will bind to 0, which is the current index
 
         std::vector<bool>::iterator itb(v_signs.begin());
-        std::vector<scalar_t>::iterator it_angles(v_angles_value.begin());
+        typename std::vector<scalar_t>::iterator it_angles(v_angles_value.begin());
 
         scalar_t const * const p_mu = &mu.data()[0];
         scalar_t * const p_acc = &accumulator.data()[0];
@@ -370,7 +369,7 @@ namespace grassmann_averages_pca
 
         std::vector<bool>::iterator itb(v_signs.begin());
         std::vector<size_t>::iterator it_indices(v_mu_reference_indices.begin());
-        std::vector<scalar_t>::iterator it_angles(v_angles_value.begin());
+        typename std::vector<scalar_t>::iterator it_angles(v_angles_value.begin());
 
         for(size_t s = 0; 
             s < nb_elements; 
