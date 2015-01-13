@@ -140,10 +140,6 @@ BOOST_AUTO_TEST_CASE(test_add_mu_update_first_available)
   BOOST_CHECK_EQUAL(first_element_column_added, instance.get_angle_matrix()(0, instance.get_angle_matrix().size1() - 1));
   BOOST_CHECK_NE(first_element_column2, instance.get_angle_matrix()(0, 2));
 
-
-
-  
-  //print_matrix(instance.get_angle_matrix());
   
 }
 
