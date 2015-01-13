@@ -255,6 +255,7 @@ set(${PROJECT_NAME}_LIB
      include/grassmann_pca_with_trimming.hpp
      include/private/utilities.hpp
      include/private/em_pca.hpp
+     include/private/chunks_processor.hpp
 
      include/private/boost_ublas_external_storage.hpp
      include/private/boost_ublas_row_iterator.hpp
