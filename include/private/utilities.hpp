@@ -283,6 +283,8 @@ namespace grassmann_averages_pca
             {
               index_to_remove.insert(index);
               it = mus.erase(it);
+              if(it == mus.end())
+                break;
             }
           }
         }
