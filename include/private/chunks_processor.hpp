@@ -101,10 +101,41 @@ namespace grassmann_averages_pca
         return acc;
       }
 
+      scalar_t normed_inner_product(scalar_t const* p_mu, scalar_t const* current_line) const
+      {
+        scalar_t const * const current_line_end = current_line + data_dimension;
+
+        const int _64_elements = static_cast<int>(data_dimension >> 6);
+        scalar_t acc(0);
+        scalar_t acc_vector(0);
+
+        for(int j = 0; j < _64_elements; j++, current_line += 64, p_mu += 64)
+        {
+          for(int i = 0; i < 64; i++)
+          {
+            acc += current_line[i] * p_mu[i];
+            acc_vector += current_line[i] * current_line[i];
+          }
+        }
+        for(; current_line < current_line_end; current_line++, p_mu++)
+        {
+          acc += (*current_line) * (*p_mu);
+          acc_vector += (*current_line) * (*current_line);
+        }
+        return acc / sqrt(acc_vector);
+      }
+
+
       //! "Optimized" inner product
       scalar_t inner_product(scalar_t const* p_mu, size_t element_index) const
       {
         return inner_product(p_mu, p_c_matrix + element_index * data_padding);
+      }
+
+      //! Returns the inner product divided by the l2 norm of the referenced vector
+      scalar_t normed_inner_product(scalar_t const* p_mu, size_t element_index) const
+      {
+        return normed_inner_product(p_mu, p_c_matrix + element_index * data_padding);
       }
 
 
@@ -147,21 +178,10 @@ namespace grassmann_averages_pca
         scalar_t *current_line = p_c_matrix;
         for(int line = 0; line < nb_elements; line ++, current_line += data_padding, ++bb)
         {
-          // copying and normalizing the data
-          scalar_t acc(0);
           for(int column = 0; column < data_dimension; column++)
           {
-            const scalar_t element = (*bb)(column);
-            current_line[column] = element;
-            acc += element * element;
+            current_line[column] = (*bb)(column);
           }
-
-          acc = 1 / sqrt(acc);
-          for(int column = 0; column < data_dimension; column++)
-          {
-            current_line[column] *= acc;
-          }
-
         }
         
         signal_counter();
@@ -293,11 +313,11 @@ namespace grassmann_averages_pca
         // first iteration, we store the signs
         for(size_t s = 0; s < nb_elements; ++itb, ++it_angles, s++)
         {
-          scalar_t const inner = inner_product(p_mu, s);
-          bool const sign = inner >= 0;
+          scalar_t const normed_inner = normed_inner_product(p_mu, s);
+          bool const sign = normed_inner >= 0;
 
           *itb = sign;
-          *it_angles = abs(acos_function_object(inner)); // vectors are normalized, so the angle is the acos of the inner product
+          *it_angles = abs(acos_function_object(normed_inner)); // vectors are normalized, so the angle is the acos of the inner product
 
           scalar_t *p(p_acc);
           scalar_t const * current_line = p_c_matrix + s * data_padding;
@@ -363,17 +383,18 @@ namespace grassmann_averages_pca
           {
             // in this case, the scalar product does not need to be recomputed, and the sign does not change
             // against the previous one
+            assert(*itb == (inner_product(p_mu, current_line) >= 0));
             continue;
           }
 
-          scalar_t const inner = inner_product(p_mu, current_line);
+          scalar_t const normed_inner = normed_inner_product(p_mu, current_line);
 
           map_update[previous_index]--;
           count_current_index++;
           *it_indices = current_index;
-          *it_angles = abs(acos_function_object(inner));
+          *it_angles = abs(acos_function_object(normed_inner));
 
-          bool sign = inner >= 0;
+          bool sign = normed_inner >= 0;
           if(sign != *itb)
           {
             update = true;
