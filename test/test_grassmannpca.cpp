@@ -138,9 +138,10 @@ BOOST_AUTO_TEST_CASE(check_centering_of_data)
     double acc = 0;
     for(int i = 0; i < 10; i++)
     {
-      acc += mat_data(i, j);
+      acc += mat_data(i, j) / details::norm2()(ub::row(mat_data, i));
     }
 
+    // data is normalised
     BOOST_CHECK_CLOSE(acc / 10, observer.mean(j), 1E-3);
   }
 

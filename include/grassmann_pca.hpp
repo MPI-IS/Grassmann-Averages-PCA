@@ -98,6 +98,11 @@ namespace grassmann_averages_pca
     //! An instance observing the steps of the algorithm
     observer_t *observer;    
 
+    //! This is an object that is shared among the three entities of the algorithm:
+    //! - the chunk processor
+    //! - the main algorithm
+    typedef details::mus_distance_optimisation_helper<data_t> inner_product_optimisation_t;
+
 
     /*!@internal
      * @brief Accumulation gathering the result of all workers.
@@ -117,8 +122,14 @@ namespace grassmann_averages_pca
       typedef details::threading::initialisation_vector_specific_dimension<data_t> data_init_type;
       typedef details::threading::merger_addition<data_t> merger_type;
       typedef details::threading::asynchronous_results_merger<data_t, merger_type, data_init_type> parent_type;
-    
+
     public:
+
+
+      //! Type of the associative map that maps the index of the mu in the algorithm to the delta of vectors
+      //! pointing to it. 
+      typedef std::map<size_t, int> map_reference_delta_t;
+      map_reference_delta_t map_reference_delta;
 
       /*!Constructor
        *
@@ -127,10 +138,53 @@ namespace grassmann_averages_pca
       asynchronous_results_merger(size_t data_dimension_) : parent_type(data_init_type(data_dimension_))
       {}
 
+      //! Override init 
+      virtual void init()
+      {
+        parent_type::init();
+        map_reference_delta.clear();
+      }
+
+      /*! Receives the deltas of reference count
+        * 
+        * This is called with the delta of reference count for each of the mus. 
+        * @param[in] update_ref_count a map that maps the index of mus with the delta of vectors referencing it
+        * @note The call is thread safe.
+        */
+      void update_mu_reference_counts(std::map<size_t, int> const* update_ref_count)
+      {
+        boost::unique_lock<mutex_t> lock(internal_mutex);
+        for(std::map<size_t, int>::const_iterator it(update_ref_count->begin()), ite(update_ref_count->end());
+            it != ite;
+            ++it)
+        {
+          map_reference_delta[it->first] += it->second;
+        }
+      }
+
+
+      //! Returns the current merged results.
+      //! @warning the call is not thread safe (intended to be called once the wait_notifications returned and no
+      //! other thread is working). 
+      map_reference_delta_t const& get_merged_reference_counts() const
+      {
+        return map_reference_delta;
+      }
 
     };
 
 
+    void update_mus_reference(asynchronous_results_merger const& async_merger, inner_product_optimisation_t& inner_product_optimisation)
+    {
+      asynchronous_results_merger::map_reference_delta_t const& map_ref_updates = async_merger.get_merged_reference_counts();
+      for(asynchronous_results_merger::map_reference_delta_t::const_iterator it_reference_mu(map_ref_updates.begin()), ite_reference_mu(map_ref_updates.end());
+          it_reference_mu != ite_reference_mu;
+          ++it_reference_mu)
+      {
+        inner_product_optimisation.update_count(it_reference_mu->first, it_reference_mu->second);
+      }
+
+    }
 
 
 
@@ -278,6 +332,13 @@ namespace grassmann_averages_pca
 
       max_dimension_to_compute = std::min(max_dimension_to_compute, number_of_dimensions);
       
+
+      // this object would allow to minimise the number of inner products computed inside the chunk processors
+      // by keeping track of the angles. The chunk processors need in turn keep track of some indices and angles
+      // the refer to the mus 
+      inner_product_optimisation_t inner_product_optimisation;
+
+
       size_t iterations = 0;
       
       // preparing the ranges on which each processing thread will run.
@@ -285,7 +346,7 @@ namespace grassmann_averages_pca
       // avoid waiting too long for a thread (better granularity) but involving a slight overhead in memory and
       // processing at the synchronization point.
       typedef asynchronous_chunks_processor<data_t> async_processor_t;
-      std::vector<async_processor_t> v_individual_accumulators(nb_chunks);
+      std::vector<async_processor_t> v_individual_accumulators(nb_chunks, async_processor_t(inner_product_optimisation));
 
       asynchronous_results_merger async_merger(number_of_dimensions);
       async_merger.init_notifications();
@@ -312,6 +373,7 @@ namespace grassmann_averages_pca
           // attaching the update object callbacks
           current_acc_object.connector_accumulator() = boost::bind(&asynchronous_results_merger::update, &async_merger, _1);
           current_acc_object.connector_counter() = boost::bind(&asynchronous_results_merger::notify, &async_merger);
+          current_acc_object.connector_reference_count() = boost::bind(&asynchronous_results_merger::update_mu_reference_counts, &async_merger, _1);
 
           // updating the dimension of the problem
           current_acc_object.set_data_dimensions(number_of_dimensions);
@@ -386,7 +448,6 @@ namespace grassmann_averages_pca
 
 
 
-
       // for each dimension
       for(size_t current_subspace_index = 0; 
           current_subspace_index < max_dimension_to_compute; 
@@ -441,8 +502,12 @@ namespace grassmann_averages_pca
         }
 
 
-
+        // init the convergence object
         details::convergence_check<data_t> convergence_op(mu);
+
+        // register the initial mu
+        inner_product_optimisation.add_mu(mu, 0, 0);
+
 
         // reseting the accumulator and the notifications
         async_merger.init();
@@ -466,28 +531,42 @@ namespace grassmann_averages_pca
         mu *= typename data_t::value_type(1./norm_op(mu));
 
 
+        // updating the references, for this case, the initial mu should be referenced by all
+        update_mus_reference(async_merger, inner_product_optimisation);
+
+
         // other iterations as usual
         for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
         {
+          // new mu is added to the optimised, and anything not needed is removed
+          inner_product_optimisation.add_mu(mu, iterations, 0);
 
-          // reseting the final accumulator
+
+
+          // reseting the notifications (just the notifications, no need for init)
           async_merger.init_notifications();
-          //async_merger.init();
-          //async_merger.get_merged_result() = mu_no_norm;
 
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            ioService.post(boost::bind(&async_processor_t::update_accumulation, boost::ref(v_individual_accumulators[i]), boost::cref(mu)));
+            ioService.post(
+              boost::bind(
+                &async_processor_t::update_accumulation, 
+                boost::ref(v_individual_accumulators[i]), // instance
+                boost::cref(mu), iterations)); // params
           }
 
           // waiting for completion (barrier)
           async_merger.wait_notifications(v_individual_accumulators.size());
 
           // gathering the mus
-          //mu_no_norm = async_merger.get_merged_result();
           mu = async_merger.get_merged_result();
           mu *= typename data_t::value_type(1./norm_op(mu));
+
+          // updating the references
+          update_mus_reference(async_merger, inner_product_optimisation);
+          inner_product_optimisation.prune();
+
 
           // sending result to observer
           if(observer)
@@ -495,6 +574,10 @@ namespace grassmann_averages_pca
             observer->signal_intermediate_result(mu, current_subspace_index, iterations);
           }
         }
+
+        // clear the optimisation part, not needed anymore
+        inner_product_optimisation.clear();
+
 
         // mu is the eigenvector of the current dimension, we store it in the output vector
         *it_basisvectors = mu;
