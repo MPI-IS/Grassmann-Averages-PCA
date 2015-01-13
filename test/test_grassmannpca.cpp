@@ -134,6 +134,7 @@ BOOST_AUTO_TEST_CASE(check_centering_of_data)
       acc += mat_data(i, j);
     }
 
+    // data is normalised
     BOOST_CHECK_CLOSE(acc / 10, observer.mean(j), 1E-3);
   }
 

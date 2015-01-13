@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE(test_add_mu_all_similar_gives_null_matrix)
   namespace ga = grassmann_averages_pca;
 
   typedef ub::vector<double> data_t;
-  typedef ga::details::mus_distance_optimisation<data_t> mu_angle_helper_t;
+  typedef ga::details::mus_distance_optimisation_helper<data_t> mu_angle_helper_t;
   mu_angle_helper_t instance;
 
   const int nb_elements = 3;
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(test_add_mu_update_first_available)
   namespace ga = grassmann_averages_pca;
 
   typedef ub::vector<double> data_t;
-  typedef ga::details::mus_distance_optimisation<data_t> mu_angle_helper_t;
+  typedef ga::details::mus_distance_optimisation_helper<data_t> mu_angle_helper_t;
   mu_angle_helper_t instance;
 
   const int nb_elements = 3;
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE(test_prune)
   namespace ga = grassmann_averages_pca;
 
   typedef ub::vector<double> data_t;
-  typedef ga::details::mus_distance_optimisation<data_t> mu_angle_helper_t;
+  typedef ga::details::mus_distance_optimisation_helper<data_t> mu_angle_helper_t;
   mu_angle_helper_t instance;
   mu_angle_helper_t instance2;
 

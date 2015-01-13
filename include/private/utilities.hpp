@@ -13,7 +13,7 @@
  * 
  */
 
-
+#include <cmath>
 #include <boost/numeric/conversion/bounds.hpp>
 
 
@@ -31,6 +31,11 @@
 #include <boost/numeric/ublas/symmetric.hpp>
 
 #include <numeric>
+#include <set>
+
+#ifndef M_PI
+  #define M_PI 3.14159265358979323846
+#endif
 
 
 // lock free queue, several producers, one consumer
@@ -122,6 +127,28 @@ namespace grassmann_averages_pca
     };
     
 
+    //! A trivial version of acos that avoids NaN
+    struct safe_acos
+    {
+      typedef double result_type;
+
+      template <class T>
+      result_type operator()(T const& v) const
+      {
+        using namespace std; // bringing acos
+
+        if(v > 1) 
+        {
+          return 0;
+        }
+        else if(v < -1)
+        {
+          return M_PI;
+        }
+        return acos(v);
+      }
+    };
+
 
 
 
@@ -130,7 +157,7 @@ namespace grassmann_averages_pca
      *
      */
     template <class data_t>
-    struct mus_distance_optimisation
+    struct mus_distance_optimisation_helper
     {
 
     private:
@@ -163,8 +190,17 @@ namespace grassmann_averages_pca
 
     public:
 
-      mus_distance_optimisation() : mus(), mapping_indices(), mu_angles()
+      mus_distance_optimisation_helper() : mus(), mapping_indices(), mu_angles()
       {}
+
+
+      //! Clears the content 
+      void clear()
+      {
+        mus.clear();
+        mapping_indices.clear();
+        mu_angles.clear();
+      }
   
       //! Computes the angles between two vectors. 
       //!
@@ -172,7 +208,6 @@ namespace grassmann_averages_pca
       //! normalised already, consider using angle_normalized_vectors. 
       double angle(const data_t& left, const data_t& right) const
       {
-        using namespace std; // bringing acos
 
         typedef typename data_t::value_type scalar_t;
         double out(0);
@@ -248,6 +283,8 @@ namespace grassmann_averages_pca
             {
               index_to_remove.insert(index);
               it = mus.erase(it);
+              if(it == mus.end())
+                break;
             }
           }
         }
@@ -731,9 +768,6 @@ namespace grassmann_averages_pca
         //! Thread synchronisation (event sent after an update, for counting).
         boost::condition_variable_any condition_;
 
-        std::list<update_element const*> lf_queue;
-        //boost::lockfree::queue<update_element const*> lf_queue;
-
       public:
 
         /*!Constructor
@@ -742,12 +776,11 @@ namespace grassmann_averages_pca
          */
         asynchronous_results_merger(init_result_type const &initialisation_instance_) : 
           initialisation_instance(initialisation_instance_),
-          nb_updates(0),
-          lf_queue()
+          nb_updates(0)
         {}
 
         //! Initializes the internal states
-        void init()
+        virtual void init()
         {
           init_results();
           init_notifications();
@@ -774,23 +807,8 @@ namespace grassmann_averages_pca
          */
         void update(update_element const* updated_value)
         {
-          boost::unique_lock<mutex_t> lock(internal_mutex);//, boost::try_to_lock);
-
-          if(lock.owns_lock())
-          {
-            merger_instance(current_value, *updated_value);
-            while(!lf_queue.empty())
-            {
-              updated_value = lf_queue.back();
-              lf_queue.pop_back();
-              merger_instance(current_value, *updated_value);
-            }
-          }
-          else
-          {
-            //while(!lf_queue.push(updated_value))
-            //  ;
-          }
+          boost::unique_lock<mutex_t> lock(internal_mutex);
+          merger_instance(current_value, *updated_value);
         }
 
 
@@ -828,31 +846,9 @@ namespace grassmann_averages_pca
 
             //assert(nb_updates);           // cannot be awakened if there is no update
             assert(lock.owns_lock());
-
-            // consumes what was under a collision in the update
-            update_element const* updated_value(0);
-            if(!lf_queue.empty())
-            {
-              updated_value = lf_queue.back();
-              lf_queue.pop_back();
-              merger_instance(current_value, *updated_value);
-            }
           }
 
           assert(lock.owns_lock());
-
-          // consumes what was under a collision in the update
-          // we might end up here if there was at least one collision, and everything was finished before the line "while (nb_updates < nb_notifications)"
-          {
-            update_element const* updated_value(0);
-            while(!lf_queue.empty())
-            {
-              updated_value = lf_queue.back();
-              lf_queue.pop_back();            
-              merger_instance(current_value, *updated_value);
-            }
-          }
-
           return true;
         }
 
