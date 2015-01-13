@@ -176,8 +176,8 @@ namespace grassmann_averages_pca
 
     void update_mus_reference(asynchronous_results_merger const& async_merger, inner_product_optimisation_t& inner_product_optimisation)
     {
-      asynchronous_results_merger::map_reference_delta_t const& map_ref_updates = async_merger.get_merged_reference_counts();
-      for(asynchronous_results_merger::map_reference_delta_t::const_iterator it_reference_mu(map_ref_updates.begin()), ite_reference_mu(map_ref_updates.end());
+      typename asynchronous_results_merger::map_reference_delta_t const& map_ref_updates = async_merger.get_merged_reference_counts();
+      for(typename asynchronous_results_merger::map_reference_delta_t::const_iterator it_reference_mu(map_ref_updates.begin()), ite_reference_mu(map_ref_updates.end());
           it_reference_mu != ite_reference_mu;
           ++it_reference_mu)
       {
