@@ -298,6 +298,7 @@ namespace grassmann_averages_pca
       //! Initialises the accumulator and the signs vector from the first mu
       void initial_accumulation(data_t const &mu)
       {
+        using namespace std;
         details::safe_acos acos_function_object;
 
         accumulator = data_t(data_dimension, 0);
@@ -353,6 +354,7 @@ namespace grassmann_averages_pca
       //! Update the accumulator and the signs vector from an upated mu
       void update_accumulation(data_t const& mu, size_t current_index)
       {
+        using namespace std;
         details::safe_acos acos_function_object;
 
 
