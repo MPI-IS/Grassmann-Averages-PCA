@@ -153,7 +153,7 @@ namespace grassmann_averages_pca
         */
       void update_mu_reference_counts(std::map<size_t, int> const* update_ref_count)
       {
-        boost::unique_lock<mutex_t> lock(internal_mutex);
+        boost::unique_lock<typename parent_type::mutex_t> lock(this->internal_mutex);
         for(std::map<size_t, int>::const_iterator it(update_ref_count->begin()), ite(update_ref_count->end());
             it != ite;
             ++it)
