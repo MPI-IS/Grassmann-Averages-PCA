@@ -75,6 +75,9 @@ namespace grassmann_averages_pca
       //! This is the class that will check if the computation of the inner product is needed
       typedef details::mus_distance_optimisation_helper<data_t> inner_product_optimisation_t;
       inner_product_optimisation_t &inner_product_optimisation;
+      
+      //! The object used for computing the arccos function.
+      details::safe_acos acos_function_object;
 
       //! "Optimized" inner product.
       //! This one has the particularity to be more cache/memory bandwidth friendly. More efficient
@@ -298,8 +301,7 @@ namespace grassmann_averages_pca
       //! Initialises the accumulator and the signs vector from the first mu
       void initial_accumulation(data_t const &mu)
       {
-        using namespace std;
-        details::safe_acos acos_function_object;
+        using namespace std; // to keep otherwise the abs does not take overloads
 
         accumulator = data_t(data_dimension, 0);
         v_mu_reference_indices.assign(v_mu_reference_indices.size(), 0); // all vectors will bind to 0, which is the current index
@@ -354,10 +356,8 @@ namespace grassmann_averages_pca
       //! Update the accumulator and the signs vector from an upated mu
       void update_accumulation(data_t const& mu, size_t current_index)
       {
-        using namespace std;
-        details::safe_acos acos_function_object;
-
-
+        using namespace std; // to keep otherwise the abs does not take overloads
+        
         map_reference_delta_t map_update;
         accumulator = data_t(data_dimension, 0);
         size_t count_current_index(0); // should be positive only
