@@ -174,6 +174,8 @@ namespace grassmann_averages_pca
     };
 
 
+
+    //! Transfers the updates of the mu counts to the dedicated class instance. 
     void update_mus_reference(asynchronous_results_merger const& async_merger, inner_product_optimisation_t& inner_product_optimisation)
     {
       typename asynchronous_results_merger::map_reference_delta_t const& map_ref_updates = async_merger.get_merged_reference_counts();
