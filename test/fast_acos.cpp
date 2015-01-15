@@ -178,7 +178,7 @@ struct safe_acos_quadratic_interpolation
   precision step;
   precision step_inv;
 
-  safe_acos_quadratic_interpolation(size_t nb_coefficients = 30) : 
+  safe_acos_quadratic_interpolation(size_t nb_coefficients = 50) : 
      v_table(nb_coefficients + 1)
   {
     using namespace std; // bringing acos
@@ -268,16 +268,72 @@ struct safe_acos_taylor_approximation_order1
     v = (v + 1) * step_inv;
     size_t index = static_cast<size_t>(v);
 
-    precision a = v_table[index].first;
-    precision derivative = v_table[index].second;
-
     v -= index;
+
+    // little wart to cope for some discontinuities on junction points, not super
     return 0.5*(v_table[index].first + v_table[index].second * v + v_table[index+1].first + v_table[index+1].second * (v-1));
 
   }
 };
 
 
+//! An approximation of the acos function with Cublic splines
+template <class precision = double>
+struct safe_acos_cublic_spline_approximation
+{
+  typedef precision result_type;
+
+  std::vector< std::pair<precision, precision> > v_table;
+  precision step;
+  precision step_inv;
+
+  safe_acos_cublic_spline_approximation(size_t nb_coefficients = 30) : 
+     v_table(nb_coefficients + 1)
+  {
+    using namespace std; // bringing acos
+
+    step = static_cast<precision>(2./nb_coefficients);
+    step_inv = static_cast<precision>(nb_coefficients / 2.);
+
+    for(size_t s = 0; s < nb_coefficients; s++)
+    {
+      precision v = -1 + s * step;
+      v_table[s].first = acos(v);
+      v_table[s].second = -1/sqrt(1-v*v);
+    }
+    v_table[nb_coefficients] = std::make_pair(0, 0);
+  }
+
+  template <class T>
+  result_type operator()(T v) const
+  {
+    // this branch is killing everything
+    if(v >= 1 - step) 
+    {
+      return v >= 1 ? 0 : acos(v);
+    }
+    else if(v <= -1 + step)
+    {
+      return v <= -1 ? M_PI : acos(v);
+    }
+
+    v = (v + 1) * step_inv;
+    size_t index = static_cast<size_t>(v);
+
+    precision p0 = v_table[index].first;
+    precision m0 = v_table[index].second;
+    precision p1 = v_table[index+1].first;
+    precision m1 = v_table[index+1].second;
+
+
+    v -= index;
+    assert(v >= 0 && v < 1);
+
+
+    return (2*v*v*v -3*v*v + 1) * p0 + (v*v*v -2 * v*v + v) * m0 + (-2*v*v + 3 * v * v) * p1 + (v*v*v - v*v) * m1 ;
+
+  }
+};
 
 
 
@@ -389,6 +445,32 @@ BOOST_AUTO_TEST_CASE(acos_approximation_taylor1_method)
 
 }
 
+
+BOOST_AUTO_TEST_CASE(acos_approximation_cubic_spline_method)
+{
+  safe_acos_cublic_spline_approximation<> acos_obj;
+
+  {
+    const int nb_values = 97;
+    const double increment = 2./nb_values;
+    double current = -1;
+    for(size_t s = 0; s < nb_values; s++, current += increment)
+    {
+      BOOST_CHECK_CLOSE(acos_obj(current), acos(current), 1); // 1% radian
+    }
+  }
+
+  const std::string filename = "./toto_cubic_spline.txt";
+  std::ofstream ff(filename.c_str());
+
+  BOOST_REQUIRE(ff.is_open());
+
+  for(int i = 0; i < 10000; i++)
+  {
+    ff << acos_obj(-1 + 2.*i/ 10000) << std::endl;
+  }
+
+}
 BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method_performances)
 {
   typedef float precision;
