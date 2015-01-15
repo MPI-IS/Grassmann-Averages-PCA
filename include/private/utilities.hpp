@@ -128,9 +128,10 @@ namespace grassmann_averages_pca
     
 
     //! A trivial version of acos that avoids NaN
+    template <class precision = double>
     struct safe_acos
     {
-      typedef double result_type;
+      typedef precision result_type;
 
       template <class T>
       result_type operator()(T const& v) const
