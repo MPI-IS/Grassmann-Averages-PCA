@@ -191,13 +191,13 @@ namespace grassmann_averages_pca
       result_type operator()(T v) const
       {
         // this branch is killing everything
-        if(v >= 1) 
+        if(v >= 1 - step) 
         {
-          return 0;
+          return v >= 1 ? 0 : acos(v);
         }
-        else if(v <= -1)
+        else if(v <= -1 + step)
         {
-          return precision(M_PI);
+          return v <= -1 ? precision(M_PI) : acos(v);
         }
 
         v = (v + 1) * step_inv;

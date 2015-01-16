@@ -381,7 +381,7 @@ namespace grassmann_averages_pca
           const size_t previous_index = *it_indices;
 
           double previous_angle = inner_product_optimisation.get_angle_from_indices(previous_index, current_index);
-          if(*it_angles + abs(previous_angle) < M_PI / 2)
+          if(*it_angles + abs(previous_angle) < M_PI / 2 - M_PI / 200) // the approximate acos is accurate at 1%
           {
             // in this case, the scalar product does not need to be recomputed, and the sign does not change
             // against the previous one
