@@ -414,7 +414,7 @@ if(NOT WITHOUT_TESTS)
       test/test_empca.cpp
       test/test_row_proxy.cpp
       test/test_mus_proximity.cpp
-      test/fast_acos.cpp
+      test/test_faster_acos.cpp
       )
 
   # this file is used for some internal tests related to ordering
