@@ -71,7 +71,7 @@ struct safe_acos_chebyshev_approximation
     }
     else if(v <= -1)
     {
-      return M_PI;
+      return precision(M_PI);
     }
 
 #if 1
@@ -114,54 +114,6 @@ struct safe_acos_chebyshev_approximation
 
 
 
-//! An approximation of the acos function with Chebyshev polynomials
-template <class precision = double>
-struct safe_acos_linear_interpolation
-{
-  typedef precision result_type;
-
-  std::vector<precision> v_table;
-  precision step;
-  precision step_inv;
-
-  safe_acos_linear_interpolation(size_t nb_coefficients = 100) : 
-     v_table(nb_coefficients + 1)
-  {
-    using namespace std; // bringing acos
-
-    step = static_cast<precision>(2./nb_coefficients);
-    step_inv = static_cast<precision>(nb_coefficients / 2.);
-
-    for(size_t s = 0; s < nb_coefficients; s++)
-    {
-      v_table[s] = acos(-1 + s * step);
-    }
-    v_table[nb_coefficients] = 0;
-  }
-
-  template <class T>
-  result_type operator()(T v) const
-  {
-    // this branch is killing everything
-    if(v >= 1) 
-    {
-      return 0;
-    }
-    else if(v <= -1)
-    {
-      return M_PI;
-    }
-
-    v = (v + 1) * step_inv;
-    size_t index = static_cast<size_t>(v);
-    v -= index;
-
-    return (1-v) * v_table[index] + v * v_table[index + 1];
-
-  }
-};
-
-
 //! An approximation of the acos function with quadratic approximation
 //! Looks buggy at junction points
 template <class precision = double>
@@ -183,9 +135,9 @@ struct safe_acos_quadratic_interpolation
 
     for(size_t s = 1; s < nb_coefficients; s++)
     {
-      v_table[s] = acos(-1 + s * 2./nb_coefficients);
+      v_table[s] = static_cast<precision>(acos(-1 + s * 2./nb_coefficients));
     }
-    v_table[0] = M_PI;
+    v_table[0] = precision(M_PI);
     v_table[nb_coefficients] = 0;
   }
 
@@ -199,7 +151,7 @@ struct safe_acos_quadratic_interpolation
     }
     else if(v <= -1 + step)
     {
-      return v <= -1 ? M_PI : acos(v);
+      return v <= -1 ? precision(M_PI) : acos(v);
     }
 
     precision vv = (v + 1) * step_inv;
@@ -210,7 +162,7 @@ struct safe_acos_quadratic_interpolation
     if(index == 0)
     {
       if(vv <= 0.5)
-        return ((1-vv) * M_PI + vv * v_table[1]) ;
+        return ((1-vv) * precision(M_PI) + vv * v_table[1]) ;
     }
     else if(index >= v_table.size() - 1)
     {
@@ -230,7 +182,7 @@ struct safe_acos_quadratic_interpolation
     precision ym1 = v_table[index - 1];
 
     
-    return (0.5*(yp1 + ym1) - y) * vv*vv + 0.5*(yp1 - ym1) * vv + y;
+    return static_cast<precision>((0.5*(yp1 + ym1) - y) * vv*vv + 0.5*(yp1 - ym1) * vv + y);
 
   }
 };
@@ -258,11 +210,11 @@ struct safe_acos_cublic_spline_approximation
     for(size_t s = 1; s < nb_coefficients; s++)
     {
       precision v = -1 + s * step;
-      v_table[s].first = acos(-1. + s * step);
+      v_table[s].first = static_cast<precision>(acos(-1. + s * step));
       v_table[s].second = -step/sqrt(1-v*v);
     }
-    v_table[0] = std::make_pair(M_PI, 0);
-    v_table[nb_coefficients] = std::make_pair(0, 0);
+    v_table[0] = std::make_pair(precision(M_PI), precision(0.));
+    v_table[nb_coefficients] = std::make_pair(precision(0), precision(0.));
   }
 
   template <class T>
@@ -276,7 +228,7 @@ struct safe_acos_cublic_spline_approximation
     }
     else if(v < -1 + step)
     {
-      return v <= -1 ? M_PI : acos(v);
+      return v <= -1 ? precision(M_PI) : acos(v);
     }
     
     v = (v + 1) * step_inv;
@@ -331,7 +283,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method)
 
 BOOST_AUTO_TEST_CASE(acos_approximation_linear_method)
 {
-  safe_acos_linear_interpolation<> acos_obj;
+  grassmann_averages_pca::details::safe_acos_linear_interpolation<> acos_obj;
 
   {
     const int nb_values = 97;
@@ -422,7 +374,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method_performances)
 
   const size_t repetition = 10000;
   const size_t nb_values = 1000;
-  const precision increment = 2./nb_values;
+  const precision increment = precision(2./nb_values);
 
 
   typedef boost::chrono::steady_clock clock_type;
@@ -483,12 +435,12 @@ BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method_performances)
 BOOST_AUTO_TEST_CASE(acos_approximation_linear_method_performances)
 {
   typedef float precision;
-  safe_acos_linear_interpolation<precision> acos_obj;
+  grassmann_averages_pca::details::safe_acos_linear_interpolation<precision> acos_obj;
   grassmann_averages_pca::details::safe_acos<precision> acos_obj_safe;
 
   const size_t repetition = 10000;
   const size_t nb_values = 1000;
-  const precision increment = 2./nb_values;
+  const precision increment = precision(2./nb_values);
 
 
   typedef boost::chrono::steady_clock clock_type;
@@ -555,7 +507,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_quadratic_method_performances)
 
   const size_t repetition = 10000;
   const size_t nb_values = 1000;
-  const precision increment = 2./nb_values;
+  const precision increment = precision(2./nb_values);
 
 
   typedef boost::chrono::steady_clock clock_type;
@@ -622,7 +574,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_cubic_spline_method_performances)
 
   const size_t repetition = 10000;
   const size_t nb_values = 1000;
-  const precision increment = 2./nb_values;
+  const precision increment = precision(2./nb_values);
 
 
   typedef boost::chrono::steady_clock clock_type;

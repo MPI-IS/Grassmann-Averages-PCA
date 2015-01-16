@@ -77,7 +77,7 @@ namespace grassmann_averages_pca
       inner_product_optimisation_t &inner_product_optimisation;
       
       //! The object used for computing the arccos function.
-      details::safe_acos<double> acos_function_object;
+      details::safe_acos_linear_interpolation<double> acos_function_object;
 
       //! "Optimized" inner product.
       //! This one has the particularity to be more cache/memory bandwidth friendly. More efficient
@@ -149,7 +149,8 @@ namespace grassmann_averages_pca
         data_dimension(0), 
         p_c_matrix(0), 
         data_padding(0),
-        inner_product_optimisation(inner_product_optimisation_)
+        inner_product_optimisation(inner_product_optimisation_),
+        acos_function_object(200)
       {
       }
       

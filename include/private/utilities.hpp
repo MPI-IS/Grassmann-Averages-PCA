@@ -144,13 +144,70 @@ namespace grassmann_averages_pca
         }
         else if(v < -1)
         {
-          return M_PI;
+          return precision(M_PI);
         }
         return acos(v);
       }
     };
 
+    //! An faster approximate acos function with linear interpolation
+    //!
+    //! This implementation just interpolate the function acos on pivot points. The number of 
+    //! pivot points is given at construction time
+    //!
+    //! @tparam precision precision of the internal representation of the values. 
+    template <class precision = double>
+    struct safe_acos_linear_interpolation
+    {
+      typedef precision result_type;
 
+    private:
+      std::vector<precision> v_table;
+      precision step;
+      precision step_inv;
+
+    public:
+
+      //!@brief Construct the internal interpolation table.
+      //! 
+      //! @param[in] nb_coefficients number of coefficients stored (which is also the size of the internal table minus 1).
+      safe_acos_linear_interpolation(size_t nb_coefficients = 100) : 
+         v_table(nb_coefficients + 1)
+      {
+        using namespace std; // bringing acos
+
+        step = static_cast<precision>(2./nb_coefficients);
+        step_inv = static_cast<precision>(nb_coefficients / 2.);
+
+        for(size_t s = 0; s < nb_coefficients; s++)
+        {
+          v_table[s] = acos(-1 + s * step);
+        }
+        v_table[nb_coefficients] = 0;
+      }
+
+      //! Evaluation of the acos function
+      template <class T>
+      result_type operator()(T v) const
+      {
+        // this branch is killing everything
+        if(v >= 1) 
+        {
+          return 0;
+        }
+        else if(v <= -1)
+        {
+          return precision(M_PI);
+        }
+
+        v = (v + 1) * step_inv;
+        size_t index = static_cast<size_t>(v);
+        v -= index;
+
+        return (1-v) * v_table[index] + v * v_table[index + 1];
+
+      }
+    };
 
 
     /*!brief Handles the changes between two consecutive estimations of mus in order to avoid
