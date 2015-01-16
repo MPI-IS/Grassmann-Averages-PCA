@@ -168,7 +168,8 @@ struct safe_acos_linear_interpolation
 };
 
 
-//! An approximation of the acos function with Chebyshev polynomials
+//! An approximation of the acos function with quadratic approximation
+//! Looks buggy at junction points
 template <class precision = double>
 struct safe_acos_quadratic_interpolation
 {
@@ -177,19 +178,22 @@ struct safe_acos_quadratic_interpolation
   std::vector<precision> v_table;
   precision step;
   precision step_inv;
+  precision half_step;
 
   safe_acos_quadratic_interpolation(size_t nb_coefficients = 50) : 
      v_table(nb_coefficients + 1)
   {
     using namespace std; // bringing acos
 
-    step = static_cast<precision>(2./nb_coefficients);
-    step_inv = static_cast<precision>(nb_coefficients / 2.);
+    step = static_cast<precision>(2./(nb_coefficients ));
+    half_step = static_cast<precision>(1./(nb_coefficients));
+    step_inv = static_cast<precision>((nb_coefficients) / 2.);
 
-    for(size_t s = 0; s < nb_coefficients; s++)
+    for(size_t s = 1; s < nb_coefficients; s++)
     {
-      v_table[s] = acos(-1 + s * step);
+      v_table[s] = acos(-1 + s * 2./nb_coefficients);
     }
+    v_table[0] = M_PI;
     v_table[nb_coefficients] = 0;
   }
 
@@ -197,35 +201,51 @@ struct safe_acos_quadratic_interpolation
   result_type operator()(T v) const
   {
     // this branch is killing everything
-    if(v >= 1) 
+    if(v >= 1 - step) 
     {
-      return 0;
+      return v >= 1 ? 0 : acos(v);
     }
-    else if(v <= -1)
+    else if(v <= -1 + step)
     {
-      return M_PI;
+      return v <= -1 ? M_PI : acos(v);
     }
 
-    v = (v + 1) * step_inv;
+    precision vv = (v + 1) * step_inv;
 
-    size_t index = static_cast<size_t>(v);
+    size_t index = static_cast<size_t>(vv);
+    vv -= index;
+    
     if(index == 0)
     {
-      return M_PI + v * (v_table[1] - M_PI);
+      if(vv <= 0.5)
+        return ((1-vv) * M_PI + vv * v_table[1]) ;
+    }
+    else if(index >= v_table.size() - 1)
+    {
+      if(vv >= 0.5)
+        return  (1 - vv + index) * v_table[index-1];
+    }
+    
+    
+    if(vv > 0.5)
+    {
+      vv -= 1;
+      index ++;
     }
 
     precision y = v_table[index];
     precision yp1 = v_table[index + 1];
     precision ym1 = v_table[index - 1];
 
-    v -= index;
-    return (0.5*(yp1 + ym1) - y) * v*v + 0.5*(yp1 - ym1) * v + y;
+    
+    return (0.5*(yp1 + ym1) - y) * vv*vv + 0.5*(yp1 - ym1) * vv + y;
 
   }
 };
 
 
-//! An approximation of the acos function with Chebyshev polynomials
+//! An approximation of the acos function with Taylor expansion of degree 1 (first derivative)
+//! looks buggy at junction points.
 template <class precision = double>
 struct safe_acos_taylor_approximation_order1
 {
@@ -299,7 +319,7 @@ struct safe_acos_cublic_spline_approximation
     {
       precision v = -1 + s * step;
       v_table[s].first = acos(v);
-      v_table[s].second = -1/sqrt(1-v*v);
+      v_table[s].second = -step/sqrt(1-v*v);
     }
     v_table[nb_coefficients] = std::make_pair(0, 0);
   }
@@ -316,27 +336,29 @@ struct safe_acos_cublic_spline_approximation
     {
       return v <= -1 ? M_PI : acos(v);
     }
-
+    
     v = (v + 1) * step_inv;
     size_t index = static_cast<size_t>(v);
-
+    
     precision p0 = v_table[index].first;
-    precision m0 = v_table[index].second;
+    precision a = v_table[index].second;
+    
     precision p1 = v_table[index+1].first;
-    precision m1 = v_table[index+1].second;
-
+    precision b = -v_table[index+1].second;
+    
+    a -= p1 - p0;
+    b += p1 - p0;
 
     v -= index;
     assert(v >= 0 && v < 1);
 
-
-    return (2*v*v*v -3*v*v + 1) * p0 + (v*v*v -2 * v*v + v) * m0 + (-2*v*v + 3 * v * v) * p1 + (v*v*v - v*v) * m1 ;
-
+    return (1-v) * p0 + v * p1 + v * (1-v) * (a * (1 - v) + b * v);
   }
 };
 
 
-
+// use to flush out the curves on different files
+#define DEBUG_CURVES
 
 BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method)
 {
@@ -352,6 +374,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method)
     }
   }
 
+#ifdef DEBUG_CURVES
   const std::string filename = "./toto_chebyshev.txt";
   std::ofstream ff(filename.c_str());
 
@@ -361,7 +384,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method)
   {
     ff << acos_obj(-1 + 2.*i/ 10000) << std::endl;
   }
-
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(acos_approximation_linear_method)
@@ -378,6 +401,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_linear_method)
     }
   }
 
+#ifdef DEBUG_CURVES
   const std::string filename = "./toto_linear.txt";
   std::ofstream ff(filename.c_str());
 
@@ -387,7 +411,7 @@ BOOST_AUTO_TEST_CASE(acos_approximation_linear_method)
   {
     ff << acos_obj(-1 + 2.*i/ 10000) << std::endl;
   }
-
+#endif
 }
 
 
@@ -405,17 +429,17 @@ BOOST_AUTO_TEST_CASE(acos_approximation_quadratic_method)
     }
   }
 
-
+#ifdef DEBUG_CURVES
   const std::string filename = "./toto_quad.txt";
   std::ofstream ff(filename.c_str());
 
   BOOST_REQUIRE(ff.is_open());
 
-  for(int i = 0; i < 10000; i++)
+  for(int i = 0; i <= 1000; i++)
   {
-    ff << acos_obj(-1 + 2.*i/ 10000) << std::endl;
+    ff << acos_obj(-1 + 2.*i/ 1000) << std::endl;
   }
-
+#endif
 
 }
 
@@ -433,15 +457,17 @@ BOOST_AUTO_TEST_CASE(acos_approximation_taylor1_method)
     }
   }
 
+#ifdef DEBUG_CURVES
   const std::string filename = "./toto_taylor1.txt";
   std::ofstream ff(filename.c_str());
 
   BOOST_REQUIRE(ff.is_open());
 
-  for(int i = 0; i < 10000; i++)
+  for(int i = 0; i <= 10000; i++)
   {
     ff << acos_obj(-1 + 2.*i/ 10000) << std::endl;
   }
+#endif
 
 }
 
@@ -451,24 +477,26 @@ BOOST_AUTO_TEST_CASE(acos_approximation_cubic_spline_method)
   safe_acos_cublic_spline_approximation<> acos_obj;
 
   {
-    const int nb_values = 97;
+    const int nb_values = 300;
     const double increment = 2./nb_values;
     double current = -1;
     for(size_t s = 0; s < nb_values; s++, current += increment)
     {
-      BOOST_CHECK_CLOSE(acos_obj(current), acos(current), 1); // 1% radian
+      BOOST_CHECK_CLOSE(acos_obj(current), acos(current), .1); // 1% radian
     }
   }
 
+#ifdef DEBUG_CURVES
   const std::string filename = "./toto_cubic_spline.txt";
   std::ofstream ff(filename.c_str());
 
   BOOST_REQUIRE(ff.is_open());
 
-  for(int i = 0; i < 10000; i++)
+  for(int i = 0; i < 100; i++)
   {
-    ff << acos_obj(-1 + 2.*i/ 10000) << std::endl;
+    ff << acos_obj(-1 + 2.*i/ 100) << std::endl;
   }
+#endif
 
 }
 BOOST_AUTO_TEST_CASE(acos_approximation_chebyshev_method_performances)
@@ -729,7 +757,67 @@ BOOST_AUTO_TEST_CASE(acos_approximation_taylor1_method_performances)
             << " - acos " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed1) << std::endl
             << " - Taylor approximation of acos " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed2) << std::endl
             << " - dummy value " << (accg > 0 ? 1: -1) << std::endl;
+            
+}
+
+BOOST_AUTO_TEST_CASE(acos_approximation_cubic_spline_method_performances)
+{
+  typedef float precision;
+  safe_acos_cublic_spline_approximation<precision> acos_obj(100);
+  grassmann_averages_pca::details::safe_acos<precision> acos_obj_safe;
+
+  const size_t repetition = 10000;
+  const size_t nb_values = 1000;
+  const precision increment = 2./nb_values;
 
 
+  typedef boost::chrono::steady_clock clock_type;
+  clock_type::duration elapsed1, elapsed2;
 
+  precision accg = 0;
+
+  // acos
+  {
+    clock_type::time_point start = clock_type::now();
+
+
+    precision current = -1;
+    for(size_t s = 0; s < nb_values; s++, current += increment)
+    {
+      float acc = 0;
+      for(int i = 0; i < repetition; i++)
+      {
+        acc += acos_obj_safe(current);
+      }
+      accg += acc;
+    }
+    elapsed1 = clock_type::now() - start;
+
+  }
+
+
+  // acos
+  {
+    clock_type::time_point start = clock_type::now();
+
+
+    precision current = -1;
+    for(size_t s = 0; s < nb_values; s++, current += increment)
+    {
+      precision acc = 0;
+      for(int i = 0; i < repetition; i++)
+      {
+        acc += acos_obj(current);
+      }
+      accg += acc;
+    }
+
+    elapsed2 = clock_type::now() - start;
+  }
+
+  std::cout << "processing " << nb_values * repetition << " elements " << std::endl
+            << " - acos " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed1) << std::endl
+            << " - Cubic spline approximation of acos " << boost::chrono::duration_cast<boost::chrono::microseconds>(elapsed2) << std::endl
+            << " - dummy value " << (accg > 0 ? 1: -1) << std::endl;
+            
 }
