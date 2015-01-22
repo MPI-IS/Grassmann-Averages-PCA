@@ -49,11 +49,11 @@ namespace grassmann_averages_pca
   {
     void number2filename(size_t file_number, char *filename)
     {
-  const size_t dir_num = file_number / 10000;
-  sprintf(filename, 
-          (movielocation + "/starwars_%.3d/frame%.7d.png").c_str(), 
-          dir_num, 
-          file_number);
+      const size_t dir_num = file_number / 10000;
+      sprintf(filename, 
+              (movielocation + "/starwars_%.3d/frame%.7d.png").c_str(), 
+              dir_num, 
+              file_number);
     }
 
     //! An iterator that will load the images on demand instead of storing everything on memory

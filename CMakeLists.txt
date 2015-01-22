@@ -281,26 +281,40 @@ target_link_libraries(grassmann_averages_examples grassmann_averages)
 # Applications
 
 
+
 if(OPENCV_AVAILABLE)
-  # Reads a full movie and runs the Grassman PCA on it
-  set(${PROJECT_NAME}_movie_runner_SRC
-      applications/video_processing.cpp)
-  add_executable(${PROJECT_NAME}_movie_runner ${${PROJECT_NAME}_movie_runner_SRC})
- 
+
   # not linking against everything in opencv 
   set(opencv_core_library "opencv_core" "opencv_highgui")
-  target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY}) # ${OpenCV_LIBS}
-  target_include_directories(${PROJECT_NAME}_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
-  set_target_properties(${PROJECT_NAME}_movie_runner PROPERTIES FOLDER "Applications")
+
+  set(${PROJECT_NAME}_ga_movie_runner_SRC
+      applications/video_processing_grassmann_pca.cpp)
+  add_executable(${PROJECT_NAME}_ga_movie_runner ${${PROJECT_NAME}_ga_movie_runner_SRC})
+ 
+  target_link_libraries(${PROJECT_NAME}_ga_movie_runner grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+  target_include_directories(${PROJECT_NAME}_ga_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
+  set_target_properties(${PROJECT_NAME}_ga_movie_runner PROPERTIES FOLDER "Applications")
+
+
+
+  # Reads a full movie and runs the Trimmed Grassman PCA on it
+  set(${PROJECT_NAME}_trimmed_ga_movie_runner_SRC
+      applications/video_processing_trimmed_grassmann_pca.cpp)
+  add_executable(${PROJECT_NAME}_trimmed_ga_movie_runner ${${PROJECT_NAME}_trimmed_ga_movie_runner_SRC})
+ 
+  target_link_libraries(${PROJECT_NAME}_trimmed_ga_movie_runner grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+  target_include_directories(${PROJECT_NAME}_trimmed_ga_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
+  set_target_properties(${PROJECT_NAME}_trimmed_ga_movie_runner PROPERTIES FOLDER "Applications")
 
 
   # Reads a full movie and runs the EM PCA on it
-  set(${PROJECT_NAME}_pca_movie_runner_SRC
-      applications/video_processing_pca.cpp)
-  add_executable(${PROJECT_NAME}_pca_movie_runner ${${PROJECT_NAME}_pca_movie_runner_SRC})
-  target_link_libraries(${PROJECT_NAME}_pca_movie_runner  grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY})
-  target_include_directories(${PROJECT_NAME}_pca_movie_runner  PRIVATE ${OpenCV_INCLUDE_DIRS})
-  set_target_properties(${PROJECT_NAME}_pca_movie_runner  PROPERTIES FOLDER "Applications")
+  set(${PROJECT_NAME}_empca_movie_runner_SRC
+      applications/video_processing_empca.cpp)
+  add_executable(${PROJECT_NAME}_empca_movie_runner ${${PROJECT_NAME}_empca_movie_runner_SRC})
+
+  target_link_libraries(${PROJECT_NAME}_empca_movie_runner  grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+  target_include_directories(${PROJECT_NAME}_empca_movie_runner  PRIVATE ${OpenCV_INCLUDE_DIRS})
+  set_target_properties(${PROJECT_NAME}_empca_movie_runner  PROPERTIES FOLDER "Applications")
 endif()
 
 ##############################################################################################
