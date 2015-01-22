@@ -5,7 +5,7 @@
 
 
 /*!@file
- * This file contains an application of the EM-PCA to the frames of a movie, in order to compare the results
+ * This file contains an application of the Grassmann average-PCA to the frames of a movie, in order to compare the results
  * with the Grassmann average or the trimmed grassmann average. You may adapt the code to your needs by modifying
  * the function @c number2filename, which from the index of the frame returns a full path of the file of this frame.
  * To limit the memory footprint, the data is stored directly in the temporary memory of the algorithm as it is loaded
@@ -243,8 +243,8 @@ namespace grassmann_averages_pca
       void signal_pca(const data_t& pca,
                       size_t current_eigenvector_dimension) const
       {
-        std::cerr << "[ERROR] PCA callback called: this is inconsistent with the algorithm" << std::endl;
-        throw std::runtime_error("[ERROR] PCA callback called: inconsistent with the requested algorithm");
+        std::cout << "* PCA subspace " << current_eigenvector_dimension << " computed" << std::endl;
+        save_vector(pca, filename_from_template("./vector_pca_%.7d.txt", current_eigenvector_dimension));
       }
 
       //! Called each time a new eigenvector is computed
@@ -252,7 +252,7 @@ namespace grassmann_averages_pca
                               size_t current_eigenvector_dimension) const
       {
         std::cout << "* Eigenvector subspace " << current_eigenvector_dimension << " computed in # " << last_nb_iteration << " iterations " << std::endl;
-        save_vector(current_eigenvector, filename_from_template("./vector_empca_subspace_%.7d.txt", current_eigenvector_dimension));
+        save_vector(current_eigenvector, filename_from_template("./vector_subspace_%.7d.txt", current_eigenvector_dimension));
       }
 
       //! Called at every step of the algorithm, at the end of the step
@@ -264,7 +264,7 @@ namespace grassmann_averages_pca
         last_nb_iteration = current_iteration_step;
         if((current_iteration_step % 100) == 0)
         {
-          std::cout << "* PCA subspace " << current_eigenvector_dimension << " @ iteration " << current_iteration_step << std::endl;
+          std::cout << "* GA subspace " << current_eigenvector_dimension << " @ iteration " << current_iteration_step << std::endl;
         }
       }
 
