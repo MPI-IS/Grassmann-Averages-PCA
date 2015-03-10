@@ -686,7 +686,9 @@ namespace grassmann_averages_pca
          */
         asynchronous_results_merger(init_result_type const &initialisation_instance_) : 
           initialisation_instance(initialisation_instance_),
-          nb_updates(0)
+          nb_updates(0),
+          sign_flag (0),
+          my_sign(0)
         {}
 
         //! Initializes the internal states
