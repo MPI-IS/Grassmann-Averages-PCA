@@ -743,70 +743,108 @@ namespace grassmann_averages_pca
           boost::mpi::communicator world;
           rank = world.rank();
           nproc = world.size();
-          update_element temp_update;
           int update_flag = 0;
+		  int update_size =  (*updated_value).size();
            if (rank == 0) {
+//			   update_element *temp_update = new update_element[nproc-1];
+		   update_element temp_update1;
+			   	 MPI_Request *req_arr = new MPI_Request [nproc-1];
                if (sign_flag) {
                    if (my_sign) {
                         merger_instance(current_value, *updated_value);
                         update_flag = 1;
                    }
-                    int sign;
+                   std::vector<int> signs (nproc);
+                   int n_recvs = 0;
 only_communication.resume();
+                        gather(world, my_sign, signs, 0);
                     for (int i = 1; i<nproc; i++) {
-                        world.recv(i, 3, sign);
-                        if (sign) {
-                            world.recv(i, 1, temp_update);
+						if (signs[i] == 1 ) {
+							n_recvs++;
+						}
+					}
+          			std::vector<update_element> temp_update(n_recvs, update_element(update_size));
+					int r_counter = 0;
+                    for (int i = 1; i<nproc; i++) {
+//                        world.recv(i, 3, sign);
+                        if (signs[i] == 1) {
+              //              world.irecv(i, 1, temp_update);
+#ifdef DEBUG
+std::cout<<&(temp_update[i-1].data()[0]<<" "<<&(temp_update[i-1].data()[0]<<" "<< update_size<<endl;
+#endif 
+							MPI_Irecv (&(temp_update[r_counter].data()[0]), sizeof(temp_update[i-1].data()[0])* update_size, MPI_BYTE, i, 1, MPI_COMM_WORLD, &req_arr[r_counter]);
+							r_counter++;
 only_communication.stop();
-                            merger_instance(current_value, temp_update);
-                            update_flag = 1;
 only_communication.resume();
                         }
                     }
+					int index;
+					for (int i = 0; i < n_recvs; i++) {
+						MPI_Waitany(n_recvs, req_arr, &index, MPI_STATUS_IGNORE);
+                            merger_instance(current_value, temp_update[index]);
+                            update_flag = 1;
+
+					}
                     
                     for (int i = 1; i<nproc; i++) {
                         world.send(i, 4, update_flag);
                     }
-                    if (update_flag) {
-                        for (int i = 1; i<nproc; i++) {
-                            world.send(i, 2, current_value);
-                        }
-                    }
 only_communication.stop();
 
                }
                else {
+          		std::vector<update_element> temp_update(nproc-1, update_element(update_size));
 
                merger_instance(current_value, *updated_value);
 only_communication.resume();
                for (int i = 1; i < nproc ; i++) {
-                  world.recv(i, 1, temp_update);
+//                  world.recv(i, 1, temp_update);
+#ifdef DEBUG
+std::cout<<&(temp_update[i-1].data()[0]<<" "<<&(temp_update[i-1].data()[0]<<" "<< update_size<<endl;
+#endif 
+							MPI_Irecv (&(temp_update[i-1].data()[0]), sizeof(temp_update[i-1].data()[0])* update_size, MPI_BYTE, i, 1, MPI_COMM_WORLD, &req_arr[i-1]);
+			   }
+			   int index;
+               for (int i = 1; i < nproc ; i++) {
+						MPI_Waitany(nproc-1, req_arr, &index, MPI_STATUS_IGNORE);
 only_communication.stop();
-                  merger_instance(current_value, temp_update);
+                  merger_instance(current_value, temp_update[index]);
 only_communication.resume();
                }
-               for (int i = 1; i<nproc; i++) {
-                   world.send(i, 2, current_value);
-               }
+			   update_flag =1;
 only_communication.stop();
                }
+                    if (update_flag) {
+                        for (int i = 1; i<nproc; i++) {
+//                            world.send(i, 2, current_value);
+							MPI_Isend(&(current_value.data()[0]), sizeof(current_value.data()[0])* update_size, MPI_BYTE, i, 2, MPI_COMM_WORLD, &req_arr[i-1]);
+                        }
+					int index;
+                        for (int i = 1; i<nproc; i++) {
+							MPI_Waitany(nproc-1, req_arr, &index, MPI_STATUS_IGNORE);
+						}
+                    }
            }
            else {
 only_communication.resume();
                if (sign_flag) {
-                   world.send(0, 3, my_sign);
+//                   world.send(0, 3, my_sign);
+                        gather(world, my_sign, 0);
                    if (my_sign) {
-                       world.send(0, 1, *updated_value);
+                   //    world.send(0, 1, *updated_value);
+					   MPI_Send ((void * )&((*updated_value).data()[0]), sizeof((*updated_value).data()[0]) * update_size, MPI_BYTE, 0, 1, MPI_COMM_WORLD);
                    }
                    world.recv (0, 4, update_flag);
-                   if (update_flag) {
-                       world.recv (0, 2, current_value);
-                   }
                }
                else {
-               world.send(0, 1, *updated_value);
-               world.recv(0, 2, current_value);
+              // world.send(0, 1, *updated_value);
+					   MPI_Send ((void*) &((*updated_value).data()[0]), sizeof((*updated_value).data()[0]) * update_size, MPI_BYTE, 0, 1, MPI_COMM_WORLD);
+			   update_flag =1;
                }
+                   if (update_flag) {
+//                       world.recv (0, 2, current_value);
+							MPI_Recv(&(current_value.data()[0]), sizeof(current_value.data()[0])* update_size, MPI_BYTE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                   }
 only_communication.stop();
            }
            set_sign_flag(0);
