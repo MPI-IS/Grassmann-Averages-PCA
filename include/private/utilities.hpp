@@ -786,9 +786,10 @@ only_communication.resume();
 
 					}
                     
-                    for (int i = 1; i<nproc; i++) {
-                        world.send(i, 4, update_flag);
-                    }
+                 //   for (int i = 1; i<nproc; i++) {
+              //          world.send(i, 4, update_flag);
+                //    }
+					broadcast (world, update_flag, 0);
 only_communication.stop();
 
                }
@@ -815,13 +816,14 @@ only_communication.resume();
 only_communication.stop();
                }
                     if (update_flag) {
-                        for (int i = 1; i<nproc; i++) {
+ //                       for (int i = 1; i<nproc; i++) {
 //                            world.send(i, 2, current_value);
-							MPI_Isend(&(current_value.data()[0]), sizeof(current_value.data()[0])* update_size, MPI_BYTE, i, 2, MPI_COMM_WORLD, &req_arr[i-1]);
-                        }
+//							MPI_Isend(&(current_value.data()[0]), sizeof(current_value.data()[0])* update_size, MPI_BYTE, i, 2, MPI_COMM_WORLD, &req_arr[i-1]);
+   //                     }
+						broadcast(world, &(current_value.data()[0]), update_size, 0);
 					int index;
                         for (int i = 1; i<nproc; i++) {
-							MPI_Waitany(nproc-1, req_arr, &index, MPI_STATUS_IGNORE);
+//							MPI_Waitany(nproc-1, req_arr, &index, MPI_STATUS_IGNORE);
 						}
                     }
            }
@@ -834,7 +836,8 @@ only_communication.resume();
                    //    world.send(0, 1, *updated_value);
 					   MPI_Send ((void * )&((*updated_value).data()[0]), sizeof((*updated_value).data()[0]) * update_size, MPI_BYTE, 0, 1, MPI_COMM_WORLD);
                    }
-                   world.recv (0, 4, update_flag);
+                  // world.recv (0, 4, update_flag);
+					broadcast (world, update_flag, 0);
                }
                else {
               // world.send(0, 1, *updated_value);
@@ -843,7 +846,8 @@ only_communication.resume();
                }
                    if (update_flag) {
 //                       world.recv (0, 2, current_value);
-							MPI_Recv(&(current_value.data()[0]), sizeof(current_value.data()[0])* update_size, MPI_BYTE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	//						MPI_Recv(&(current_value.data()[0]), sizeof(current_value.data()[0])* update_size, MPI_BYTE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+						broadcast(world, &(current_value.data()[0]), update_size, 0);
                    }
 only_communication.stop();
            }

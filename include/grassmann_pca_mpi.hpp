@@ -198,7 +198,7 @@ namespace grassmann_averages_pca
       void set_data_range(container_iterator_t const &b, container_iterator_t const& e)
       {
         nb_elements = std::distance(b, e);
-        assert(nb_elements > 0);
+       // assert(nb_elements > 0);
         v_signs.resize(nb_elements);
 
         // aligning on 32 bytes = 1 << 5
@@ -643,13 +643,13 @@ communication.stop();
 
       // size of the chunks.
 
-      // modified to make nb_chunks == nb_processors
+      // modified to make nb_chunks =  nb_processors -1
 
      // const size_t chunks_size = std::min(max_chunk_size, static_cast<size_t>(ceil(double(size_data)/nb_processors)));
       //const size_t chunks_size = static_cast<size_t>(ceil(double(size_data)/nb_processors));
-      const size_t chunks_size = static_cast<size_t>(size_data/nb_processors);
+      const size_t chunks_size = static_cast<size_t>(size_data/(nb_processors -1));
       //const size_t nb_chunks = (size_data + chunks_size - 1) / chunks_size;
-      const size_t nb_chunks = nb_processors;
+      const size_t nb_chunks = nb_processors -1;
 
       // number of dimensions of the data vectors
       const size_t number_of_dimensions = it->size();
@@ -736,14 +736,19 @@ communication.stop();
           individual_accumulator.connector_counter() = boost::bind(&asynchronous_results_merger::notify, &async_merger);
           individual_accumulator.set_data_dimensions(number_of_dimensions);
           it_t it_begin(it);
-          it_begin = it_begin + (chunks_size * rank);
           it_t it_end;
+		  if (rank == 0) {
+			it_end = it_begin;
+		  }
+		  else {
+          it_begin = it_begin + (chunks_size * (rank - 1));
           if (rank == nb_processors - 1 ) {
               it_end = it_begin + (size_data - chunks_size*(nb_chunks - 1));
           }
           else {
               it_end = it_begin + chunks_size;
           }
+		  }
           individual_accumulator.set_data_range (it_begin, it_end);
 
       // Centering the data if needed: 
@@ -889,9 +894,11 @@ communication.stop();
           }          
         }
 
-
-//          std::cout<<"Rank: "<<rank<<", point 1, Subspace index: "<<current_subspace_index<<", Sum : "<<get_sum (mu, 0, mu.size() -1)<<std::endl;
-
+#ifdef DEBUG
+		if (rank == 0) {
+          std::cout<<"Rank: "<<rank<<", point 1, Subspace index: "<<current_subspace_index<<", Sum : "<<get_sum (mu, 0, mu.size() -1)<<std::endl;
+		}
+#endif
         details::convergence_check<data_t> convergence_op(mu);
 
         // reseting the accumulator and the notifications
@@ -916,11 +923,11 @@ communication.stop();
         // gathering the first mu
         mu = async_merger.get_merged_result();
         mu *= typename data_t::value_type(1./norm_op(mu));
-/*
+#ifdef DEBUG
 if (rank == 0) {
           std::cout<<"Rank: "<<rank<<", point 2, Subspace index: "<<current_subspace_index<<", Sum : "<<get_sum (mu, 0, mu.size() -1)<<std::endl;
 }
-*/
+#endif
         // other iterations as usual
         for(iterations = 1; !convergence_op(mu) && iterations < max_iterations; iterations++)
         {
@@ -945,11 +952,11 @@ if (rank == 0) {
           //mu_no_norm = async_merger.get_merged_result();
           mu = async_merger.get_merged_result();
           mu *= typename data_t::value_type(1./norm_op(mu));
-/*
+#ifdef DEBUG
 if(rank == 0) {
           std::cout<<"Rank: "<<rank<<", Subspace index: "<<current_subspace_index<<", Iteration: "<<iterations<< ", Sum : "<<get_sum (mu, 0, mu.size() -1)<<std::endl;
 }
-*/
+#endif
           // sending result to observer
           if(observer)
           {
@@ -986,11 +993,11 @@ if(rank == 0) {
           individual_accumulator.project_onto_orthogonal_subspace(*it_basisvectors);
 
           mu = initial_guess != 0 ? (*initial_guess)[current_subspace_index+1] : random_init_op(*it);
-/*
+#ifdef DEBUG
 if(rank == 0) {
           std::cout<<"Rank: "<<rank<<", Resetting mu, Subspace index: "<<current_subspace_index<<", Iteration: "<<iterations<< ", Sum : "<<get_sum (mu, 0, mu.size() -1)<<std::endl;
 }
-*/
+#endif
 
         //  async_merger.wait_notifications(v_individual_accumulators.size());
 
