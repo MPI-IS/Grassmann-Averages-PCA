@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
   typedef std::vector<data_t> output_eigenvector_collection_t;
   output_eigenvector_collection_t v_output_eigenvectors(max_dimension);
 
-
+	nb_processors = world.size();
   if(nb_processors > 0)
   {
     if(!instance.set_nb_processors(nb_processors))
