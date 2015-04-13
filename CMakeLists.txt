@@ -482,13 +482,16 @@ if(NOT WITHOUT_MATLAB)
   
   matlab_add_mex(
     NAME ${GAPCA_MEX_Project} 
-    REDUCE_VISIBILITY
     OUTPUT_NAME ${PROJECT_NAME}
     SRC extensions/matlab.cpp
     DOCUMENTATION ${${GAPCA_MEX_Project}_help_file}
     LINK_TO grassmann_averages
   )
-  set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")  
+  set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")
+  if(UNIX AND NOT APPLE AND ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
+    set_target_properties(${GAPCA_MEX_Project}
+                          PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
+  endif()
   
   install(TARGETS ${GAPCA_MEX_Project} 
            DESTINATION ${MATLAB_INSTALL_DIRECTORY})  
