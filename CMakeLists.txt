@@ -180,12 +180,11 @@ else()
   # The SONAME of the dependencies should be changed as well after the installation. The alternative is to use
   # static libraries of Boost for the UNIX like platforms. Those should be compiled with -fPIC.
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  set(CMAKE_SKIP_BUILD_RPATH FALSE)
   if(NOT APPLE)
     set(CMAKE_INSTALL_RPATH "$ORIGIN/.")
   elseif(UNIX) # APPLE is Unix
-    set(CMAKE_INSTALL_RPATH "@loader_path/.")
-    #set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-    set(CMAKE_SKIP_BUILD_RPATH FALSE)
+    set(CMAKE_INSTALL_RPATH "@loader_path/.")    
   endif()
   endif()
 
