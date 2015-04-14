@@ -78,7 +78,7 @@ endif()
 # Matlab bindings
 if(NOT WITHOUT_MATLAB)
   # simple wart to the current state of the Matlab release into the community
-  #set(CMAKE_MODULE_PATH /Users/raffi/Personnel/CMake/Modules ${CMAKE_MODULE_PATH})
+  set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/extensions ${CMAKE_MODULE_PATH})
   set(MATLAB_FIND_DEBUG TRUE)
   find_package(Matlab 8.1 REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
   
