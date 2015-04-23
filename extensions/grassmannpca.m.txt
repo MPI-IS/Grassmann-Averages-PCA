@@ -10,6 +10,7 @@
 %   basisvectors = GrassmannAveragesPCA(DATA, trimming_percentage, grassmannpca_configuration)
 %
 % DATA is always an N x D matrix, where N is the number of samples and D is the dimension of the data. 
+% DATA should be centered prior to the call to the Grassmann average pca.
 % 
 % * The first call computes the regular algorithm for all dimensions, the returned basis vectors are stacked in a 
 %   D x D matrix where each column is an basis vector. 
