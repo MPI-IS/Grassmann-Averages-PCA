@@ -36,10 +36,10 @@ endif()
 find_package(Doxygen)
 
 
-# Boost, uBlas and some other libraries are needed in any case.
+# Boost, uBlas and some other libraries are needed in any case. 
+set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0")
 
 # disable auto link
-set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0")
 add_definitions(-DBOOST_ALL_NO_LIB)
 if(NOT DEFINED Boost_USE_STATIC_LIBS)
   if(UNIX)

@@ -400,7 +400,8 @@ namespace grassmann_averages_pca
       }
       
       //! Project the data onto the orthogonal subspace of the provided vector
-      void project_onto_orthogonal_subspace(data_t const &mu)
+	    template <class vector_t>
+      void project_onto_orthogonal_subspace(vector_t const &mu)
       {
         compute_inner_products(mu);
         scalar_t *current_line = p_c_matrix;
@@ -932,11 +933,12 @@ namespace grassmann_averages_pca
           // pushing the update of the mu (and signs)
           for(int i = 0; i < v_individual_accumulators.size(); i++)
           {
-            ioService.post(
-              boost::bind(
-                &async_processor_t::project_onto_orthogonal_subspace, 
-                boost::ref(v_individual_accumulators[i]), 
-                boost::cref(*it_basisvectors))); // this is not mu, since we are changing it before the process ends here
+
+			      ioService.post(
+				      boost::bind(
+					      &async_processor_t::template project_onto_orthogonal_subspace<typename it_o_basisvectors_t::value_type>,
+					      boost::ref(v_individual_accumulators[i]),
+					      *it_basisvectors)); // this is not mu, since we are changing it before the process ends here
           }
 
           // this is to follow the matlab implementation, but the idea is the following:
