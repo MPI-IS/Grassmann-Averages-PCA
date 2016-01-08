@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(convergence_rate_tests_several_workers)
   BOOST_REQUIRE_EQUAL(basis_vectors.size(), max_dimensions);
   for(int i = 0; i < max_dimensions; i++)
   {
-    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_TEST_CHECKPOINT("testing basis vector size for vector " << i);
     BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 

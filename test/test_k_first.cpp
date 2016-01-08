@@ -68,20 +68,20 @@ BOOST_AUTO_TEST_CASE(test_heap)
   
   BOOST_CHECK_LE(lowh.top(), highh.top());
   
-  BOOST_MESSAGE("low heap top = " << lowh.top());
+  BOOST_TEST_MESSAGE("low heap top = " << lowh.top());
   for(low_heap_t::ordered_iterator it(lowh.ordered_begin()), ite(lowh.ordered_end());
       it != ite;
       ++it)
   {
-    BOOST_MESSAGE(" " << *it);
+    BOOST_TEST_MESSAGE(" " << *it);
   }  
 
-  BOOST_MESSAGE("high heap top = " << highh.top());
+  BOOST_TEST_MESSAGE("high heap top = " << highh.top());
   for(high_heap_t::ordered_iterator it(highh.ordered_begin()), ite(highh.ordered_end());
       it != ite;
       ++it)
   {
-    BOOST_MESSAGE(" " << *it);
+    BOOST_TEST_MESSAGE(" " << *it);
   }  
   
 }

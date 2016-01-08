@@ -37,7 +37,7 @@ find_package(Doxygen)
 
 
 # Boost, uBlas and some other libraries are needed in any case. 
-set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0")
+set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0" "1.60" "1.60.0")
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
