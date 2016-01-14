@@ -31,10 +31,13 @@
 
 #include <numeric>
 
+#include <boost/serialization/vector.hpp>
+#include <boost/mpi.hpp>
 
 // lock free queue, several producers, one consumer
 //#include <boost/lockfree/queue.hpp>
 
+#include <boost/timer/timer.hpp>
 namespace grassmann_averages_pca
 {
 
@@ -577,6 +580,334 @@ namespace grassmann_averages_pca
 
 
     } // namespace threading
+
+    //! @namespace
+    namespace mpi
+    {
+
+
+
+      //! @brief Helper structure for managing additions on standard uBlas vectors.
+      //! 
+      //! This class is intended to be used with asynchronous_results_merger. It just adds an update to the current state.
+      //! @tparam data_t type of the vectors. It is supposed that data_t implements in-place addition (@c data_t::operator+=).
+      template <class data_t>
+      struct merger_addition
+      {
+        bool operator()(data_t &current_state, data_t const& update_value) const
+        {
+          current_state += update_value;
+          return true;
+        }
+      };
+
+
+      //! Helper structure for managing initialisations of standard uBlas vectors.
+      //! 
+      //! This class is intended to be used with asynchronous_results_merger.
+      //! @tparam data_t type of the vectors
+      //! @note This implementation supposes that the type is compatible with boost::numeric::ublas::vector
+      template <class data_t>
+      struct initialisation_vector_specific_dimension
+      {
+      private:
+        const size_t data_dimension;                    //!< Dimension of the vectors
+        typedef typename data_t::value_type scalar_t;   //<! Scalar type
+
+      public:
+        //! Initialise the instance with the dimension of the data. 
+        //! The dimension is fixed. 
+        initialisation_vector_specific_dimension(size_t dimension) : data_dimension(dimension)
+        {}
+
+        //! Initialise the current state a null (0) vector of the dimension guiven at construction.
+        bool operator()(data_t & current_state) const
+        {
+          current_state = boost::numeric::ublas::scalar_vector<scalar_t>(data_dimension, 0);
+          return true;
+        }
+      };
+
+
+
+
+      /*!@brief Merges the result of all workers and signals the results to the main thread.
+       *
+       * The purpose of this class is to gather the computation results coming from several threads into one unique result seen by the main calling thread. 
+       * Each thread computes a partial update of the final result. These partial update are signalled to this instance via @c asynchronous_results_merger::update (thread safe). 
+       * These updates are gathered/merged to the final result through the "merger" instance (of type @c merger_type) in a thread safe manner.
+       * The number of updates is also signalled to the main thread via a call to @c asynchronous_results_merger::notify. The main thread supposes the computation over/in sync if it received
+       * an amount of notification through the @c asynchronous_results_merger::wait function.
+       *
+       * @tparam result_type_ the type of the final result.
+       * @tparam merger_type the type of the merger. The merger should be a callable with two arguments: result_type_ and update_element_
+       * @tparam init_result_type the type of the initialiser. The initialiser should be a callable with one argument of type result_type_.
+       * @tparam update_element_ the type of the update. These updates are provided by the several workers to this merger. 
+       *
+       * @note This implementation supposes that the pointers to the update elements remain after the call to @c asynchronous_results_merger::notify. This is because
+       * the implementation tries to avoid any "long" or time consuming lock. If the merge cannot be performed in the asynchronous_results_merger::update call itself,
+       * then the update element is queued and the merge is performed in the main calling thread (the wait function). 
+       */
+      template <class result_type_, class merger_type, class init_result_type, class update_element_ = result_type_>
+      struct asynchronous_results_merger : boost::noncopyable
+      {
+      public:
+
+        typedef result_type_ result_type;         //!< The type returned by asynchronous_results_merger::get_merged_result
+        typedef update_element_ update_element;   //!< The type used for the updates.
+
+      protected:
+        //! MPI communicator. Should be initialised before update is called. 
+        boost::mpi::communicator world;
+        //! Holds the current value of the merge.
+        //! This variable is constantly updated as chunk processed finish. 
+        result_type current_value;                  
+
+        //! Holds the instance of the class responsible for merging new values (updates) to the
+        //! current instance (current_value).
+        merger_type merger_instance;
+
+        //! Holds the instance of the class responsible for initialising the current value to
+        //! an initial state (before any merge arrives).
+        init_result_type initialisation_instance;
+
+        //! Number of updates after the initialisation
+        volatile int nb_updates;
+        
+        int sign_flag;
+
+        int my_sign;
+
+      public:
+
+        /*!Constructor
+         *
+         * @param initialisation_instance_ an instance of the class initialising the current state.
+         */
+        asynchronous_results_merger(init_result_type const &initialisation_instance_) : 
+          initialisation_instance(initialisation_instance_),
+          nb_updates(0)
+        {}
+
+        //! Initializes the internal states
+        void init()
+        {
+            sign_flag = false;
+          init_results();
+          init_notifications();
+        }
+
+        //! Initialises the internal state of the accumulator
+        void init_results()
+        {
+          initialisation_instance(current_value);
+        }
+
+
+        //! Initialises the number of notifications.
+        //! Also called by init.
+        void init_notifications()
+        {
+          nb_updates = 0;
+        }
+
+
+        /*! Receives the update element from each worker.
+         * 
+         * The update element is passed to the merger in order to create an updated value of the internal result.
+         * @note The call is thread safe.
+         */
+        void update(update_element const* updated_value)
+        {
+/*          boost::unique_lock<mutex_t> lock(internal_mutex);//, boost::try_to_lock);
+
+          if(lock.owns_lock())
+          {
+            merger_instance(current_value, *updated_value);
+            while(!lf_queue.empty())
+            {
+              updated_value = lf_queue.back();
+              lf_queue.pop_back();
+              merger_instance(current_value, *updated_value);
+            }
+          }
+          else
+          {
+            //while(!lf_queue.push(updated_value))
+            //  ;
+          }
+          */
+          int rank, nproc;
+          boost::mpi::communicator world;
+          rank = world.rank();
+          nproc = world.size();
+          update_element temp_update;
+          int update_flag = 0;
+           if (rank == 0) {
+               if (sign_flag) {
+                   if (my_sign) {
+                        merger_instance(current_value, *updated_value);
+                        update_flag = 1;
+                   }
+                    int sign;
+only_communication.resume();
+                    for (int i = 1; i<nproc; i++) {
+                        world.recv(i, 3, sign);
+                        if (sign) {
+                            world.recv(i, 1, temp_update);
+only_communication.stop();
+                            merger_instance(current_value, temp_update);
+                            update_flag = 1;
+only_communication.resume();
+                        }
+                    }
+                    
+                    for (int i = 1; i<nproc; i++) {
+                        world.send(i, 4, update_flag);
+                    }
+                    if (update_flag) {
+                        for (int i = 1; i<nproc; i++) {
+                            world.send(i, 2, current_value);
+                        }
+                    }
+only_communication.stop();
+
+               }
+               else {
+
+               merger_instance(current_value, *updated_value);
+only_communication.resume();
+               for (int i = 1; i < nproc ; i++) {
+                  world.recv(i, 1, temp_update);
+only_communication.stop();
+                  merger_instance(current_value, temp_update);
+only_communication.resume();
+               }
+               for (int i = 1; i<nproc; i++) {
+                   world.send(i, 2, current_value);
+               }
+only_communication.stop();
+               }
+           }
+           else {
+only_communication.resume();
+               if (sign_flag) {
+                   world.send(0, 3, my_sign);
+                   if (my_sign) {
+                       world.send(0, 1, *updated_value);
+                   }
+                   world.recv (0, 4, update_flag);
+                   if (update_flag) {
+                       world.recv (0, 2, current_value);
+                   }
+               }
+               else {
+               world.send(0, 1, *updated_value);
+               world.recv(0, 2, current_value);
+               }
+only_communication.stop();
+           }
+           set_sign_flag(0);
+        }
+
+        /*! Function to set sign_flag value. To be called beore signal_acc, if update depends on sign. 
+          */
+        void set_sign_flag (int sign_flag_) {
+            sign_flag = sign_flag_;
+        }
+
+        /*! Function to set my_sign value. To be called beore signal_acc, if update depends on sign. 
+          */
+        void set_my_sign (int my_sign_) {
+            my_sign = my_sign_;
+        }
+
+        /*! Function receiving the update notification.
+         * 
+         *  @note The call is thread safe.
+         */
+        void notify()
+        {
+            /*
+         // lock_t guard(internal_mutex);
+          ++nb_updates;
+
+          //
+          // The condition functions are not async-signal safe, and should not be called from a signal handler. 
+          // In particular, calling pthread_cond_signal or pthread_cond_broadcast from a signal handler may
+          // deadlock the calling thread.
+          // 
+          // Raffi: the notification outside the lock above causes a deadlock, apparently it should be protected
+          // from simultaneous access. 
+          condition_.notify_one();
+          */
+        }
+     
+        //! Returns once the number of updates reaches the number in argument.
+        //!
+        //!@warning if an inappropriate number is given, the method might never return.
+        bool wait_notifications(size_t nb_notifications)
+        {
+        /*
+            boost::unique_lock<mutex_t> lock(internal_mutex);
+          while (nb_updates < nb_notifications)
+          {
+            // when entering wait, the lock is unlocked and made available to other threads.
+            // when awakened, the lock is locked before wait returns. 
+            condition_.wait(lock);
+
+            //assert(nb_updates);           // cannot be awakened if there is no update
+            assert(lock.owns_lock());
+
+            // consumes what was under a collision in the update
+            update_element const* updated_value(0);
+            if(!lf_queue.empty())
+            {
+              updated_value = lf_queue.back();
+              lf_queue.pop_back();
+              merger_instance(current_value, *updated_value);
+            }
+          }
+
+          assert(lock.owns_lock());
+
+          // consumes what was under a collision in the update
+          // we might end up here if there was at least one collision, and everything was finished before the line "while (nb_updates < nb_notifications)"
+          {
+            update_element const* updated_value(0);
+            while(!lf_queue.empty())
+            {
+              updated_value = lf_queue.back();
+              lf_queue.pop_back();            
+              merger_instance(current_value, *updated_value);
+            }
+          }
+
+          return true;
+          */
+        }
+
+
+        //! Returns the current merged results.
+        //! @warning the call is not thread safe (intended to be called once the wait_notifications returned and no
+        //! other thread is working). 
+        result_type const& get_merged_result() const
+        {
+          return current_value;
+        }
+
+        //! Returns the current merged results.
+        //! @warning the call is not thread safe (intended to be called once the wait_notifications returned and no
+        //! other thread is working). 
+        result_type & get_merged_result()
+        {
+          return current_value;
+        }
+
+boost::timer::cpu_timer only_communication;
+      };
+  } // namespace mpi 
+
   } // namespace details
 } // namespace grassmann_averages_pca
 

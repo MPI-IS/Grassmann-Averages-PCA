@@ -59,9 +59,9 @@ endif()
 set(Boost_NO_BOOST_CMAKE ON)
 
 if(NOT WITHOUT_TESTS)
-  find_package(Boost COMPONENTS unit_test_framework system thread chrono date_time program_options)
+  find_package(Boost COMPONENTS unit_test_framework system thread chrono date_time program_options mpi serialization timer)
 else()
-  find_package(Boost COMPONENTS system thread chrono date_time program_options)
+  find_package(Boost COMPONENTS system thread chrono date_time program_options mpi serialization timer)
 endif()
 
 if(NOT ${Boost_FOUND})
@@ -214,6 +214,7 @@ if(NOT MSVC)
 
 
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
 
 
   if(Boost_USE_STATIC_LIBS)
@@ -254,6 +255,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${GrassmannAveragesPCA_SOURCE_DIR})
 set(${PROJECT_NAME}_LIB
      include/grassmann_pca.hpp
+     include/grassmann_pca_mpi.hpp
      include/grassmann_pca_with_trimming.hpp
      include/private/utilities.hpp
      include/private/em_pca.hpp
@@ -263,7 +265,7 @@ set(${PROJECT_NAME}_LIB
 
      src/grassmann_pca.cpp)
 add_library(grassmann_averages ${${PROJECT_NAME}_LIB})
-target_link_libraries(grassmann_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
+target_link_libraries(grassmann_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_TIMER_LIBRARY} ${Boost_MPI_Library} ${Boost_SERIALLIZATION_LIBRARY} )
 install(
   DIRECTORY include
   DESTINATION "."
@@ -289,7 +291,7 @@ if(OPENCV_AVAILABLE)
  
   # not linking against everything in opencv 
   set(opencv_core_library "opencv_core" "opencv_highgui")
-  target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY}) # ${OpenCV_LIBS}
+  target_link_libraries(${PROJECT_NAME}_movie_runner grassmann_averages ${opencv_core_library} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_MPI_LIBRARY} ${Boost_SERIALIZATION_LIBRARY} ${Boost_TIMER_LIBRARY} ${Boost_SYSTEM_LIBRARY}) # ${OpenCV_LIBS}
   target_include_directories(${PROJECT_NAME}_movie_runner PRIVATE ${OpenCV_INCLUDE_DIRS})
   set_target_properties(${PROJECT_NAME}_movie_runner PROPERTIES FOLDER "Applications")
 

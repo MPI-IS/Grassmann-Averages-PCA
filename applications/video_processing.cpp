@@ -20,7 +20,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 
-#include <include/grassmann_pca_with_trimming.hpp>
+#include <include/grassmann_pca_mpi.hpp>
 #include <include/private/boost_ublas_external_storage.hpp>
 #include <include/private/boost_ublas_row_iterator.hpp>
 
@@ -31,6 +31,7 @@
 
 #include <boost/iterator/iterator_facade.hpp>
 
+#include <boost/mpi.hpp>
 #include <string>
 #include <fstream>
 
@@ -191,6 +192,9 @@ namespace grassmann_averages_pca
 
       void save_vector(const data_t& v, std::string filename) const
       {
+        boost::mpi::communicator world;
+        int rank = world.rank ();
+        if (rank == 0) {
         std::ofstream f(filename);
         if(!f.is_open())
         {
@@ -216,6 +220,7 @@ namespace grassmann_averages_pca
         f.close();
         std::cout << " -- done" << std::endl;
       }
+      }
 
     public:
       grassmann_pca_observer(size_t element_per_line_during_save_) : 
@@ -233,15 +238,23 @@ namespace grassmann_averages_pca
       //! of the mean of the dataset
       void signal_mean(const data_t& mean) const
       {
+          boost::mpi::communicator world;
+          int rank = world.rank();
+          if (rank == 0) {
         std::cout << "* Mean computed" << std::endl;
         save_vector(mean, "./mean_vector.txt");
+          }
       }
 
       //! Called after the computation of the PCA
       void signal_pca(const data_t& pca,
                       size_t current_eigenvector_dimension) const
       {
-        std::cout << "* PCA subspace " << current_eigenvector_dimension << " computed" << std::endl;
+        boost::mpi::communicator world;
+        int rank  = world.rank();
+        if (rank == 0) {
+        std::cout << "Rank "<<rank<<"* PCA subspace " << current_eigenvector_dimension << " computed" << std::endl;
+        }
         save_vector(pca, filename_from_template("./vector_pca_%.7d.txt", current_eigenvector_dimension));
       }
 
@@ -249,7 +262,11 @@ namespace grassmann_averages_pca
       void signal_eigenvector(const data_t& current_eigenvector, 
                               size_t current_eigenvector_dimension) const
       {
-        std::cout << "* Eigenvector subspace " << current_eigenvector_dimension << " computed in # " << last_nb_iteration << " iterations " << std::endl;
+        boost::mpi::communicator world;
+        int rank = world.rank();
+        if (rank == 0 ) {
+        std::cout << "Rank "<<rank<< "* Eigenvector subspace " << current_eigenvector_dimension << " computed in # " << last_nb_iteration << " iterations " << std::endl;
+        }
         save_vector(current_eigenvector, filename_from_template("./vector_subspace_%.7d.txt", current_eigenvector_dimension));
       }
 
@@ -301,9 +318,9 @@ int main(int argc, char *argv[])
   if(!vm.count("trimming-percentage")) 
   {
     std::cerr << "the parameter 'trimming-percentage' should be set, now exiting...\n";
-    return 1;
+    //return 1;
   }
-  const float trimming_percentage = vm["trimming-percentage"].as<float>();
+ // const float trimming_percentage = vm["trimming-percentage"].as<float>();
 
   size_t num_frames = 100; //179415;
   if(vm.count("nb-frames")) 
@@ -340,7 +357,7 @@ int main(int argc, char *argv[])
     max_iterations = vm["max-iterations"].as<int>();
   } 
 
-  size_t nb_pca_steps = 3;
+  size_t nb_pca_steps = 0;
   if(vm.count("nb-pca-steps")) 
   {
     std::cout << "Number of PCA steps #" << vm["nb-pca-steps"].as<int>() << "\n";
@@ -352,7 +369,7 @@ int main(int argc, char *argv[])
   }
 
 
-  int nb_processors = 0;
+  int nb_processors = 2;
   if(vm.count("nb-processors")) 
   {
     std::cout << "Number of processors #" << vm["nb-processors"].as<int>() << "\n";
@@ -402,11 +419,13 @@ int main(int argc, char *argv[])
   // type of the observer
   typedef grassmann_pca_observer<data_t> observer_t;
   // type of the trimmed grassmann algorithm
-  typedef grassmann_pca_with_trimming< data_t, observer_t > grassmann_pca_with_trimming_t;
+  typedef grassmann_pca < data_t, observer_t > grassmann_pca_t;
 
-
+//MPI initiliazation
+  boost::mpi::environment env(argc, argv);
+  boost::mpi::communicator world;
   // main instance
-  grassmann_pca_with_trimming_t instance(trimming_percentage / 100);
+  grassmann_pca_t instance;
   
   
   typedef std::vector<data_t> output_eigenvector_collection_t;
