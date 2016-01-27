@@ -214,18 +214,18 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   BOOST_REQUIRE_EQUAL(basis_vectors.size(), dimensions);
   for(int i = 0; i < dimensions; i++)
   {
-    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_TEST_CHECKPOINT("testing basis vector size for vector " << i);
     BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 
 
   if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("Generated basis vectors are:");
+    BOOST_TEST_MESSAGE("Generated basis vectors are:");
 
     for(int i = 0; i < dimensions; i++)
     {
-      BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
+      BOOST_TEST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
     }
   }
 
@@ -318,17 +318,17 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   BOOST_REQUIRE_EQUAL(basis_vectors.size(), DATA_DIMENSION == 5 ? dimensions : 5);
   for(int i = 0; i < basis_vectors.size(); i++)
   {
-    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_TEST_CHECKPOINT("testing basis vector size for vector " << i);
     BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 
   if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("Generated basis vectors are:");
+    BOOST_TEST_MESSAGE("Generated basis vectors are:");
 
     for(int i = 0; i < dimensions; i++)
     {
-      BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
+      BOOST_TEST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
     }
   }
 

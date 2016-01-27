@@ -20,14 +20,7 @@
 
 // boost chrono
 #include <boost/chrono/include.hpp>
-
-
-
 #include <fstream>
-
-
-
-
 
 
 BOOST_FIXTURE_TEST_SUITE(grassmann_pca_test_suite, fixture_simple_matrix_creation)
@@ -214,18 +207,18 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
   BOOST_REQUIRE_EQUAL(basis_vectors.size(), dimensions);
   for(int i = 0; i < dimensions; i++)
   {
-    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_TEST_CHECKPOINT("testing basis vector size for vector " << i);
     BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 
 
   if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("Generated basis vectors are:");
+    BOOST_TEST_MESSAGE("Generated basis vectors are:");
 
     for(int i = 0; i < dimensions; i++)
     {
-      BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
+      BOOST_TEST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
     }
   }
 
@@ -267,7 +260,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests)
       {
         current_matlab_vector(j) = matlab_data[i + j*dimensions];
       }
-      BOOST_CHECKPOINT("iteration " << i);
+      BOOST_TEST_CHECKPOINT("iteration " << i);
       BOOST_CHECK_LE(ub::norm_2(basis_vectors[i] - current_matlab_vector), 1E-3);
       //std::cout << "computed = " << basis_vectors[i] << std::endl;
       //std::cout << "matlab = " << current_matlab_vector << std::endl;
@@ -350,17 +343,17 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
   BOOST_REQUIRE_EQUAL(basis_vectors.size(), DATA_DIMENSION == 5 ? dimensions : 5);
   for(int i = 0; i < basis_vectors.size(); i++)
   {
-    BOOST_CHECKPOINT("testing basis vector size for vector " << i);
+    BOOST_TEST_CHECKPOINT("testing basis vector size for vector " << i);
     BOOST_REQUIRE_EQUAL(basis_vectors[i].size(), dimensions);
   }
 
   if(DATA_DIMENSION <= 5)
   {
-    BOOST_MESSAGE("Generated basis vectors are:");
+    BOOST_TEST_MESSAGE("Generated basis vectors are:");
 
     for(int i = 0; i < dimensions; i++)
     {
-      BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
+      BOOST_TEST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
     }
   }
 
@@ -399,7 +392,7 @@ BOOST_AUTO_TEST_CASE(smoke_and_orthogonality_tests_several_workers)
       {
         current_matlab_vector(j) = matlab_data[i + j*dimensions];
       }
-      BOOST_CHECKPOINT("iteration " << i);
+      BOOST_TEST_CHECKPOINT("iteration " << i);
       BOOST_CHECK_LE(ub::norm_2(basis_vectors[i] - current_matlab_vector), 1E-3);
     }
   }  
@@ -438,14 +431,13 @@ BOOST_AUTO_TEST_CASE(checking_against_matlab)
     basis_vectors.begin()));
 
 
-  BOOST_MESSAGE("Generated basis vectors are:");
+  BOOST_TEST_MESSAGE("Generated basis vectors are:");
 
   for(int i = 0; i < dimensions; i++)
   {
-    BOOST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
+    BOOST_TEST_MESSAGE("vector " << i << " :" << basis_vectors[i]);
   }
 }
 #endif
 
 BOOST_AUTO_TEST_SUITE_END();
-

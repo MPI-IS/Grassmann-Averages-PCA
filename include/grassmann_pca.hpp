@@ -410,11 +410,12 @@ namespace grassmann_averages_pca
       }
 
       //! Project the data onto the orthogonal subspace of the provided vector
-      void project_onto_orthogonal_subspace(data_t const &mu)
+	    template <class vector_t>
+      void project_onto_orthogonal_subspace(vector_t const &mu)
       {
         // update of vectors in the orthogonal space, and update of the norms at the same time. 
-        
-        scalar_t const * const p_mu = &mu.data()[0];
+		    std::vector<typename vector_t::value_type> v(mu.begin(), mu.end()); // some issues with VC2015
+        scalar_t const * const p_mu = &v[0];
         scalar_t * current_line = p_c_matrix;
         
         for(size_t line = 0; line < nb_elements; line ++, current_line += data_padding)
@@ -852,9 +853,9 @@ namespace grassmann_averages_pca
           {
             ioService.post(
               boost::bind(
-                &async_processor_t::project_onto_orthogonal_subspace, 
+                &async_processor_t::template project_onto_orthogonal_subspace<typename it_o_basisvectors_t::value_type>,
                 boost::ref(v_individual_accumulators[i]), 
-                boost::cref(*it_basisvectors))); // this is not mu, since we are changing it before the process ends here
+                *it_basisvectors)); // this is not mu, since we are changing it before the process ends here
           }
 
           mu = initial_guess != 0 ? (*initial_guess)[current_subspace_index+1] : random_init_op(*it);

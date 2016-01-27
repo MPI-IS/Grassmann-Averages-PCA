@@ -36,10 +36,10 @@ endif()
 find_package(Doxygen)
 
 
-# Boost, uBlas and some other libraries are needed in any case.
+# Boost, uBlas and some other libraries are needed in any case. 
+set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0" "1.60" "1.60.0")
 
 # disable auto link
-set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0")
 add_definitions(-DBOOST_ALL_NO_LIB)
 if(NOT DEFINED Boost_USE_STATIC_LIBS)
   if(UNIX)
@@ -386,7 +386,14 @@ install(
 if(NOT WITHOUT_TESTS)
   # avoiding boost.test autolink
   add_definitions(-DBOOST_TEST_NO_LIB)
-
+  
+  # introducing specific invocation in boost 1.60
+  set(boost_test_custom_command_invocation "")
+  if(${Boost_VERSION} VERSION_GREATER "1.60")
+    set(boost_test_custom_command_invocation "--")
+  endif()
+  
+  
   if(WIN32)
     set(TEST_DYNAMIC_LIBRARY_PATH_CMD "PATH")
   elseif(APPLE)
@@ -415,7 +422,7 @@ if(NOT WITHOUT_TESTS)
       test/test_row_proxy.cpp)
 
   # this file is used for some internal tests related to ordering
-  if(${Boost_MINOR_VERSION} GREATER 48)
+  if(${Boost_VERSION} VERSION_GREATER "1.48")
     set(${PROJECT_NAME}_tests ${${PROJECT_NAME}_tests} test/test_k_first.cpp)
   endif()
 
@@ -449,6 +456,7 @@ if(NOT WITHOUT_TESTS)
     NAME ${PROJECT_NAME}_test-2
     CONFIGURATIONS Release
     COMMAND ${PROJECT_NAME}_test_with_files
+      ${boost_test_custom_command_invocation}
       --data ${CMAKE_SOURCE_DIR}/test/mat_test.csv
       --basis_vectors ${CMAKE_SOURCE_DIR}/test/mat_test_init_vectors.csv
       --expected_result ${CMAKE_SOURCE_DIR}/test/mat_test_desired_output.csv)
@@ -490,7 +498,9 @@ if(NOT WITHOUT_MATLAB)
   set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")
   if(UNIX AND NOT APPLE AND ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
     set_target_properties(${GAPCA_MEX_Project}
-                          PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
+                          PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,--version-script=${CMAKE_SOURCE_DIR}/extensions/MatlabLinuxVisibility.map"
+                          #LINK_FLAGS "-Wl,--no-export-dynamic"
+                          )
   endif()
 
   install(TARGETS ${GAPCA_MEX_Project}
@@ -620,7 +630,7 @@ endif()
 # CPack rules
 set(CPACK_PACKAGE_VENDOR "Max Planck Institute for Intelligent Systems")
 set(CPACK_PACKAGE_VERSION_MAJOR 1)
-set(CPACK_PACKAGE_VERSION_MINOR 0)
+set(CPACK_PACKAGE_VERSION_MINOR 2)
 set(CPACK_PACKAGE_VERSION_PATCH 0)
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Grassmann Averages for computing a scalable and robust PCA, Matlab extensions")
