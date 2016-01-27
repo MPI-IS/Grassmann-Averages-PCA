@@ -498,7 +498,9 @@ if(NOT WITHOUT_MATLAB)
   set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")
   if(UNIX AND NOT APPLE AND ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
     set_target_properties(${GAPCA_MEX_Project}
-                          PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
+                          PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,--version-script=${CMAKE_SOURCE_DIR}/extensions/MatlabLinuxVisibility.map"
+                          #LINK_FLAGS "-Wl,--no-export-dynamic"
+                          )
   endif()
 
   install(TARGETS ${GAPCA_MEX_Project}
