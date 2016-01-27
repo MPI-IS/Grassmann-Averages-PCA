@@ -77,6 +77,8 @@ cd $BOOST_DIR
 
 where `BOOST_INSTALL_PREFIX` is the location where the library should be installed.
 
+#### Compiling boost on Linux
+
 If you wish to link with the static version of Boost on Linux, Boost should be compiled the following way
 (by default `-fPIC` is missing for static libraries):
 
