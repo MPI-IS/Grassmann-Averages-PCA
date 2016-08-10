@@ -69,10 +69,10 @@ shipped with a version of Boost that may conflict with the version you are using
 #### Compiling boost on Windows
 ```
 cd $BOOST_DIR
-./boostrap.bat
-./b2 --prefix=$BOOST_INSTALL_PREFIX --layout=versioned --ignore-config \
-       --with-test --with-thread --with-system \
-       --with-chrono --with-date_time --with-program_options install
+boostrap.bat
+b2 --prefix=$BOOST_INSTALL_PREFIX --layout=versioned --ignore-config \
+   --with-test --with-thread --with-system \
+   --with-chrono --with-date_time --with-program_options install
 ```
 
 where `BOOST_INSTALL_PREFIX` is the location where the library should be installed.
@@ -84,7 +84,7 @@ If you wish to link with the static version of Boost on Linux, Boost should be c
 
 ```
 cd $BOOST_DIR
-./boostrap.bat
+./boostrap.sh
 ./b2 --prefix=$BOOST_INSTALL_PREFIX --layout=versioned address-model=64 cflags=-fPIC cxxflags=-fPIC \
        --with-test --with-thread --with-system \
        --with-chrono --with-date_time --with-program_options install
@@ -94,7 +94,7 @@ cd $BOOST_DIR
 The command line is the following:
 ```
 cd $BOOST_DIR
-./boostrap.bat
+./boostrap.sh
 ./b2 --prefix=$BOOST_INSTALL_PREFIX --layout=versioned address-model=32_64 --ignore-config \
        --with-test --with-thread --with-system \
        --with-chrono --with-date_time --with-program_options install
