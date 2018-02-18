@@ -3,7 +3,7 @@
 # (See accompanying file LICENSE.txt or copy at
 # http://opensource.org/licenses/BSD-3-Clause)
 
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.5)
 project(GrassmannAveragesPCA)
 
 
@@ -37,7 +37,9 @@ find_package(Doxygen)
 
 
 # Boost, uBlas and some other libraries are needed in any case. 
-set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0" "1.60" "1.60.0")
+if(NOT DEFINED Boost_ADDITIONAL_VERSIONS)
+  set(Boost_ADDITIONAL_VERSIONS "1.59" "1.59.0" "1.60" "1.60.0")
+endif()
 
 # disable auto link
 add_definitions(-DBOOST_ALL_NO_LIB)
@@ -78,8 +80,6 @@ endif()
 
 # Matlab bindings
 if(NOT WITHOUT_MATLAB)
-  # simple wart to the current state of the Matlab release into the community
-  set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/extensions ${CMAKE_MODULE_PATH})
   set(MATLAB_FIND_DEBUG TRUE)
   find_package(Matlab 8.1 REQUIRED COMPONENTS MX_LIBRARY MAIN_PROGRAM)
 
@@ -97,14 +97,6 @@ if(NOT WITHOUT_MATLAB)
     message(STATUS "[MATLAB] - mx library ${Matlab_MX_LIBRARY}")
     message(STATUS "[MATLAB] - matlab ${Matlab_MAIN_PROGRAM}")
   endif()
-
-  # Adding a project for the script that finds Matlab, the script being under development currently
-  add_custom_target(
-    MatlabCMakePackage
-    SOURCES
-      ${CMAKE_SOURCE_DIR}/extensions/FindMatlab.cmake
-      ${CMAKE_SOURCE_DIR}/extensions/MatlabTestsRedirect.cmake)
-  set_target_properties(MatlabCMakePackage PROPERTIES FOLDER "Community")
 endif()
 
 
@@ -116,7 +108,6 @@ if(NOT OpenCVRoot)
 
   set(OpenCV_CUDA OFF)
   set(OpenCV_STATIC OFF)
-
 
   find_package(OpenCV)
 
@@ -259,7 +250,6 @@ include_directories(BEFORE ${Boost_INCLUDE_DIRS} SYSTEM)
 ##############################################################################################
 # Main library
 # This library is header only in fact, but we add an empty cpp file for convenience with CMake.
-include_directories(${GrassmannAveragesPCA_SOURCE_DIR})
 set(${PROJECT_NAME}_LIB
      include/grassmann_pca.hpp
      include/grassmann_pca_with_trimming.hpp
@@ -271,6 +261,8 @@ set(${PROJECT_NAME}_LIB
 
      src/grassmann_pca.cpp)
 add_library(grassmann_averages ${${PROJECT_NAME}_LIB})
+target_include_directories(grassmann_averages
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(grassmann_averages ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY})
 install(
   DIRECTORY include
@@ -496,10 +488,12 @@ if(NOT WITHOUT_MATLAB)
     LINK_TO grassmann_averages
   )
   set_target_properties(${GAPCA_MEX_Project} PROPERTIES FOLDER "Matlab")
+
   if(UNIX AND NOT APPLE AND ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
+    # this is needed to hide the symbols of eg. Boost as those may clash with the ones loaded from Matlab
+    # this does not work for the libC++ though, and a LD_PRELOAD is often necessary.
     set_target_properties(${GAPCA_MEX_Project}
                           PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,--version-script=${CMAKE_SOURCE_DIR}/extensions/MatlabLinuxVisibility.map"
-                          #LINK_FLAGS "-Wl,--no-export-dynamic"
                           )
   endif()
 
@@ -578,8 +572,6 @@ if(NOT WITHOUT_MATLAB)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_DATE_TIME_LIBRARY)
     copy_dependency_with_config(${GAPCA_MEX_Project} Boost_PROGRAM_OPTIONS_LIBRARY)
   endif()
-
-
 endif()
 
 
@@ -607,7 +599,7 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     TIMEOUT 180
     UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_unit_tests.m
     ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
-    )
+  )
 
   matlab_add_unit_test(
     NAME ${PROJECT_NAME}_matlabtest-2
@@ -615,8 +607,17 @@ if(NOT WITHOUT_MATLAB AND NOT WITHOUT_TESTS)
     UNITTEST_FILE ${CMAKE_SOURCE_DIR}/test/grassmannpca_matlab_performance_unit_tests.m
     ADDITIONAL_PATH $<TARGET_FILE_DIR:${GAPCA_MEX_Project}>
     TEST_ARGS CONFIGURATIONS Release
+  )
+  
+  if(UNIX AND NOT APPLE)
+    # dirty hack to load the system libc++ first, as this one may supersede the one coming w. Matlab
+    set_tests_properties(
+      ${PROJECT_NAME}_matlabtest-1
+      ${PROJECT_NAME}_matlabtest-2
+      PROPERTIES
+        ENVIRONMENT "LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6"
     )
-
+  endif()
 
 
 endif()

@@ -128,7 +128,7 @@ If you are familiar with CMake, it should be easy for you to disable the Matlab 
 
 
 ## 2 - Compilation & installation of the GrassmannAveragesPCA
-Create a `build` directory in the directory you have clone the project (`$source_folder`)
+Create a `build` directory in the directory you have cloned the project (`$source_folder`)
 
 ```
 cd $source_folder
